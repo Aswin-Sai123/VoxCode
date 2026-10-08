@@ -12,23 +12,25 @@ const App = () => {
     return (
         <AuthProvider>
             <Router>
-                <div style={{ fontFamily: 'system-ui, sans-serif' }}>
+                <div className="min-h-screen bg-gray-50">
                     <Navbar />
-                    <Routes>
-                        <Route path="/" element={<Navigate to="/login" />} />
-                        <Route path="/login" element={<Login />} />
-                        <Route path="/register" element={<Register />} />
-                        <Route path="/company/dashboard" element={
-                            <ProtectedRoute role="COMPANY">
-                                <CompanyDashboard />
-                            </ProtectedRoute>
-                        } />
-                        <Route path="/candidate/dashboard" element={
-                            <ProtectedRoute role="CANDIDATE">
-                                <CandidateDashboard />
-                            </ProtectedRoute>
-                        } />
-                    </Routes>
+                    <main>
+                        <Routes>
+                            <Route path="/" element={<Navigate to="/login" />} />
+                            <Route path="/login" element={<Login />} />
+                            <Route path="/register" element={<Register />} />
+                            <Route path="/company/dashboard" element={
+                                <ProtectedRoute allowedRole="COMPANY">
+                                    <CompanyDashboard />
+                                </ProtectedRoute>
+                            } />
+                            <Route path="/candidate/dashboard" element={
+                                <ProtectedRoute allowedRole="CANDIDATE">
+                                    <CandidateDashboard />
+                                </ProtectedRoute>
+                            } />
+                        </Routes>
+                    </main>
                 </div>
             </Router>
         </AuthProvider>

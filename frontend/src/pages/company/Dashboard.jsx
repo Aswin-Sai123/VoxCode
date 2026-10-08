@@ -1,71 +1,79 @@
-import React, { useState, useEffect } from 'react';
-import api from '../../services/api';
+import React, { useContext } from 'react';
+import { AuthContext } from '../../context/AuthContext';
 
 const Dashboard = () => {
-    const [roles, setRoles] = useState([]);
-    const [newRole, setNewRole] = useState({ title: '', description: '' });
-
-    useEffect(() => {
-        fetchRoles();
-    }, []);
-
-    const fetchRoles = async () => {
-        try {
-            const res = await api.get('/company/roles');
-            setRoles(res.data);
-        } catch (error) {
-            console.error('Failed to fetch roles', error);
-        }
-    };
-
-    const handleCreateRole = async (e) => {
-        e.preventDefault();
-        try {
-            await api.post('/company/roles', newRole);
-            setNewRole({ title: '', description: '' });
-            fetchRoles();
-        } catch (error) {
-            console.error('Failed to create role', error);
-        }
-    };
-
-    const handleDeleteRole = async (id) => {
-        try {
-            await api.delete(`/company/roles/${id}`);
-            fetchRoles();
-        } catch (error) {
-            console.error('Failed to delete role', error);
-        }
-    };
+    const { user } = useContext(AuthContext);
 
     return (
-        <div style={{ padding: '2rem' }}>
-            <h1>Company Dashboard</h1>
-            <div style={{ display: 'flex', gap: '2rem', marginTop: '2rem' }}>
-                <div style={{ flex: 1, border: '1px solid #ccc', padding: '1rem', borderRadius: '8px' }}>
-                    <h2>Roles</h2>
-                    <form onSubmit={handleCreateRole} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1rem' }}>
-                        <input type="text" placeholder="Role Title (e.g. Software Developer)" value={newRole.title} onChange={(e) => setNewRole({ ...newRole, title: e.target.value })} required style={{ padding: '0.5rem' }} />
-                        <textarea placeholder="Description" value={newRole.description} onChange={(e) => setNewRole({ ...newRole, description: e.target.value })} style={{ padding: '0.5rem' }} />
-                        <button type="submit" style={{ padding: '0.5rem', background: '#007BFF', color: 'white', border: 'none', cursor: 'pointer' }}>Create Role</button>
-                    </form>
-                    <ul style={{ listStyle: 'none', padding: 0 }}>
-                        {roles.map(role => (
-                            <li key={role._id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem', borderBottom: '1px solid #eee' }}>
-                                <span>{role.title}</span>
-                                <button onClick={() => handleDeleteRole(role._id)} style={{ background: 'red', color: 'white', border: 'none', cursor: 'pointer', padding: '0.2rem 0.5rem' }}>Delete</button>
-                            </li>
-                        ))}
-                    </ul>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+            <div className="md:flex md:items-center md:justify-between mb-8">
+                <div className="flex-1 min-w-0">
+                    <h2 className="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
+                        Company Dashboard
+                    </h2>
+                    <p className="mt-1 text-sm text-gray-500">
+                        Welcome back, {user?.name}
+                    </p>
                 </div>
-                
-                <div style={{ flex: 1, border: '1px solid #ccc', padding: '1rem', borderRadius: '8px', opacity: 0.7 }}>
-                    <h2>Future Modules (Placeholders)</h2>
-                    <ul style={{ lineHeight: '2' }}>
-                        <li>Assessments</li>
-                        <li>Candidates</li>
-                        <li>Interviews</li>
-                    </ul>
+                <div className="mt-4 flex md:mt-0 md:ml-4">
+                    <button type="button" className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary">
+                        Create New Assessment
+                    </button>
+                </div>
+            </div>
+
+            {/* Placeholder Stats */}
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+                <div className="bg-white overflow-hidden shadow-sm rounded-xl border border-gray-100">
+                    <div className="p-5">
+                        <div className="flex items-center">
+                            <div className="w-0 flex-1">
+                                <dl>
+                                    <dt className="text-sm font-medium text-gray-500 truncate">Total Roles</dt>
+                                    <dd className="text-lg font-medium text-gray-900">0</dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div className="bg-white overflow-hidden shadow-sm rounded-xl border border-gray-100">
+                    <div className="p-5">
+                        <div className="flex items-center">
+                            <div className="w-0 flex-1">
+                                <dl>
+                                    <dt className="text-sm font-medium text-gray-500 truncate">Active Assessments</dt>
+                                    <dd className="text-lg font-medium text-gray-900">0</dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div className="bg-white overflow-hidden shadow-sm rounded-xl border border-gray-100">
+                    <div className="p-5">
+                        <div className="flex items-center">
+                            <div className="w-0 flex-1">
+                                <dl>
+                                    <dt className="text-sm font-medium text-gray-500 truncate">Candidates Evaluated</dt>
+                                    <dd className="text-lg font-medium text-gray-900">0</dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Placeholder Sections */}
+            <div className="bg-white shadow-sm rounded-xl border border-gray-100 mb-8 p-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Recent Assessments (Coming Soon)</h3>
+                <div className="border-2 border-dashed border-gray-200 rounded-lg h-32 flex items-center justify-center">
+                    <span className="text-gray-500">Module 2 feature placeholder</span>
+                </div>
+            </div>
+            
+            <div className="bg-white shadow-sm rounded-xl border border-gray-100 p-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Manage Roles (Coming Soon)</h3>
+                <div className="border-2 border-dashed border-gray-200 rounded-lg h-32 flex items-center justify-center">
+                    <span className="text-gray-500">Role management UI placeholder</span>
                 </div>
             </div>
         </div>
