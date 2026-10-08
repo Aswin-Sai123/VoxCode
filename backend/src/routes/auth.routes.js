@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { protect } from '../middlewares/auth.middleware.js';
+import passport from '../passport.js';
 import {
     registerCompany,
     loginCompany,
@@ -20,8 +21,8 @@ router.post('/company/login', loginCompany);
 router.post('/candidate/register', registerCandidate);
 router.post('/candidate/login', loginCandidate);
 
-router.get('/google', googleLogin);
-router.get('/google/callback', googleCallback);
+router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'], session: false }));
+router.get('/google/callback', passport.authenticate('google', { session: false, failureRedirect: 'http://localhost:5173/login?error=google_failed' }), googleCallback);
 
 router.post('/refresh', refreshToken);
 router.post('/logout', logout);

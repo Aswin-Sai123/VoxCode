@@ -1,5 +1,5 @@
-import React, { useState, useContext } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useContext, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
 
 const Login = () => {
@@ -11,6 +11,24 @@ const Login = () => {
     
     const { login } = useContext(AuthContext);
     const navigate = useNavigate();
+    const location = useLocation();
+
+    // Catch Google OAuth redirect tokens
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        const access = params.get('accessToken');
+        const refresh = params.get('refreshToken');
+        const errorMsg = params.get('error');
+
+        if (errorMsg) {
+            setError('Google login failed. Please try again.');
+        } else if (access && refresh) {
+            localStorage.setItem('accessToken', access);
+            localStorage.setItem('refreshToken', refresh);
+            // Force a hard reload to the dashboard so AuthContext catches the new token
+            window.location.href = '/candidate/dashboard';
+        }
+    }, [location]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();

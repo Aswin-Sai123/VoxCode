@@ -61,11 +61,17 @@ export const loginCandidate = asyncHandler(async (req, res) => {
 });
 
 export const googleLogin = asyncHandler(async (req, res) => {
-    res.json(new ApiResponse(200, { url: 'https://accounts.google.com/o/oauth2/v2/auth?...' }, "Google auth URL"));
+    // This is now handled entirely by passport middleware in the route
 });
 
 export const googleCallback = asyncHandler(async (req, res) => {
-    res.json(new ApiResponse(200, null, 'Google auth callback placeholder'));
+    const candidate = req.user;
+    
+    const { accessToken, refreshToken } = generateTokens(candidate, 'CANDIDATE');
+    await RefreshToken.create({ token: refreshToken, userId: candidate._id, role: 'CANDIDATE' });
+    
+    // Redirect back to frontend with tokens in the URL
+    res.redirect(`${process.env.FRONTEND_URL}/login?accessToken=${accessToken}&refreshToken=${refreshToken}`);
 });
 
 export const refreshToken = asyncHandler(async (req, res) => {
