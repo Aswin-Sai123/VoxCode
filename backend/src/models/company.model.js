@@ -1,7 +1,7 @@
-const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
+import mongoose, { Schema } from 'mongoose';
+import bcrypt from 'bcryptjs';
 
-const companySchema = new mongoose.Schema({
+const companySchema = new Schema({
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
@@ -18,4 +18,4 @@ companySchema.methods.matchPassword = async function(enteredPassword) {
     return await bcrypt.compare(enteredPassword, this.password);
 };
 
-module.exports = mongoose.model('Company', companySchema);
+export const Company = mongoose.model('Company', companySchema);

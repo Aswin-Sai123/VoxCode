@@ -1,14 +1,16 @@
-const jwt = require('jsonwebtoken');
+import jwt from 'jsonwebtoken';
+import { ApiError } from '../utils/ApiError.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
 
-const protect = (allowedRoles = []) => {
-    return (req, res, next) => {
+export const protect = (allowedRoles = []) => {
+    return asyncHandler(async (req, res, next) => {
         let token;
         if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
             token = req.headers.authorization.split(' ')[1];
         }
 
         if (!token) {
-            return res.status(401).json({ message: 'Not authorized, no token' });
+            throw new ApiError(401, 'Not authorized, no token');
         }
 
         try {
@@ -16,15 +18,13 @@ const protect = (allowedRoles = []) => {
             req.user = decoded; // { id, role }
 
             if (allowedRoles.length && !allowedRoles.includes(req.user.role)) {
-                return res.status(403).json({ message: 'Forbidden' });
+                throw new ApiError(403, 'Forbidden');
             }
 
             next();
         } catch (error) {
             console.error(error);
-            res.status(401).json({ message: 'Not authorized, token failed' });
+            throw new ApiError(401, 'Not authorized, token failed');
         }
-    };
+    });
 };
-
-module.exports = { protect };

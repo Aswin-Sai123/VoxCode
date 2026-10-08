@@ -1,7 +1,7 @@
-const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
+import mongoose, { Schema } from 'mongoose';
+import bcrypt from 'bcryptjs';
 
-const candidateSchema = new mongoose.Schema({
+const candidateSchema = new Schema({
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
     password: { type: String }, // Optional for Google OAuth
@@ -20,4 +20,4 @@ candidateSchema.methods.matchPassword = async function(enteredPassword) {
     return await bcrypt.compare(enteredPassword, this.password);
 };
 
-module.exports = mongoose.model('Candidate', candidateSchema);
+export const Candidate = mongoose.model('Candidate', candidateSchema);
