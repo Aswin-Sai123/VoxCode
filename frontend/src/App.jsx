@@ -12,9 +12,9 @@ const App = () => {
     return (
         <AuthProvider>
             <Router>
-                <div className="min-h-screen bg-gray-50">
+                <div className="min-h-screen">
                     <Navbar />
-                    <main>
+                    <main className="pt-16">
                         <Routes>
                             <Route path="/" element={<Navigate to="/login" />} />
                             <Route path="/login" element={<Login />} />
