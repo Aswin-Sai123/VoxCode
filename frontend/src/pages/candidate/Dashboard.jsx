@@ -1,8 +1,19 @@
-import React, { useContext } from 'react';
+import React, { useContext, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
 
 const Dashboard = () => {
     const { user } = useContext(AuthContext);
+    const navigate = useNavigate();
+    const [assessmentCode, setAssessmentCode] = useState('');
+
+    const handleJoin = (e) => {
+        e.preventDefault();
+        const code = assessmentCode.trim();
+        if (!code) return;
+        // navigate to the lobby page which will verify the code
+        navigate(`/candidate/assessment/${code}`);
+    };
 
     return (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
@@ -17,21 +28,26 @@ const Dashboard = () => {
                 </div>
             </div>
 
-            {/* Assessment Entry */}
+            {/* Assessment Entry — now functional */}
             <div className="bg-white shadow-xl shadow-indigo-100/10 rounded-2xl border border-indigo-50 mb-8 p-8 max-w-2xl mx-auto text-center">
                 <h3 className="text-xl font-bold text-gray-900 mb-2">Join an Assessment</h3>
                 <p className="text-gray-500 mb-6">Enter the Assessment ID provided by the company to begin your AI interview.</p>
-                
-                <div className="flex max-w-md mx-auto gap-3">
+
+                <form onSubmit={handleJoin} className="flex max-w-md mx-auto gap-3">
                     <input
                         type="text"
+                        value={assessmentCode}
+                        onChange={(e) => setAssessmentCode(e.target.value.toUpperCase())}
                         placeholder="e.g. ASMT-1234-5678"
-                        className="flex-1 appearance-none block px-4 py-3 border border-gray-300 rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary transition-colors text-center font-mono text-lg tracking-wider"
+                        className="flex-1 appearance-none block px-4 py-3 border border-gray-300 rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 transition-colors text-center font-mono text-lg tracking-wider"
                     />
-                    <button type="button" className="inline-flex items-center px-6 py-3 border border-transparent rounded-xl shadow-sm text-base font-medium text-white bg-primary hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors">
+                    <button
+                        type="submit"
+                        className="inline-flex items-center px-6 py-3 border border-transparent rounded-xl shadow-sm text-base font-bold text-white bg-dark hover:bg-gray-800 focus:outline-none transition-all"
+                    >
                         Join
                     </button>
-                </div>
+                </form>
             </div>
 
             {/* Practice Options Placeholder */}
@@ -44,7 +60,7 @@ const Dashboard = () => {
                     <p className="text-gray-500 text-sm mb-4">Sharpen your skills with our AI interviewer before the real thing. Get instant feedback on your answers.</p>
                     <button disabled className="w-full py-2 bg-gray-100 text-gray-400 rounded-lg text-sm font-medium">Start Practice</button>
                 </div>
-                
+
                 <div className="bg-white shadow-sm rounded-xl border border-gray-100 p-6 opacity-75 relative overflow-hidden group">
                     <div className="absolute inset-0 bg-gray-50/50 backdrop-blur-[1px] flex items-center justify-center z-10">
                         <span className="bg-white px-3 py-1 rounded-full text-xs font-bold text-gray-500 uppercase tracking-wider shadow-sm">Coming Soon</span>
