@@ -85,11 +85,19 @@ export const refreshToken = asyncHandler(async (req, res) => {
         throw new ApiError(403, 'Invalid refresh token');
     }
     
-    jwt.verify(token, process.env.JWT_REFRESH_SECRET, (err, decoded) => {
-        if (err) throw new ApiError(403, 'Token expired or invalid');
-        const accessToken = jwt.sign({ id: decoded.id, role: decoded.role }, process.env.JWT_ACCESS_SECRET, { expiresIn: '15m' });
-        res.json(new ApiResponse(200, { accessToken }, "Token refreshed"));
-    });
+    let decoded;
+    try {
+        decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
+    } catch (err) {
+        throw new ApiError(403, 'Token expired or invalid');
+    }
+
+    const accessToken = jwt.sign(
+        { id: decoded.id, role: decoded.role },
+        process.env.JWT_ACCESS_SECRET,
+        { expiresIn: '15m' }
+    );
+    res.json(new ApiResponse(200, { accessToken }, "Token refreshed"));
 });
 
 export const logout = asyncHandler(async (req, res) => {

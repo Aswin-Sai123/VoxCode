@@ -13,18 +13,23 @@ export const protect = (allowedRoles = []) => {
             throw new ApiError(401, 'Not authorized, no token');
         }
 
+        let decoded;
         try {
-            const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
-            req.user = decoded; // { id, role }
-
-            if (allowedRoles.length && !allowedRoles.includes(req.user.role)) {
-                throw new ApiError(403, 'Forbidden');
-            }
-
-            next();
+            decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
         } catch (error) {
-            console.error(error);
-            throw new ApiError(401, 'Not authorized, token failed');
+            if (error.name === 'TokenExpiredError') {
+                throw new ApiError(401, 'Token expired, please refresh');
+            }
+            throw new ApiError(401, 'Not authorized, token invalid');
         }
+
+        req.user = decoded; // { id, role }
+
+        if (allowedRoles.length && !allowedRoles.includes(req.user.role)) {
+            throw new ApiError(403, 'Forbidden: you do not have access to this resource');
+        }
+
+        next();
     });
 };
+

@@ -32,7 +32,7 @@ api.interceptors.response.use(
                 
                 // Retry original request with new token
                 originalRequest.headers.Authorization = `Bearer ${res.data.data.accessToken}`;
-                return axios(originalRequest);
+                return api(originalRequest);
             } catch (refreshError) {
                 // If refresh fails, log out
                 localStorage.removeItem('accessToken');

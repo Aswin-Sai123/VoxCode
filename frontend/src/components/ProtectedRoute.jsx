@@ -7,8 +7,8 @@ const ProtectedRoute = ({ children, allowedRole }) => {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+            <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600"></div>
             </div>
         );
     }
@@ -17,14 +17,14 @@ const ProtectedRoute = ({ children, allowedRole }) => {
         return <Navigate to="/login" replace />;
     }
 
-    // Role check (assumes your backend sets a 'role' field on the user model or we infer it)
-    // In our backend, the Company model doesn't have a 'role' field hardcoded, 
-    // but we can distinguish them based on context or we can just check if user exists for now.
-    // To be strict, you'd add { role: 'COMPANY' } to the User model.
-    // For now, if they are logged in, we let them through to their respective dashboards.
-    // We will rely on the backend to reject unauthorized API calls.
+    // Enforce role-based access: redirect to their own dashboard if they try to access another role's page
+    if (allowedRole && user.role !== allowedRole) {
+        const redirectPath = user.role === 'COMPANY' ? '/company/dashboard' : '/candidate/dashboard';
+        return <Navigate to={redirectPath} replace />;
+    }
 
     return children;
 };
 
 export default ProtectedRoute;
+

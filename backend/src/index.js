@@ -6,17 +6,13 @@ dotenv.config({
     path: './.env'
 });
 
-// connectDB()
-//     .then(() => {
-//         app.listen(process.env.PORT || 5000, () => {
-//             console.log(`⚙️ Server is running at port : ${process.env.PORT || 5000}`);
-//         })
-//     })
-//     .catch((err) => {
-//         console.log("MONGO db connection failed !!! ", err);
-//     });
-
-// Temporary bypass for UI testing
-app.listen(process.env.PORT || 5000, () => {
-    console.log(`⚙️ Server is running at port : ${process.env.PORT || 5000} (MongoDB bypassed)`);
-});
+connectDB()
+    .then(() => {
+        app.listen(process.env.PORT || 5000, () => {
+            console.log(`⚙️ Server is running at port : ${process.env.PORT || 5000}`);
+        });
+    })
+    .catch((err) => {
+        console.log("MONGO db connection failed !!! ", err);
+        process.exit(1);
+    });

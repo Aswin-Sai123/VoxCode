@@ -121,7 +121,10 @@ export const sendCandidateMessage = asyncHandler(async (req, res) => {
 
     let session = null;
     try {
-        session = await InterviewSession.findById(sessionId).populate('assessment');
+        session = await InterviewSession.findById(sessionId).populate({
+            path: 'assessment',
+            populate: { path: 'role', select: 'title' }
+        });
     } catch {
         // Mongo bypassed
     }
@@ -151,7 +154,7 @@ export const sendCandidateMessage = asyncHandler(async (req, res) => {
     let blueprint = '';
 
     if (session.assessment) {
-        roleTitle = session.assessment.title || roleTitle;
+        roleTitle = session.assessment.role?.title || session.assessment.title || roleTitle;
         skills = session.assessment.skills || [];
         experienceLevel = session.assessment.experienceLevel || 'Entry';
         blueprint = session.assessment.blueprint || '';

@@ -9,16 +9,20 @@ export const AuthProvider = ({ children }) => {
 
     const checkAuth = async () => {
         const token = localStorage.getItem('accessToken');
+        const storedRole = localStorage.getItem('userRole');
         if (token) {
             try {
                 const res = await api.get('/auth/me');
                 if (res.data.success) {
-                    setUser(res.data.data);
+                    // Merge the stored role into the user object since the DB model
+                    // (Company / Candidate) doesn't have a `role` field itself.
+                    setUser({ ...res.data.data, role: storedRole });
                 }
             } catch (error) {
                 console.error("Auth check failed", error);
                 localStorage.removeItem('accessToken');
                 localStorage.removeItem('refreshToken');
+                localStorage.removeItem('userRole');
                 setUser(null);
             }
         }
@@ -36,6 +40,8 @@ export const AuthProvider = ({ children }) => {
         if (res.data.success) {
             localStorage.setItem('accessToken', res.data.data.accessToken);
             localStorage.setItem('refreshToken', res.data.data.refreshToken);
+            // Persist the role so checkAuth can inject it into the user object
+            localStorage.setItem('userRole', res.data.data.role);
             await checkAuth();
             return true;
         }
@@ -59,6 +65,7 @@ export const AuthProvider = ({ children }) => {
         }
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
+        localStorage.removeItem('userRole');
         setUser(null);
         window.location.href = '/login';
     };

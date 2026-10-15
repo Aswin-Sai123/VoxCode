@@ -40,6 +40,7 @@ const InterviewRoom = () => {
     // Refs
     const recognitionRef = useRef(null);
     const timerRef = useRef(null);
+    const isMutedRef = useRef(false); // ref so speakAiMessage always reads the latest mute state
 
     // 1. Initialize interview session
     useEffect(() => {
@@ -83,9 +84,11 @@ const InterviewRoom = () => {
         };
     }, [code]);
 
-    // 2. Countdown Timer
+    // 2. Countdown Timer — only start once the session (and its duration) is loaded
     useEffect(() => {
-        if (loading || stage === 'COMPLETED') return;
+        if (!session || stage === 'COMPLETED') return;
+
+        if (timerRef.current) clearInterval(timerRef.current);
 
         timerRef.current = setInterval(() => {
             setTimeLeftSeconds(prev => {
@@ -99,11 +102,12 @@ const InterviewRoom = () => {
         }, 1000);
 
         return () => clearInterval(timerRef.current);
-    }, [loading, stage]);
+    }, [session, stage]);
 
     // 3. Web Speech API — Text to Speech (AI voice)
+    // Uses isMutedRef (not isMuted state) to avoid stale closure issues
     const speakAiMessage = (text) => {
-        if (isMuted || !('speechSynthesis' in window)) return;
+        if (isMutedRef.current || !('speechSynthesis' in window)) return;
 
         window.speechSynthesis.cancel(); // stop any current speech
         const utterance = new SpeechSynthesisUtterance(text);
@@ -418,8 +422,10 @@ const InterviewRoom = () => {
                 <div className="flex items-center gap-3">
                     <button
                         onClick={() => {
-                            if (!isMuted && window.speechSynthesis) window.speechSynthesis.cancel();
-                            setIsMuted(!isMuted);
+                            const newMuted = !isMuted;
+                            isMutedRef.current = newMuted; // keep ref in sync
+                            if (newMuted && window.speechSynthesis) window.speechSynthesis.cancel();
+                            setIsMuted(newMuted);
                         }}
                         className={`p-2 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all ${
                             isMuted ? 'border-red-500/30 bg-red-500/10 text-red-400' : 'border-gray-700 bg-gray-800 text-gray-300 hover:bg-gray-700'
