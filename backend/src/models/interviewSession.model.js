@@ -67,6 +67,10 @@ const interviewSessionSchema = new Schema({
     },
     endedAt: { 
         type: Date 
+    },
+    evaluation: {
+        type: Schema.Types.ObjectId,
+        ref: 'Evaluation'
     }
 }, { timestamps: true });
 

@@ -9,6 +9,9 @@ import CreateAssessment from './pages/company/CreateAssessment';
 import CandidateDashboard from './pages/candidate/Dashboard';
 import AssessmentLobby from './pages/candidate/AssessmentLobby';
 import InterviewRoom from './pages/candidate/InterviewRoom';
+import Reports from './pages/candidate/Reports';
+import ReportDetail from './pages/candidate/ReportDetail';
+import AssessmentResults from './pages/company/AssessmentResults';
 import ProtectedRoute from './components/ProtectedRoute';
 
 const AppContent = () => {
@@ -35,11 +38,26 @@ const AppContent = () => {
                             <CreateAssessment />
                         </ProtectedRoute>
                     } />
+                    <Route path="/company/assessment/:id/results" element={
+                        <ProtectedRoute allowedRole="COMPANY">
+                            <AssessmentResults />
+                        </ProtectedRoute>
+                    } />
 
                     {/* Candidate Routes */}
                     <Route path="/candidate/dashboard" element={
                         <ProtectedRoute allowedRole="CANDIDATE">
                             <CandidateDashboard />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="/candidate/reports" element={
+                        <ProtectedRoute allowedRole="CANDIDATE">
+                            <Reports />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="/candidate/report/:sessionId" element={
+                        <ProtectedRoute>
+                            <ReportDetail />
                         </ProtectedRoute>
                     } />
                     <Route path="/candidate/assessment/:code" element={

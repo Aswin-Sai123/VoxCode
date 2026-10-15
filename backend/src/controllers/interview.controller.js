@@ -4,6 +4,7 @@ import { ApiError } from '../utils/ApiError.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { generateOpeningGreeting, generateNextInterviewStep } from '../services/ai.service.js';
+import { evaluateInterviewSession } from '../services/evaluation.service.js';
 
 // In-memory fallback cache in case MongoDB is temporarily bypassed
 const inMemorySessions = new Map();
@@ -336,9 +337,16 @@ export const submitSession = asyncHandler(async (req, res) => {
         inMemorySessions.delete(`${candidateId}_${code}`);
     }
 
+    // Automatically trigger AI evaluation pipeline in background
+    if (session._id) {
+        evaluateInterviewSession(session._id).catch(err => {
+            console.error('Auto AI evaluation error on submit:', err);
+        });
+    }
+
     res.status(200).json(new ApiResponse(200, {
         sessionId: session._id,
         status: 'COMPLETED',
-        message: 'Interview submitted successfully'
+        message: 'Interview submitted and evaluation started successfully'
     }, 'Session completed'));
 });

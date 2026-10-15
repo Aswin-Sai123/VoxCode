@@ -19,6 +19,7 @@ import companyRouter from './routes/company.routes.js';
 import candidateRouter from './routes/candidate.routes.js';
 import assessmentRouter from './routes/assessment.routes.js';
 import interviewRouter from './routes/interview.routes.js';
+import evaluationRouter from './routes/evaluation.routes.js';
 
 // Route declarations
 app.use("/api/auth", authRouter);
@@ -26,6 +27,7 @@ app.use("/api/company", companyRouter);
 app.use("/api/candidate", candidateRouter);
 app.use("/api/assessments", assessmentRouter);
 app.use("/api/interview", interviewRouter);
+app.use("/api/evaluation", evaluationRouter);
 
 // Global error handler — catches ApiError thrown by controllers
 app.use((err, req, res, next) => {

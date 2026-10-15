@@ -475,14 +475,14 @@ const InterviewRoom = () => {
                         </svg>
                     </div>
                     <h2 className="text-3xl font-extrabold mb-2">Interview Completed!</h2>
-                    <p className="text-gray-400 text-sm mb-8">
-                        Your interview conversation and coding solutions have been securely saved. The company will evaluate your performance in Module 4.
+                    <p className="text-gray-400 text-sm mb-6">
+                        Your dialogue exchanges and practical code submission have been evaluated by Rohan (AI Interviewer). Your comprehensive score breakdown and analysis are ready!
                     </p>
 
                     <div className="bg-gray-950 border border-gray-800 rounded-2xl p-6 mb-8 text-left space-y-3">
                         <div className="flex justify-between text-sm">
                             <span className="text-gray-500">Role:</span>
-                            <span className="font-semibold text-gray-200">{assessment?.roleTitle}</span>
+                            <span className="font-semibold text-gray-200">{assessment?.roleTitle || assessment?.role?.title}</span>
                         </div>
                         <div className="flex justify-between text-sm">
                             <span className="text-gray-500">Company:</span>
@@ -498,12 +498,29 @@ const InterviewRoom = () => {
                         </div>
                     </div>
 
-                    <button
-                        onClick={() => navigate('/candidate/dashboard')}
-                        className="w-full py-3.5 bg-primary-600 hover:bg-primary-500 font-bold rounded-xl transition-all shadow-lg shadow-primary-600/30 text-white"
-                    >
-                        Return to Dashboard
-                    </button>
+                    <div className="space-y-3">
+                        <button
+                            onClick={() => navigate(`/candidate/report/${session?._id}`)}
+                            className="w-full py-3.5 bg-gradient-to-r from-primary-600 to-purple-600 hover:from-primary-500 hover:to-purple-500 font-bold rounded-xl transition-all shadow-lg shadow-primary-600/30 text-white flex items-center justify-center gap-2 text-sm"
+                        >
+                            <span>📊</span>
+                            <span>View Full Performance Report Card</span>
+                        </button>
+                        <div className="grid grid-cols-2 gap-3">
+                            <button
+                                onClick={() => navigate('/candidate/reports')}
+                                className="py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 font-semibold rounded-xl text-xs transition-colors border border-gray-700"
+                            >
+                                All My Reports
+                            </button>
+                            <button
+                                onClick={() => navigate('/candidate/dashboard')}
+                                className="py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 font-semibold rounded-xl text-xs transition-colors border border-gray-700"
+                            >
+                                Return to Dashboard
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         );

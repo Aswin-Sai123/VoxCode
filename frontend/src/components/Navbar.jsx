@@ -18,12 +18,32 @@ const Navbar = () => {
                     <div className="flex items-center space-x-4">
                         {user ? (
                             <>
+                                {user.role === 'CANDIDATE' && (
+                                    <>
+                                        <Link to="/candidate/dashboard" className="text-xs font-bold text-gray-700 hover:text-primary-600 transition-colors">
+                                            Dashboard
+                                        </Link>
+                                        <Link to="/candidate/reports" className="text-xs font-bold text-primary-600 hover:text-primary-700 transition-colors flex items-center gap-1">
+                                            <span>📊 My Reports</span>
+                                        </Link>
+                                    </>
+                                )}
+                                {user.role === 'COMPANY' && (
+                                    <>
+                                        <Link to="/company/dashboard" className="text-xs font-bold text-gray-700 hover:text-primary-600 transition-colors">
+                                            Dashboard
+                                        </Link>
+                                        <Link to="/company/create-assessment" className="text-xs font-bold text-primary-600 hover:text-primary-700 transition-colors">
+                                            + Create Assessment
+                                        </Link>
+                                    </>
+                                )}
                                 <span className="text-sm text-gray-700 font-semibold bg-white/50 px-3 py-1.5 rounded-full shadow-inner border border-white">
-                                    Hello, {user.name}
+                                    {user.name}
                                 </span>
                                 <button
                                     onClick={logout}
-                                    className="ml-4 px-4 py-2 text-sm font-bold text-gray-700 bg-white/80 hover:bg-white rounded-xl transition-all shadow-sm border border-gray-200 hover:shadow-md transform hover:-translate-y-0.5"
+                                    className="ml-2 px-3.5 py-1.5 text-xs font-bold text-gray-700 bg-white/80 hover:bg-white rounded-xl transition-all shadow-sm border border-gray-200 hover:shadow-md transform hover:-translate-y-0.5"
                                 >
                                     Logout
                                 </button>

@@ -257,6 +257,13 @@ const Dashboard = () => {
                                         )}
                                     </div>
                                     <div className="flex items-center gap-2 ml-4 flex-shrink-0">
+                                        <button
+                                            onClick={() => navigate(`/company/assessment/${assessment._id}/results`)}
+                                            className="text-xs font-bold px-3 py-1.5 rounded-lg bg-primary-50 text-primary-600 hover:bg-primary-100 transition-all flex items-center gap-1 border border-primary-100 shadow-xs"
+                                            title="View candidates, scores, AI evaluations, and leaderboard"
+                                        >
+                                            <span>📊 Results & Ranking</span>
+                                        </button>
                                         <span
                                             onClick={() => copyCode(assessment.assessmentCode)}
                                             className="text-xs font-mono bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-lg cursor-pointer hover:bg-gray-100 transition-all text-gray-700"
