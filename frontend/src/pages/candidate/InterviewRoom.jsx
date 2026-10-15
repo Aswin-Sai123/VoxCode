@@ -193,19 +193,23 @@ const InterviewRoom = () => {
         utterance.rate = 1.0;
         utterance.pitch = 1.0;
 
-        // 2. Select voice: prioritize local installed voices first to eliminate network buffering/jitter
+        // 2. Select voice: prioritize Neural / Online Natural voices for human warmth
         const voices = window.speechSynthesis.getVoices();
 
-        // Check for local Indian English voice first (e.g. Microsoft Ravi, Heera on Windows)
+        // 1. High-definition Indian English Natural/Online voice (e.g. Microsoft Neerja / Prabhat Natural)
+        const indianNaturalVoice = voices.find(v => (v.lang === 'en-IN' || v.lang.startsWith('en_IN') || v.name.toLowerCase().includes('india')) && (v.name.includes('Natural') || v.name.includes('Online')) && !v.name.toLowerCase().includes('hindi'));
+        // 2. Local Indian voice (e.g. Microsoft Ravi, Heera on Windows)
         const indianLocalVoice = voices.find(v => (v.lang === 'en-IN' || v.lang.startsWith('en_IN') || v.name.toLowerCase().includes('india')) && v.localService && !v.name.toLowerCase().includes('hindi'));
-        // Any Indian voice
+        // 3. Any Indian voice
         const indianVoice = voices.find(v => (v.lang === 'en-IN' || v.lang.startsWith('en_IN') || v.name.toLowerCase().includes('india')) && !v.name.toLowerCase().includes('hindi'));
-        // Local English voice (zero network buffering, e.g. Microsoft Mark, David, Zira)
+        // 4. High-definition Natural / Online English voice (e.g. Microsoft Christopher / Guy Online Natural, Google Natural)
+        const naturalVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Natural') || v.name.includes('Online')));
+        // 5. Local English voice (zero network buffering, e.g. Microsoft Mark, David, Zira)
         const localVoice = voices.find(v => v.lang.startsWith('en') && v.localService);
-        // Fallback natural voice
-        const fallbackVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Samantha')));
+        // 6. Fallback voice
+        const fallbackVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Google') || v.name.includes('Samantha')));
 
-        const selectedVoice = indianLocalVoice || indianVoice || localVoice || fallbackVoice;
+        const selectedVoice = indianNaturalVoice || indianLocalVoice || indianVoice || naturalVoice || localVoice || fallbackVoice;
         if (selectedVoice) {
             utterance.voice = selectedVoice;
         }
@@ -228,8 +232,13 @@ const InterviewRoom = () => {
         window.speechSynthesis.speak(utterance);
     };
 
-    // 4. Web Speech API — Speech Recognition (Microphone)
+    // 4. Web Speech API — Speech Recognition with Instant Barge-In (Microphone)
     const toggleSpeechRecognition = () => {
+        // BARGE-IN: Stop AI speaking immediately when candidate engages mic
+        if (window.speechSynthesis) window.speechSynthesis.cancel();
+        setIsAiSpeaking(false);
+        if (utteranceRef.current) utteranceRef.current = null;
+
         if (isListening) {
             if (recognitionRef.current) recognitionRef.current.stop();
             setIsListening(false);
@@ -243,10 +252,6 @@ const InterviewRoom = () => {
             return;
         }
 
-        // Stop AI speaking before candidate speaks
-        if (window.speechSynthesis) window.speechSynthesis.cancel();
-        setIsAiSpeaking(false);
-
         const recognition = new SpeechRecognition();
         recognition.continuous = true;
         recognition.interimResults = true;
@@ -258,6 +263,13 @@ const InterviewRoom = () => {
         };
 
         recognition.onresult = (event) => {
+            // BARGE-IN: If Rohan is speaking and candidate speaks into mic, cut off Rohan instantly!
+            if (window.speechSynthesis && window.speechSynthesis.speaking) {
+                window.speechSynthesis.cancel();
+                setIsAiSpeaking(false);
+                if (utteranceRef.current) utteranceRef.current = null;
+            }
+
             let finalStr = '';
             let interimStr = '';
             for (let i = 0; i < event.results.length; i++) {
@@ -665,7 +677,14 @@ const InterviewRoom = () => {
                             <input
                                 type="text"
                                 value={candidateText}
-                                onChange={(e) => setCandidateText(e.target.value)}
+                                onChange={(e) => {
+                                    if (window.speechSynthesis && window.speechSynthesis.speaking) {
+                                        window.speechSynthesis.cancel();
+                                        setIsAiSpeaking(false);
+                                        if (utteranceRef.current) utteranceRef.current = null;
+                                    }
+                                    setCandidateText(e.target.value);
+                                }}
                                 onKeyDown={(e) => { if (e.key === 'Enter') handleSendMessage(); }}
                                 placeholder="Type your response to the interviewer..."
                                 className="flex-1 bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 text-sm text-gray-100 focus:outline-none focus:border-primary-500"
@@ -938,7 +957,14 @@ const InterviewRoom = () => {
                                         <input
                                             type="text"
                                             value={candidateText}
-                                            onChange={(e) => setCandidateText(e.target.value)}
+                                            onChange={(e) => {
+                                                if (window.speechSynthesis && window.speechSynthesis.speaking) {
+                                                    window.speechSynthesis.cancel();
+                                                    setIsAiSpeaking(false);
+                                                    if (utteranceRef.current) utteranceRef.current = null;
+                                                }
+                                                setCandidateText(e.target.value);
+                                            }}
                                             onKeyDown={(e) => { if (e.key === 'Enter') handleSendMessage(); }}
                                             placeholder="Ask a question about the problem or explain your code..."
                                             className="flex-1 bg-[#161b22] border border-[#30363d] rounded-lg px-3 py-1.5 text-xs text-gray-200 focus:outline-none focus:border-primary-500"
