@@ -8,11 +8,10 @@ const candidateSchema = new Schema({
     googleId: { type: String }
 }, { timestamps: true });
 
-candidateSchema.pre('save', async function(next) {
-    if (!this.isModified('password') || !this.password) return next();
+candidateSchema.pre('save', async function() {
+    if (!this.isModified('password') || !this.password) return;
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
-    next();
 });
 
 candidateSchema.methods.matchPassword = async function(enteredPassword) {
