@@ -57,6 +57,7 @@ const InterviewRoom = () => {
     const recognitionRef = useRef(null);
     const timerRef = useRef(null);
     const isMutedRef = useRef(false); // ref so speakAiMessage always reads the latest mute state
+    const utteranceRef = useRef(null); // prevent Chrome GC from cutting off voice mid-speech
 
     // Split-panel and console drag listener
     useEffect(() => {
@@ -168,55 +169,63 @@ const InterviewRoom = () => {
         }
     }, []);
 
-    // 3. Web Speech API — Text to Speech (Natural Indian Tech Lead voice)
+    // 3. Web Speech API — Text to Speech (Natural, smooth, non-choppy voice)
     const speakAiMessage = (text) => {
         if (isMutedRef.current || !('speechSynthesis' in window) || !text) return;
 
         window.speechSynthesis.cancel(); // cancel any ongoing utterance
 
-        // Split text into natural spoken sentences for fluid delivery without Chrome stalls
-        const sentences = text.match(/[^.!?]+[.!?]+(\s|$)|[^.!?]+$/g) || [text];
+        // 1. Clean text of markdown, code blocks, bullet points, and technical symbols that cause speech synth stutters
+        const cleanText = text
+            .replace(/```[\s\S]*?```/g, ' ') // remove code blocks
+            .replace(/`([^`]+)`/g, '$1') // unquote inline code
+            .replace(/Node\.js/gi, 'Node JS')
+            .replace(/\be\.g\./gi, 'for example')
+            .replace(/\bi\.e\./gi, 'that is')
+            .replace(/O\(([^)]+)\)/gi, 'O of $1')
+            .replace(/[*#_~[\](){}<>|]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        if (!cleanText) return;
+
+        const utterance = new SpeechSynthesisUtterance(cleanText);
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
+
+        // 2. Select voice: prioritize local installed voices first to eliminate network buffering/jitter
         const voices = window.speechSynthesis.getVoices();
 
-        // 1. Look for Indian English voice (e.g. Microsoft Ravi, Heera, Google en-IN)
-        const indianVoice = voices.find(v => (v.lang === 'en-IN' || v.lang.startsWith('en_IN') || v.name.includes('India')) && !v.name.toLowerCase().includes('hindi'));
-        // 2. Fall back to natural, friendly English voices
-        const naturalVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Samantha') || v.name.includes('Guy')));
-        const selectedVoice = indianVoice || naturalVoice;
+        // Check for local Indian English voice first (e.g. Microsoft Ravi, Heera on Windows)
+        const indianLocalVoice = voices.find(v => (v.lang === 'en-IN' || v.lang.startsWith('en_IN') || v.name.toLowerCase().includes('india')) && v.localService && !v.name.toLowerCase().includes('hindi'));
+        // Any Indian voice
+        const indianVoice = voices.find(v => (v.lang === 'en-IN' || v.lang.startsWith('en_IN') || v.name.toLowerCase().includes('india')) && !v.name.toLowerCase().includes('hindi'));
+        // Local English voice (zero network buffering, e.g. Microsoft Mark, David, Zira)
+        const localVoice = voices.find(v => v.lang.startsWith('en') && v.localService);
+        // Fallback natural voice
+        const fallbackVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Samantha')));
 
-        setIsAiSpeaking(true);
+        const selectedVoice = indianLocalVoice || indianVoice || localVoice || fallbackVoice;
+        if (selectedVoice) {
+            utterance.voice = selectedVoice;
+        }
 
-        let idx = 0;
-        const speakNext = () => {
-            if (idx >= sentences.length || isMutedRef.current) {
-                setIsAiSpeaking(false);
-                return;
+        utterance.onstart = () => setIsAiSpeaking(true);
+        utterance.onend = () => {
+            setIsAiSpeaking(false);
+            utteranceRef.current = null;
+        };
+        utterance.onerror = (e) => {
+            if (e.error !== 'interrupted' && e.error !== 'canceled') {
+                console.warn('SpeechSynthesis error:', e.error);
             }
-
-            const sentence = sentences[idx].trim();
-            idx++;
-            if (!sentence) {
-                speakNext();
-                return;
-            }
-
-            const utterance = new SpeechSynthesisUtterance(sentence);
-            utterance.rate = 1.03;
-            utterance.pitch = 0.98;
-            if (selectedVoice) utterance.voice = selectedVoice;
-
-            utterance.onend = () => {
-                // Short human pause between thoughts (60ms)
-                setTimeout(speakNext, 60);
-            };
-            utterance.onerror = () => {
-                setIsAiSpeaking(false);
-            };
-
-            window.speechSynthesis.speak(utterance);
+            setIsAiSpeaking(false);
+            utteranceRef.current = null;
         };
 
-        speakNext();
+        // Retain ref so Chrome's garbage collector never kills speech mid-sentence
+        utteranceRef.current = utterance;
+        window.speechSynthesis.speak(utterance);
     };
 
     // 4. Web Speech API — Speech Recognition (Microphone)
