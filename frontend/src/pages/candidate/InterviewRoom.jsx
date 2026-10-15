@@ -158,26 +158,65 @@ const InterviewRoom = () => {
         return () => clearInterval(timerRef.current);
     }, [session, stage]);
 
-    // 3. Web Speech API — Text to Speech (AI voice)
-    // Uses isMutedRef (not isMuted state) to avoid stale closure issues
+    // Preload available browser voices for natural TTS
+    useEffect(() => {
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.getVoices();
+            window.speechSynthesis.onvoiceschanged = () => {
+                window.speechSynthesis.getVoices();
+            };
+        }
+    }, []);
+
+    // 3. Web Speech API — Text to Speech (Natural Indian Tech Lead voice)
     const speakAiMessage = (text) => {
-        if (isMutedRef.current || !('speechSynthesis' in window)) return;
+        if (isMutedRef.current || !('speechSynthesis' in window) || !text) return;
 
-        window.speechSynthesis.cancel(); // stop any current speech
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.rate = 1.0;
-        utterance.pitch = 1.0;
+        window.speechSynthesis.cancel(); // cancel any ongoing utterance
 
-        // Choose a clean natural voice if available
+        // Split text into natural spoken sentences for fluid delivery without Chrome stalls
+        const sentences = text.match(/[^.!?]+[.!?]+(\s|$)|[^.!?]+$/g) || [text];
         const voices = window.speechSynthesis.getVoices();
-        const preferredVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Google') || v.name.includes('Natural') || v.name.includes('Samantha')));
-        if (preferredVoice) utterance.voice = preferredVoice;
 
-        utterance.onstart = () => setIsAiSpeaking(true);
-        utterance.onend = () => setIsAiSpeaking(false);
-        utterance.onerror = () => setIsAiSpeaking(false);
+        // 1. Look for Indian English voice (e.g. Microsoft Ravi, Heera, Google en-IN)
+        const indianVoice = voices.find(v => (v.lang === 'en-IN' || v.lang.startsWith('en_IN') || v.name.includes('India')) && !v.name.toLowerCase().includes('hindi'));
+        // 2. Fall back to natural, friendly English voices
+        const naturalVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Samantha') || v.name.includes('Guy')));
+        const selectedVoice = indianVoice || naturalVoice;
 
-        window.speechSynthesis.speak(utterance);
+        setIsAiSpeaking(true);
+
+        let idx = 0;
+        const speakNext = () => {
+            if (idx >= sentences.length || isMutedRef.current) {
+                setIsAiSpeaking(false);
+                return;
+            }
+
+            const sentence = sentences[idx].trim();
+            idx++;
+            if (!sentence) {
+                speakNext();
+                return;
+            }
+
+            const utterance = new SpeechSynthesisUtterance(sentence);
+            utterance.rate = 1.03;
+            utterance.pitch = 0.98;
+            if (selectedVoice) utterance.voice = selectedVoice;
+
+            utterance.onend = () => {
+                // Short human pause between thoughts (60ms)
+                setTimeout(speakNext, 60);
+            };
+            utterance.onerror = () => {
+                setIsAiSpeaking(false);
+            };
+
+            window.speechSynthesis.speak(utterance);
+        };
+
+        speakNext();
     };
 
     // 4. Web Speech API — Speech Recognition (Microphone)
