@@ -61,9 +61,11 @@ export const startSession = asyncHandler(async (req, res) => {
     }
 
     if (!session) {
-        // Generate opening greeting with Gemini
+        // Generate opening greeting with natural Indian tech lead persona
         const opening = await generateOpeningGreeting({
-            roleTitle: assessment.role?.title,
+            companyName: assessment.company?.name || 'our company',
+            candidateName: req.user?.name || '',
+            roleTitle: assessment.role?.title || assessment.title || 'Software Engineer',
             skills: assessment.skills,
             experienceLevel: assessment.experienceLevel,
             blueprint: assessment.blueprint
@@ -112,7 +114,7 @@ export const startSession = asyncHandler(async (req, res) => {
  * Send candidate message (from voice STT or text chat) and get AI interviewer reply
  */
 export const sendCandidateMessage = asyncHandler(async (req, res) => {
-    const { sessionId, message, code } = req.body;
+    const { sessionId, message, code, currentCode, executionOutput } = req.body;
     const candidateId = req.user?.id || 'guest-candidate';
 
     if (!message || !message.trim()) {
@@ -123,7 +125,10 @@ export const sendCandidateMessage = asyncHandler(async (req, res) => {
     try {
         session = await InterviewSession.findById(sessionId).populate({
             path: 'assessment',
-            populate: { path: 'role', select: 'title' }
+            populate: [
+                { path: 'role', select: 'title' },
+                { path: 'company', select: 'name' }
+            ]
         });
     } catch {
         // Mongo bypassed
@@ -137,6 +142,13 @@ export const sendCandidateMessage = asyncHandler(async (req, res) => {
         throw new ApiError(404, 'Active interview session not found');
     }
 
+    // Save current code to session if provided
+    if (currentCode) {
+        if (!session.codeSubmission) session.codeSubmission = {};
+        session.codeSubmission.code = currentCode;
+        if (executionOutput) session.codeSubmission.output = executionOutput;
+    }
+
     // Append candidate's message to transcript
     session.transcript.push({
         role: 'candidate',
@@ -144,10 +156,8 @@ export const sendCandidateMessage = asyncHandler(async (req, res) => {
         timestamp: new Date()
     });
 
-    // Count how many questions were asked so far
-    const aiQuestionsCount = session.transcript.filter(t => t.role === 'ai').length;
-
     // Get assessment details
+    let companyName = session.assessment?.company?.name || 'our company';
     let roleTitle = 'Software Engineer';
     let skills = [];
     let experienceLevel = 'Entry';
@@ -160,8 +170,12 @@ export const sendCandidateMessage = asyncHandler(async (req, res) => {
         blueprint = session.assessment.blueprint || '';
     }
 
-    // Call Gemini AI service
+    // Call Gemini AI service with live code awareness and dynamic conversation
+    const effectiveCode = currentCode || session.codeSubmission?.code || '';
+    const effectiveOutput = executionOutput || session.codeSubmission?.output || '';
+
     const aiResponse = await generateNextInterviewStep({
+        companyName,
         roleTitle,
         skills,
         experienceLevel,
@@ -170,7 +184,8 @@ export const sendCandidateMessage = asyncHandler(async (req, res) => {
         candidateMessage: message.trim(),
         currentStage: session.stage,
         currentChallenge: session.codingChallenge,
-        conceptualQuestionsCount: aiQuestionsCount
+        currentCode: effectiveCode,
+        executionOutput: effectiveOutput
     });
 
     // Append AI's response to transcript

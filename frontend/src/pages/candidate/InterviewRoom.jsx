@@ -211,7 +211,9 @@ const InterviewRoom = () => {
             const res = await api.post('/interview/message', {
                 sessionId: session?._id,
                 code,
-                message: textToSend
+                message: textToSend,
+                currentCode: editorCode,
+                executionOutput: executionOutput
             });
 
             if (res.data.success) {
@@ -472,7 +474,7 @@ const InterviewRoom = () => {
                                 />
                             ))}
                             <span className="text-xs text-gray-400 ml-2 font-medium">
-                                {isAiSpeaking ? 'Vox AI is speaking...' : isSending ? 'Vox AI is thinking...' : 'Listening to you'}
+                                {isAiSpeaking ? 'Interviewer is speaking...' : isSending ? 'Interviewer is thinking...' : 'Listening to you'}
                             </span>
                         </div>
                     </div>
@@ -592,7 +594,7 @@ const InterviewRoom = () => {
                                 <div className="bg-primary-950/20 border border-primary-500/20 rounded-xl p-4">
                                     <div className="flex items-center gap-2 mb-2">
                                         <span className="w-2 h-2 rounded-full bg-primary-400"></span>
-                                        <span className="text-xs font-bold text-primary-400">Vox AI</span>
+                                        <span className="text-xs font-bold text-primary-400">Rohan (Tech Lead)</span>
                                     </div>
                                     <p className="text-sm text-gray-200">
                                         {latestAiMessage}
