@@ -225,7 +225,7 @@ export const sendCandidateMessage = asyncHandler(async (req, res) => {
  * Execute candidate code safely
  */
 export const runCandidateCode = asyncHandler(async (req, res) => {
-    const { language, code } = req.body;
+    const { language, code, customInput } = req.body;
 
     if (!code || !code.trim()) {
         throw new ApiError(400, 'Code cannot be empty');
@@ -233,9 +233,10 @@ export const runCandidateCode = asyncHandler(async (req, res) => {
 
     let output = '';
     let hasError = false;
+    const startTime = Date.now();
 
     if (language === 'javascript') {
-        // Run JavaScript safely with captured console
+        // Run JavaScript safely with captured console and customInput
         const logs = [];
         const customConsole = {
             log: (...args) => logs.push(args.map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ')),
@@ -244,30 +245,33 @@ export const runCandidateCode = asyncHandler(async (req, res) => {
         };
 
         try {
-            const runner = new Function('console', `
+            const runner = new Function('console', 'customInput', `
                 try {
                     ${code}
                 } catch (e) {
                     console.error(e.message);
                 }
             `);
-            runner(customConsole);
+            runner(customConsole, customInput || '');
             output = logs.join('\n') || 'Code executed successfully with no output.';
         } catch (err) {
             output = `Execution error: ${err.message}`;
             hasError = true;
         }
     } else if (language === 'python') {
-        // Execute Python using the public Piston API
+        // Execute Python using Piston API with optional stdin
         try {
+            const pistonBody = {
+                language: 'python',
+                version: '3.10.0',
+                files: [{ content: code }]
+            };
+            if (customInput) pistonBody.stdin = customInput;
+
             const response = await fetch('https://emkc.org/api/v2/piston/execute', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    language: 'python',
-                    version: '3.10.0',
-                    files: [{ content: code }]
-                })
+                body: JSON.stringify(pistonBody)
             });
 
             const data = await response.json();
@@ -286,7 +290,9 @@ export const runCandidateCode = asyncHandler(async (req, res) => {
         output = `Language '${language}' is not yet supported for live execution.`;
     }
 
-    res.status(200).json(new ApiResponse(200, { output, hasError }, 'Code executed'));
+    const executionTime = `${((Date.now() - startTime) / 1000).toFixed(2)}s`;
+
+    res.status(200).json(new ApiResponse(200, { output, hasError, executionTime }, 'Code executed'));
 });
 
 /**

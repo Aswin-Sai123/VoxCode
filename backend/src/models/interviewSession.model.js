@@ -38,7 +38,17 @@ const interviewSessionSchema = new Schema({
     }],
     codingChallenge: {
         title: { type: String, default: '' },
+        difficulty: { type: String, default: 'Medium' },
         description: { type: String, default: '' },
+        functionDescription: { type: String, default: '' },
+        inputFormat: { type: String, default: '' },
+        constraints: [{ type: String }],
+        outputFormat: { type: String, default: '' },
+        sampleTestCases: [{
+            input: { type: String, default: '' },
+            expectedOutput: { type: String, default: '' },
+            explanation: { type: String, default: '' }
+        }],
         starterCode: { type: String, default: '' },
         language: { type: String, default: 'javascript' }
     },

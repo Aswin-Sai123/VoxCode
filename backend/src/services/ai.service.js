@@ -93,7 +93,29 @@ export const generateNextInterviewStep = async ({
 
     const fallbackCodingChallenge = {
         title: 'Two Sum & Optimization',
-        description: 'Given an array of integers `nums` and an integer `target`, return indices of the two numbers such that they add up to `target`.\n\nAssume exactly one solution exists, and you may not use the same element twice.\n\nExample:\nInput: nums = [2, 7, 11, 15], target = 9\nOutput: [0, 1]\n\nConstraints:\n- 2 <= nums.length <= 10^4\n- Only one valid answer exists.',
+        difficulty: 'Medium',
+        description: 'Given an array of integers `nums` and an integer `target`, return indices of the two numbers such that they add up to `target`.\n\nYou may assume that each input would have exactly one solution, and you may not use the same element twice. You can return the answer in any order.',
+        functionDescription: 'Complete the twoSum function in the editor below. It should return an array of two integers representing the zero-indexed positions of the two numbers that add up to target.',
+        inputFormat: 'The function receives two parameters: an array of integers `nums` and an integer `target`.',
+        constraints: [
+            '2 <= nums.length <= 10^4',
+            '-10^9 <= nums[i] <= 10^9',
+            '-10^9 <= target <= 10^9',
+            'Only one valid answer exists.'
+        ],
+        outputFormat: 'Return an array of two integers [index1, index2].',
+        sampleTestCases: [
+            {
+                input: 'nums = [2, 7, 11, 15], target = 9',
+                expectedOutput: '[0, 1]',
+                explanation: 'Because nums[0] + nums[1] == 2 + 7 == 9, we return [0, 1].'
+            },
+            {
+                input: 'nums = [3, 2, 4], target = 6',
+                expectedOutput: '[1, 2]',
+                explanation: 'Because nums[1] + nums[2] == 2 + 4 == 6, we return [1, 2].'
+            }
+        ],
         starterCode: `function twoSum(nums, target) {\n    // Write your solution here\n    \n}\n\n// Test example\nconsole.log(twoSum([2, 7, 11, 15], 9));`,
         language: 'javascript'
     };
@@ -162,7 +184,7 @@ YOUR CORE BEHAVIORS & RULES:
        -> Transition to 'CODING' stage!
        -> Say: "Great, let's jump into some hands-on problem solving now. I've set up a problem in your coding workspace on the right. Take a look, walk me through your approach, and let's code it out."
        -> Set "nextStage": "CODING".
-       -> Generate a realistic coding challenge tailored to ${experienceLevel} level and ${skills.join(', ')} with clear description, constraints, and clean JavaScript starter code.
+       -> Generate a structured HackerRank-style coding challenge tailored to ${experienceLevel} level and ${skills.join(', ')} with clear description, input/output formats, constraints, sample test cases with explanations, and clean starter code.
      * Otherwise:
        -> Continue the conceptual discussion naturally. Set "nextStage": "CONCEPTUAL" and "codingChallenge": null.
    
@@ -182,7 +204,24 @@ Return ONLY a JSON object with this exact shape:
   "nextStage": "CONCEPTUAL" or "CODING",
   "codingChallenge": {
     "title": "Title of problem",
-    "description": "Clear problem statement with examples and constraints",
+    "difficulty": "Easy" or "Medium" or "Hard",
+    "description": "Clear problem statement paragraph",
+    "functionDescription": "Detailed function signature and parameter expectations",
+    "inputFormat": "Description of input format",
+    "constraints": ["Constraint 1", "Constraint 2", "Constraint 3"],
+    "outputFormat": "Description of return value format",
+    "sampleTestCases": [
+      {
+        "input": "e.g. nums = [2, 7, 11, 15], target = 9",
+        "expectedOutput": "e.g. [0, 1]",
+        "explanation": "Brief explanation of why this output matches"
+      },
+      {
+        "input": "e.g. nums = [3, 2, 4], target = 6",
+        "expectedOutput": "e.g. [1, 2]",
+        "explanation": "Brief explanation"
+      }
+    ],
     "starterCode": "function solution() {\\n    // Write your code here\\n}",
     "language": "javascript"
   } // or null if staying in CONCEPTUAL or already in CODING

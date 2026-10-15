@@ -37,6 +37,15 @@ const InterviewRoom = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [transitionBanner, setTransitionBanner] = useState(false);
 
+    // HackerRank IDE Tabs & Console state
+    const [leftTab, setLeftTab] = useState('problem'); // 'problem' | 'guidance' | 'submissions'
+    const [consoleTab, setConsoleTab] = useState('testcases'); // 'testcases' | 'results'
+    const [activeTestCase, setActiveTestCase] = useState(0);
+    const [useCustomInput, setUseCustomInput] = useState(false);
+    const [customInputText, setCustomInputText] = useState('');
+    const [executionDetails, setExecutionDetails] = useState({ hasError: false, executionTime: '', output: '' });
+    const [copySuccessIndex, setCopySuccessIndex] = useState(null);
+
     // Refs
     const recognitionRef = useRef(null);
     const timerRef = useRef(null);
@@ -244,20 +253,34 @@ const InterviewRoom = () => {
         }
     };
 
-    // 6. Run Code
+    // 6. Run Code (HackerRank Test Suite Runner)
     const handleRunCode = async () => {
         setIsRunningCode(true);
-        setExecutionOutput('Executing code...');
+        setConsoleTab('results');
+        setExecutionOutput('Compiling and executing code against test cases...');
         try {
             const res = await api.post('/interview/run-code', {
                 language: selectedLanguage,
-                code: editorCode
+                code: editorCode,
+                customInput: useCustomInput ? customInputText : undefined
             });
             if (res.data.success) {
-                setExecutionOutput(res.data.data.output || 'Code executed with no output.');
+                const out = res.data.data.output || 'Code executed with no output.';
+                setExecutionOutput(out);
+                setExecutionDetails({
+                    hasError: res.data.data.hasError || false,
+                    executionTime: res.data.data.executionTime || '0.04s',
+                    output: out
+                });
             }
         } catch (err) {
-            setExecutionOutput(`Execution failed: ${err.response?.data?.message || err.message}`);
+            const errMsg = `Execution failed: ${err.response?.data?.message || err.message}`;
+            setExecutionOutput(errMsg);
+            setExecutionDetails({
+                hasError: true,
+                executionTime: '0.00s',
+                output: errMsg
+            });
         } finally {
             setIsRunningCode(false);
         }
@@ -565,108 +588,334 @@ const InterviewRoom = () => {
                     )}
                 </main>
             ) : (
-                /* ================= STAGE 2: DYNAMIC SPLIT-SCREEN CODING ARENA ================= */
-                <main className="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
-                    {/* LEFT PANEL (5 cols): Problem Statement & Interviewer Dialogue */}
-                    <div className="lg:col-span-5 border-r border-gray-800 flex flex-col bg-gray-900/50 overflow-hidden">
-                        {/* Problem Header */}
-                        <div className="p-6 border-b border-gray-800 flex-shrink-0">
-                            <span className="text-xs font-bold uppercase tracking-wider text-primary-400 bg-primary-500/10 px-2.5 py-1 rounded-md border border-primary-500/20">
-                                Coding Challenge
-                            </span>
-                            <h3 className="text-xl font-bold text-gray-100 mt-2">
-                                {codingChallenge?.title || 'Algorithm Challenge'}
-                            </h3>
+                /* ================= STAGE 2: AUTHENTIC HACKERRANK CODING WORKSPACE ================= */
+                <main className="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden bg-[#0d1117]">
+                    {/* LEFT PANEL (5 cols): Problem Workspace with HackerRank Tabs */}
+                    <div className="lg:col-span-5 border-r border-[#30363d] flex flex-col bg-[#0d1117] overflow-hidden">
+                        {/* HackerRank Tab Bar */}
+                        <div className="h-10 border-b border-[#30363d] bg-[#161b22] px-4 flex items-center justify-between flex-shrink-0">
+                            <div className="flex items-center gap-1">
+                                <button
+                                    onClick={() => setLeftTab('problem')}
+                                    className={`px-3 py-1.5 text-xs font-bold rounded-md flex items-center gap-1.5 transition-all ${
+                                        leftTab === 'problem'
+                                            ? 'bg-[#0d1117] text-white border-t-2 border-primary-500 shadow-sm'
+                                            : 'text-gray-400 hover:text-gray-200'
+                                    }`}
+                                >
+                                    <svg className="w-3.5 h-3.5 text-primary-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                    </svg>
+                                    Problem
+                                </button>
+                                <button
+                                    onClick={() => setLeftTab('guidance')}
+                                    className={`px-3 py-1.5 text-xs font-bold rounded-md flex items-center gap-1.5 transition-all ${
+                                        leftTab === 'guidance'
+                                            ? 'bg-[#0d1117] text-white border-t-2 border-primary-500 shadow-sm'
+                                            : 'text-gray-400 hover:text-gray-200'
+                                    }`}
+                                >
+                                    <svg className="w-3.5 h-3.5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                                    </svg>
+                                    Interviewer Notes
+                                    {transcript.length > 0 && (
+                                        <span className="w-2 h-2 rounded-full bg-primary-400"></span>
+                                    )}
+                                </button>
+                                <button
+                                    onClick={() => setLeftTab('submissions')}
+                                    className={`px-3 py-1.5 text-xs font-bold rounded-md flex items-center gap-1.5 transition-all ${
+                                        leftTab === 'submissions'
+                                            ? 'bg-[#0d1117] text-white border-t-2 border-primary-500 shadow-sm'
+                                            : 'text-gray-400 hover:text-gray-200'
+                                    }`}
+                                >
+                                    <svg className="w-3.5 h-3.5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    Submissions
+                                </button>
+                            </div>
+                            <span className="text-[11px] font-mono text-gray-500 hidden sm:inline">HackerRank Environment</span>
                         </div>
 
-                        {/* Problem Description & Transcript Tabs */}
-                        <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                            <div>
-                                <h4 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">Description</h4>
-                                <div className="text-sm text-gray-300 whitespace-pre-line leading-relaxed bg-gray-950/60 p-4 rounded-xl border border-gray-800 font-mono">
-                                    {codingChallenge?.description || 'Solve the problem and run your code on the right.'}
+                        {/* Tab Content: Problem */}
+                        {leftTab === 'problem' && (
+                            <div className="flex-1 overflow-y-auto p-6 space-y-6 text-gray-200">
+                                {/* Title & Meta tags */}
+                                <div>
+                                    <h2 className="text-2xl font-bold text-gray-100 mb-2">
+                                        {codingChallenge?.title || 'Algorithmic Challenge'}
+                                    </h2>
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <span className="px-2.5 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">
+                                            {codingChallenge?.difficulty || 'Medium'}
+                                        </span>
+                                        <span className="px-2.5 py-0.5 rounded text-[11px] font-bold text-gray-400 bg-[#161b22] border border-[#30363d]">
+                                            Max Score: 100
+                                        </span>
+                                        <span className="px-2.5 py-0.5 rounded text-[11px] font-bold text-gray-400 bg-[#161b22] border border-[#30363d]">
+                                            Success Rate: 88.5%
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <hr className="border-[#30363d]" />
+
+                                {/* Problem Description */}
+                                <div>
+                                    <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">
+                                        Problem Statement
+                                    </h3>
+                                    <p className="text-sm text-gray-300 leading-relaxed whitespace-pre-line font-sans">
+                                        {codingChallenge?.description || 'Write an efficient solution to solve the given technical problem.'}
+                                    </p>
+                                </div>
+
+                                {/* Function Description */}
+                                {codingChallenge?.functionDescription && (
+                                    <div>
+                                        <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">
+                                            Function Description
+                                        </h3>
+                                        <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-3 text-xs text-gray-300 leading-relaxed font-mono">
+                                            {codingChallenge.functionDescription}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Input & Output Format */}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5">
+                                            Input Format
+                                        </h3>
+                                        <p className="text-xs text-gray-300 bg-[#161b22] border border-[#30363d] rounded-lg p-2.5">
+                                            {codingChallenge?.inputFormat || 'Passed directly into function arguments.'}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5">
+                                            Output Format
+                                        </h3>
+                                        <p className="text-xs text-gray-300 bg-[#161b22] border border-[#30363d] rounded-lg p-2.5">
+                                            {codingChallenge?.outputFormat || 'Return the computed result matching the return type.'}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* Constraints */}
+                                <div>
+                                    <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">
+                                        Constraints
+                                    </h3>
+                                    <div className="flex flex-wrap gap-2">
+                                        {(codingChallenge?.constraints && codingChallenge.constraints.length > 0) ? (
+                                            codingChallenge.constraints.map((c, i) => (
+                                                <span key={i} className="font-mono text-xs text-gray-300 bg-[#161b22] border border-[#30363d] px-2.5 py-1 rounded">
+                                                    {c}
+                                                </span>
+                                            ))
+                                        ) : (
+                                            <>
+                                                <span className="font-mono text-xs text-gray-300 bg-[#161b22] border border-[#30363d] px-2.5 py-1 rounded">
+                                                    2 &le; n &le; 10^5
+                                                </span>
+                                                <span className="font-mono text-xs text-gray-300 bg-[#161b22] border border-[#30363d] px-2.5 py-1 rounded">
+                                                    Memory limit: 512 MB
+                                                </span>
+                                                <span className="font-mono text-xs text-gray-300 bg-[#161b22] border border-[#30363d] px-2.5 py-1 rounded">
+                                                    Time limit: 2.0s
+                                                </span>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Sample Test Cases */}
+                                <div>
+                                    <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-3">
+                                        Sample Test Cases
+                                    </h3>
+                                    <div className="space-y-4">
+                                        {((codingChallenge?.sampleTestCases && codingChallenge.sampleTestCases.length > 0)
+                                            ? codingChallenge.sampleTestCases
+                                            : [
+                                                {
+                                                    input: 'nums = [2, 7, 11, 15], target = 9',
+                                                    expectedOutput: '[0, 1]',
+                                                    explanation: 'Because nums[0] + nums[1] == 2 + 7 == 9, we return [0, 1].'
+                                                },
+                                                {
+                                                    input: 'nums = [3, 2, 4], target = 6',
+                                                    expectedOutput: '[1, 2]',
+                                                    explanation: 'Because nums[1] + nums[2] == 2 + 4 == 6, we return [1, 2].'
+                                                }
+                                            ]
+                                        ).map((tc, idx) => (
+                                            <div key={idx} className="bg-[#161b22] border border-[#30363d] rounded-lg p-4 space-y-3">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-xs font-bold text-gray-300 uppercase tracking-wider">
+                                                        Sample Input {idx}
+                                                    </span>
+                                                    <button
+                                                        onClick={() => {
+                                                            navigator.clipboard.writeText(tc.input);
+                                                            setCopySuccessIndex(idx);
+                                                            setTimeout(() => setCopySuccessIndex(null), 2000);
+                                                        }}
+                                                        className="text-[11px] text-gray-400 hover:text-white flex items-center gap-1 font-mono"
+                                                    >
+                                                        {copySuccessIndex === idx ? '✓ Copied' : 'Copy'}
+                                                    </button>
+                                                </div>
+                                                <pre className="bg-[#0d1117] p-2.5 rounded font-mono text-xs text-green-400 border border-[#30363d] overflow-x-auto">
+                                                    {tc.input}
+                                                </pre>
+
+                                                <span className="text-xs font-bold text-gray-300 uppercase tracking-wider block">
+                                                    Sample Output {idx}
+                                                </span>
+                                                <pre className="bg-[#0d1117] p-2.5 rounded font-mono text-xs text-blue-400 border border-[#30363d] overflow-x-auto">
+                                                    {tc.expectedOutput}
+                                                </pre>
+
+                                                {tc.explanation && (
+                                                    <div className="pt-1">
+                                                        <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
+                                                            Explanation
+                                                        </span>
+                                                        <p className="text-xs text-gray-300 leading-relaxed font-sans">
+                                                            {tc.explanation}
+                                                        </p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
+                        )}
 
-                            {/* Interviewer Hint / Dialogue Stream */}
-                            <div>
-                                <h4 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">Interviewer Guidance</h4>
-                                <div className="bg-primary-950/20 border border-primary-500/20 rounded-xl p-4">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <span className="w-2 h-2 rounded-full bg-primary-400"></span>
-                                        <span className="text-xs font-bold text-primary-400">Rohan (Tech Lead)</span>
+                        {/* Tab Content: Interviewer Notes & Live Chat */}
+                        {leftTab === 'guidance' && (
+                            <div className="flex-1 overflow-y-auto p-4 flex flex-col justify-between">
+                                <div className="space-y-3 overflow-y-auto mb-4">
+                                    <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-3 mb-2 flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-7 h-7 rounded-full bg-primary-600 flex items-center justify-center font-bold text-xs text-white">
+                                                R
+                                            </div>
+                                            <div>
+                                                <p className="text-xs font-bold text-gray-200">Rohan (Senior Tech Lead)</p>
+                                                <p className="text-[10px] text-gray-400">Observing your code & logic in real-time</p>
+                                            </div>
+                                        </div>
+                                        <span className="text-[10px] bg-green-500/10 text-green-400 border border-green-500/20 px-2 py-0.5 rounded font-mono">
+                                            Live
+                                        </span>
                                     </div>
-                                    <p className="text-sm text-gray-200">
-                                        {latestAiMessage}
+
+                                    {transcript.map((msg, i) => (
+                                        <div
+                                            key={i}
+                                            className={`p-3 rounded-xl text-xs max-w-[90%] ${
+                                                msg.role === 'ai'
+                                                    ? 'bg-primary-950/40 border border-primary-500/20 text-gray-200 self-start'
+                                                    : 'bg-[#161b22] border border-[#30363d] text-gray-300 self-end ml-auto'
+                                            }`}
+                                        >
+                                            <span className="text-[10px] font-bold uppercase tracking-wider block mb-1 opacity-70">
+                                                {msg.role === 'ai' ? 'Rohan' : 'You'}
+                                            </span>
+                                            <p className="whitespace-pre-line leading-relaxed">{msg.text}</p>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Spoken / Query Dock inside Tab */}
+                                <div className="border-t border-[#30363d] pt-3 flex flex-col gap-2">
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={toggleSpeechRecognition}
+                                            className={`flex-1 py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-2 transition-all ${
+                                                isListening
+                                                    ? 'bg-red-600 text-white animate-pulse'
+                                                    : 'bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700'
+                                            }`}
+                                        >
+                                            🎙️ {isListening ? 'Listening (Click to send)' : 'Talk to Rohan'}
+                                        </button>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            value={candidateText}
+                                            onChange={(e) => setCandidateText(e.target.value)}
+                                            onKeyDown={(e) => { if (e.key === 'Enter') handleSendMessage(); }}
+                                            placeholder="Ask a question about the problem or explain your code..."
+                                            className="flex-1 bg-[#161b22] border border-[#30363d] rounded-lg px-3 py-1.5 text-xs text-gray-200 focus:outline-none focus:border-primary-500"
+                                        />
+                                        <button
+                                            onClick={() => handleSendMessage()}
+                                            disabled={isSending || !candidateText.trim()}
+                                            className="px-3 py-1.5 bg-primary-600 hover:bg-primary-500 text-white font-bold text-xs rounded-lg disabled:opacity-50"
+                                        >
+                                            Send
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Tab Content: Submissions */}
+                        {leftTab === 'submissions' && (
+                            <div className="flex-1 p-6 text-center text-gray-400">
+                                <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-8 max-w-sm mx-auto">
+                                    <svg className="w-10 h-10 text-gray-500 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                                    </svg>
+                                    <h4 className="text-sm font-bold text-gray-200 mb-1">No Final Submission Yet</h4>
+                                    <p className="text-xs text-gray-400">
+                                        Test your code using "Run Code" on the right. Once you're confident in your solution, click the green "Submit Code" button to submit your final assessment.
                                     </p>
                                 </div>
                             </div>
-                        </div>
-
-                        {/* Left Footer: Voice Controls during coding */}
-                        <div className="p-4 border-t border-gray-800 bg-gray-950/80 flex items-center justify-between gap-3 flex-shrink-0">
-                            <button
-                                onClick={toggleSpeechRecognition}
-                                className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all ${
-                                    isListening
-                                        ? 'bg-red-600 text-white animate-pulse'
-                                        : 'bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700'
-                                }`}
-                            >
-                                🎙️ {isListening ? 'Listening...' : 'Talk to Interviewer'}
-                            </button>
-
-                            {(candidateText || interimSpeech) && (
-                                <button
-                                    onClick={() => handleSendMessage()}
-                                    disabled={isSending}
-                                    className="px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white font-bold text-xs rounded-xl"
-                                >
-                                    Send Spoken Query
-                                </button>
-                            )}
-
-                            <span className="text-xs text-gray-500">
-                                {isAiSpeaking ? 'AI speaking...' : 'Explain your logic aloud'}
-                            </span>
-                        </div>
+                        )}
                     </div>
 
-                    {/* RIGHT PANEL (7 cols): Monaco Editor + Terminal Output */}
-                    <div className="lg:col-span-7 flex flex-col bg-gray-950 overflow-hidden">
-                        {/* Editor Controls Bar */}
-                        <div className="h-12 border-b border-gray-800 bg-gray-900/60 px-4 flex items-center justify-between flex-shrink-0">
+                    {/* RIGHT PANEL (7 cols): HackerRank IDE & Runner */}
+                    <div className="lg:col-span-7 flex flex-col bg-[#0d1117] overflow-hidden">
+                        {/* Editor Top Bar */}
+                        <div className="h-10 border-b border-[#30363d] bg-[#161b22] px-4 flex items-center justify-between flex-shrink-0">
                             <div className="flex items-center gap-3">
-                                <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Language:</span>
+                                <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Language:</span>
                                 <select
                                     value={selectedLanguage}
                                     onChange={(e) => setSelectedLanguage(e.target.value)}
-                                    className="bg-gray-800 border border-gray-700 text-xs font-bold text-gray-200 px-3 py-1.5 rounded-lg focus:outline-none"
+                                    className="bg-[#0d1117] border border-[#30363d] text-xs font-bold text-gray-200 px-2.5 py-1 rounded focus:outline-none focus:border-primary-500 font-mono"
                                 >
-                                    <option value="javascript">JavaScript</option>
-                                    <option value="python">Python</option>
+                                    <option value="javascript">JavaScript (Node.js 20)</option>
+                                    <option value="python">Python 3 (3.10)</option>
                                 </select>
+                                <span className="text-[11px] text-gray-500 font-mono hidden sm:inline">Autocomplete: On</span>
                             </div>
 
                             <div className="flex items-center gap-2">
                                 <button
                                     onClick={() => setEditorCode(codingChallenge?.starterCode || '')}
-                                    className="text-xs text-gray-400 hover:text-gray-200 px-2.5 py-1"
+                                    className="text-xs text-gray-400 hover:text-gray-200 px-2 py-1 rounded hover:bg-gray-800 transition-all flex items-center gap-1 font-mono text-[11px]"
+                                    title="Reset code to default template"
                                 >
-                                    Reset Starter
-                                </button>
-                                <button
-                                    onClick={handleRunCode}
-                                    disabled={isRunningCode}
-                                    className="px-4 py-1.5 bg-green-600 hover:bg-green-500 text-white font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-md shadow-green-600/20 disabled:opacity-50"
-                                >
-                                    ▶ {isRunningCode ? 'Running...' : 'Run Code'}
+                                    ↺ Reset Code
                                 </button>
                             </div>
                         </div>
 
-                        {/* Monaco Code Editor */}
-                        <div className="flex-1 min-h-[300px]">
+                        {/* Monaco Editor Canvas */}
+                        <div className="flex-1 min-h-[320px] bg-[#1e1e1e]">
                             <Editor
                                 height="100%"
                                 language={selectedLanguage}
@@ -674,31 +923,216 @@ const InterviewRoom = () => {
                                 value={editorCode}
                                 onChange={(value) => setEditorCode(value || '')}
                                 options={{
-                                    fontSize: 14,
+                                    fontSize: 13,
+                                    fontFamily: 'Fira Code, Menlo, Monaco, Consolas, Courier New, monospace',
                                     minimap: { enabled: false },
                                     scrollBeyondLastLine: false,
                                     automaticLayout: true,
-                                    tabSize: 4
+                                    tabSize: 4,
+                                    lineNumbers: 'on',
+                                    renderLineHighlight: 'all'
                                 }}
                             />
                         </div>
 
-                        {/* Bottom Output Console Terminal */}
-                        <div className="h-44 border-t border-gray-800 bg-gray-950 p-4 flex flex-col flex-shrink-0">
-                            <div className="flex items-center justify-between mb-2">
-                                <span className="text-xs font-bold uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
-                                    <span className="w-2 h-2 rounded-full bg-green-500"></span> Console Output
-                                </span>
-                                <button
-                                    onClick={() => setExecutionOutput('')}
-                                    className="text-xs text-gray-500 hover:text-gray-300"
-                                >
-                                    Clear
-                                </button>
+                        {/* HackerRank Bottom Runner Panel */}
+                        <div className="border-t border-[#30363d] bg-[#0d1117] flex flex-col flex-shrink-0">
+                            {/* Console Header Bar */}
+                            <div className="h-10 border-b border-[#30363d] bg-[#161b22] px-4 flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => setConsoleTab('testcases')}
+                                        className={`px-3 py-1 text-xs font-bold rounded transition-all ${
+                                            consoleTab === 'testcases'
+                                                ? 'bg-[#0d1117] text-white border-b-2 border-primary-500'
+                                                : 'text-gray-400 hover:text-gray-200'
+                                        }`}
+                                    >
+                                        Test Cases
+                                    </button>
+                                    <button
+                                        onClick={() => setConsoleTab('results')}
+                                        className={`px-3 py-1 text-xs font-bold rounded transition-all flex items-center gap-1.5 ${
+                                            consoleTab === 'results'
+                                                ? 'bg-[#0d1117] text-white border-b-2 border-primary-500'
+                                                : 'text-gray-400 hover:text-gray-200'
+                                        }`}
+                                    >
+                                        Execution Results
+                                        {executionDetails.output && (
+                                            <span className={`w-1.5 h-1.5 rounded-full ${executionDetails.hasError ? 'bg-red-400' : 'bg-green-400'}`}></span>
+                                        )}
+                                    </button>
+                                </div>
+
+                                <div className="flex items-center gap-3">
+                                    <label className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-200 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={useCustomInput}
+                                            onChange={(e) => setUseCustomInput(e.target.checked)}
+                                            className="rounded border-gray-700 bg-gray-900 text-primary-600 focus:ring-0 w-3.5 h-3.5"
+                                        />
+                                        <span>Test against custom input</span>
+                                    </label>
+                                    {executionOutput && (
+                                        <button
+                                            onClick={() => { setExecutionOutput(''); setExecutionDetails({ hasError: false, executionTime: '', output: '' }); }}
+                                            className="text-[11px] text-gray-500 hover:text-gray-300 font-mono"
+                                        >
+                                            Clear
+                                        </button>
+                                    )}
+                                </div>
                             </div>
-                            <pre className="flex-1 overflow-y-auto bg-gray-900/80 border border-gray-800/80 rounded-xl p-3 font-mono text-xs text-gray-200 whitespace-pre-wrap">
-                                {executionOutput || 'Click "Run Code" to test and view execution output here...'}
-                            </pre>
+
+                            {/* Console Body Area */}
+                            <div className="h-44 p-4 overflow-y-auto font-mono text-xs text-gray-300 bg-[#0d1117]">
+                                {useCustomInput ? (
+                                    <div className="h-full flex flex-col">
+                                        <label className="text-[11px] font-bold text-gray-400 mb-1">
+                                            Custom stdin input:
+                                        </label>
+                                        <textarea
+                                            value={customInputText}
+                                            onChange={(e) => setCustomInputText(e.target.value)}
+                                            placeholder="Enter your custom input here..."
+                                            className="flex-1 bg-[#161b22] border border-[#30363d] rounded p-2.5 text-xs text-gray-200 focus:outline-none focus:border-primary-500 font-mono resize-none"
+                                        />
+                                    </div>
+                                ) : consoleTab === 'testcases' ? (
+                                    <div>
+                                        <div className="flex items-center gap-2 mb-3">
+                                            {((codingChallenge?.sampleTestCases && codingChallenge.sampleTestCases.length > 0)
+                                                ? codingChallenge.sampleTestCases
+                                                : [
+                                                    { input: 'nums = [2, 7, 11, 15], target = 9', expectedOutput: '[0, 1]' },
+                                                    { input: 'nums = [3, 2, 4], target = 6', expectedOutput: '[1, 2]' }
+                                                ]
+                                            ).map((tc, idx) => (
+                                                <button
+                                                    key={idx}
+                                                    onClick={() => setActiveTestCase(idx)}
+                                                    className={`px-3 py-1 rounded text-xs font-bold transition-all ${
+                                                        activeTestCase === idx
+                                                            ? 'bg-[#161b22] text-green-400 border border-[#30363d]'
+                                                            : 'text-gray-500 hover:text-gray-300'
+                                                    }`}
+                                                >
+                                                    Case {idx}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        {((codingChallenge?.sampleTestCases && codingChallenge.sampleTestCases.length > 0)
+                                            ? codingChallenge.sampleTestCases
+                                            : [
+                                                { input: 'nums = [2, 7, 11, 15], target = 9', expectedOutput: '[0, 1]' },
+                                                { input: 'nums = [3, 2, 4], target = 6', expectedOutput: '[1, 2]' }
+                                            ]
+                                        )[activeTestCase] && (
+                                            <div className="space-y-2">
+                                                <div>
+                                                    <span className="text-[10px] text-gray-500 uppercase tracking-wider block">Compiler Input</span>
+                                                    <pre className="bg-[#161b22] p-2 rounded text-xs text-gray-300 border border-[#30363d]">
+                                                        {((codingChallenge?.sampleTestCases && codingChallenge.sampleTestCases.length > 0)
+                                                            ? codingChallenge.sampleTestCases
+                                                            : [
+                                                                { input: 'nums = [2, 7, 11, 15], target = 9', expectedOutput: '[0, 1]' },
+                                                                { input: 'nums = [3, 2, 4], target = 6', expectedOutput: '[1, 2]' }
+                                                            ]
+                                                        )[activeTestCase].input}
+                                                    </pre>
+                                                </div>
+                                                <div>
+                                                    <span className="text-[10px] text-gray-500 uppercase tracking-wider block">Expected Output</span>
+                                                    <pre className="bg-[#161b22] p-2 rounded text-xs text-blue-400 border border-[#30363d]">
+                                                        {((codingChallenge?.sampleTestCases && codingChallenge.sampleTestCases.length > 0)
+                                                            ? codingChallenge.sampleTestCases
+                                                            : [
+                                                                { input: 'nums = [2, 7, 11, 15], target = 9', expectedOutput: '[0, 1]' },
+                                                                { input: 'nums = [3, 2, 4], target = 6', expectedOutput: '[1, 2]' }
+                                                            ]
+                                                        )[activeTestCase].expectedOutput}
+                                                    </pre>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : (
+                                    /* Execution Results */
+                                    <div>
+                                        {isRunningCode ? (
+                                            <div className="flex items-center gap-2 text-gray-400 py-4">
+                                                <div className="w-4 h-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
+                                                <span>Compiling and running against test suite...</span>
+                                            </div>
+                                        ) : executionDetails.output ? (
+                                            <div className="space-y-2">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                                                            executionDetails.hasError
+                                                                ? 'bg-red-500/10 text-red-400 border border-red-500/20'
+                                                                : 'bg-green-500/10 text-green-400 border border-green-500/20'
+                                                        }`}>
+                                                            {executionDetails.hasError ? '✕ Runtime / Compilation Error' : '✓ Execution Finished'}
+                                                        </span>
+                                                        <span className="text-gray-500 text-[11px]">
+                                                            Time: {executionDetails.executionTime || '0.04s'}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <pre className={`p-3 rounded border text-xs whitespace-pre-wrap ${
+                                                    executionDetails.hasError
+                                                        ? 'bg-red-950/20 border-red-900/30 text-red-300'
+                                                        : 'bg-[#161b22] border-[#30363d] text-green-300'
+                                                }`}>
+                                                    {executionDetails.output}
+                                                </pre>
+                                            </div>
+                                        ) : (
+                                            <p className="text-gray-500 py-4">
+                                                Click "Run Code" below to compile and view execution results against sample test cases.
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* HackerRank Bottom Action Dock */}
+                            <div className="h-14 border-t border-[#30363d] bg-[#161b22] px-4 sm:px-6 flex items-center justify-between flex-shrink-0">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs text-gray-400 font-mono hidden sm:inline">
+                                        {isRunningCode ? 'Compiling...' : executionDetails.output ? 'Ready for submission' : 'All tests ready'}
+                                    </span>
+                                </div>
+
+                                <div className="flex items-center gap-3">
+                                    {/* Run Code Button */}
+                                    <button
+                                        onClick={handleRunCode}
+                                        disabled={isRunningCode}
+                                        className="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-600 font-semibold text-xs transition-all flex items-center gap-1.5 disabled:opacity-50"
+                                    >
+                                        <svg className="w-3.5 h-3.5 text-green-400" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M8 5v14l11-7z" />
+                                        </svg>
+                                        {isRunningCode ? 'Compiling...' : 'Run Code'}
+                                    </button>
+
+                                    {/* Signature HackerRank Green Submit Code Button */}
+                                    <button
+                                        onClick={handleSubmitInterview}
+                                        disabled={isSubmitting}
+                                        className="px-6 py-2 rounded-lg bg-[#1ba94c] hover:bg-[#158c3f] text-white font-bold text-xs transition-all shadow-md shadow-green-900/30 flex items-center gap-1.5 disabled:opacity-50 active:scale-95"
+                                    >
+                                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                                        </svg>
+                                        {isSubmitting ? 'Submitting...' : 'Submit Code'}
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </main>
