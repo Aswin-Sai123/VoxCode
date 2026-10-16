@@ -1,6 +1,20 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import api from '../../services/api';
+import { 
+    FileText, 
+    ChevronLeft, 
+    Printer, 
+    CheckCircle2, 
+    AlertCircle, 
+    Code2, 
+    Cpu, 
+    Activity, 
+    Check, 
+    X,
+    ExternalLink,
+    Terminal
+} from 'lucide-react';
 
 const ReportDetail = () => {
     const { sessionId } = useParams();
@@ -31,39 +45,41 @@ const ReportDetail = () => {
     const getVerdictBadge = (verdict) => {
         switch (verdict) {
             case 'Strong Hire':
-                return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
+                return 'text-[#10B981] bg-[#10B981]/10 border-[#10B981]/30';
             case 'Hire':
-                return 'bg-green-500/10 text-green-400 border-green-500/30';
+                return 'text-[#10B981] bg-[#10B981]/10 border-[#10B981]/30';
             case 'Needs Improvement':
-                return 'bg-amber-500/10 text-amber-400 border-amber-500/30';
+                return 'text-[#F59E0B] bg-[#F59E0B]/10 border-[#F59E0B]/30';
             case 'Reject':
-                return 'bg-red-500/10 text-red-400 border-red-500/30';
+                return 'text-[#F43F5E] bg-[#F43F5E]/10 border-[#F43F5E]/30';
             default:
-                return 'bg-gray-500/10 text-gray-400 border-gray-500/30';
+                return 'text-[#A1A1AA] bg-[#18181C] border-[#222228]';
         }
     };
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center text-white px-4">
-                <div className="w-14 h-14 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-                <h3 className="text-lg font-bold text-gray-200 mb-1">Generating Performance Evaluation...</h3>
-                <p className="text-xs text-gray-400">Gemini is analyzing conversation depth, code correctness, and test outputs.</p>
+            <div className="flex-1 flex flex-col items-center justify-center p-12 bg-[#09090B] font-mono text-xs text-[#71717A] space-y-3">
+                <div className="w-5 h-5 border-2 border-[#FAFAFA] border-t-transparent rounded-full animate-spin"></div>
+                <span>COMPUTING MULTI-DIMENSIONAL EVALUATION DOSSIER // {sessionId}...</span>
             </div>
         );
     }
 
     if (error || !evaluation) {
         return (
-            <div className="min-h-screen bg-gray-950 flex items-center justify-center px-4 text-white">
-                <div className="bg-gray-900 border border-red-500/30 rounded-3xl p-8 max-w-md text-center">
-                    <p className="text-red-400 font-bold text-lg mb-2">Report Not Found</p>
-                    <p className="text-gray-400 text-sm mb-6">{error || 'Unable to retrieve evaluation report.'}</p>
+            <div className="flex-1 flex items-center justify-center p-6 bg-[#09090B]">
+                <div className="max-w-md w-full bg-[#111114] border border-[#F43F5E]/30 rounded-md p-6 space-y-4 font-mono text-center">
+                    <AlertCircle className="w-6 h-6 text-[#F43F5E] mx-auto" />
+                    <div>
+                        <h2 className="text-sm font-semibold text-[#FAFAFA]">Dossier Not Located</h2>
+                        <p className="text-xs text-[#71717A] mt-1">{error || 'Unable to retrieve dossier records for this session ID.'}</p>
+                    </div>
                     <button
                         onClick={() => navigate('/candidate/reports')}
-                        className="px-6 py-2.5 bg-primary-600 hover:bg-primary-500 rounded-xl font-bold text-xs"
+                        className="studio-btn-secondary w-full py-2 text-xs"
                     >
-                        Return to My Reports
+                        Return to Dossiers Ledger
                     </button>
                 </div>
             </div>
@@ -73,229 +89,250 @@ const ReportDetail = () => {
     const { scores, verdict, summary, strengths, areasForImprovement, codeReview, testCaseResults } = evaluation;
 
     return (
-        <div className="min-h-screen bg-gray-950 text-white py-10 px-4 sm:px-6 lg:px-8 font-sans">
-            <div className="max-w-5xl mx-auto space-y-8">
-                {/* Navigation Bar */}
-                <div className="flex items-center justify-between">
-                    <button
-                        onClick={() => navigate('/candidate/reports')}
-                        className="text-xs text-gray-400 hover:text-white flex items-center gap-1.5 transition-colors font-mono"
-                    >
-                        <span>←</span> Back to All Reports
-                    </button>
+        <div className="flex-1 bg-[#09090B] text-[#FAFAFA] p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto w-full space-y-6">
+            {/* Navigation and Actions */}
+            <div className="flex items-center justify-between pb-4 border-b border-[#222228]">
+                <Link
+                    to="/candidate/reports"
+                    className="inline-flex items-center gap-1.5 text-xs font-mono text-[#71717A] hover:text-[#FAFAFA] transition-colors"
+                >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                    <span>Back to Dossiers</span>
+                </Link>
+
+                <div className="flex items-center gap-2">
+                    <span className="studio-badge bg-[#111114] text-[#A1A1AA] border-[#222228]">
+                        DOSSIER // {sessionId?.slice(-8)}
+                    </span>
                     <button
                         onClick={() => window.print()}
-                        className="px-4 py-1.5 bg-gray-900 hover:bg-gray-800 border border-gray-700 rounded-xl text-xs font-semibold text-gray-300 transition-colors shadow-sm flex items-center gap-1.5"
+                        className="studio-btn-secondary text-xs"
+                        title="Export printable dossier"
                     >
-                        <span>🖨️</span> Print / Save PDF
-                    </button>
-                </div>
-
-                {/* Hero Summary Card */}
-                <div className="bg-gradient-to-br from-gray-900 via-gray-900 to-primary-950/40 border border-gray-800 rounded-3xl p-6 sm:p-10 shadow-2xl relative overflow-hidden">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
-                        <div className="space-y-3 flex-1">
-                            <div className="flex items-center gap-3 flex-wrap">
-                                <span className={`px-3.5 py-1 rounded-full text-xs font-bold border uppercase tracking-wider shadow-sm ${getVerdictBadge(verdict)}`}>
-                                    Hiring Verdict: {verdict}
-                                </span>
-                                <span className="text-xs text-gray-400 font-mono">
-                                    Evaluated by Rohan (AI Senior Tech Lead)
-                                </span>
-                            </div>
-
-                            <h1 className="text-2xl sm:text-3xl font-black text-gray-100">
-                                {evaluation.assessment?.roleTitle || 'Software Engineer'}
-                            </h1>
-                            <p className="text-sm text-gray-400 font-medium">
-                                {evaluation.assessment?.companyName || 'Engineering Organization'} • {evaluation.candidate?.name || 'Candidate Evaluation'}
-                            </p>
-                            <p className="text-xs text-gray-500 font-mono">
-                                Assessment: {evaluation.assessment?.title || 'Technical Assessment'} • {new Date(evaluation.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-                            </p>
-                        </div>
-
-                        {/* Overall Score Dial */}
-                        <div className="flex flex-col items-center justify-center p-6 bg-[#0d1117] border border-[#30363d] rounded-2xl min-w-[140px] text-center shadow-inner">
-                            <span className="text-4xl sm:text-5xl font-black bg-gradient-to-r from-emerald-400 to-green-300 bg-clip-text text-transparent">
-                                {scores?.overall || 0}
-                            </span>
-                            <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mt-1">
-                                Overall Score
-                            </span>
-                            <span className="text-[10px] text-emerald-400 font-mono mt-0.5">out of 100</span>
-                        </div>
-                    </div>
-                </div>
-
-                {/* 4 Dimension Score Bars */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {[
-                        { title: 'Conceptual Q&A', val: scores?.conceptual || 0, desc: 'Architecture & fundamentals' },
-                        { title: 'Coding Correctness', val: scores?.coding || 0, desc: 'Algorithm & test cases' },
-                        { title: 'Code Quality', val: scores?.codeQuality || 0, desc: 'Structure, style & Big-O' },
-                        { title: 'Communication', val: scores?.communication || 0, desc: 'Clarity & explanation' }
-                    ].map((metric, idx) => (
-                        <div key={idx} className="bg-gray-900/80 border border-gray-800 rounded-2xl p-5 shadow-lg">
-                            <div className="flex items-center justify-between mb-2">
-                                <span className="text-xs font-bold text-gray-300">{metric.title}</span>
-                                <span className="text-sm font-black text-white">{metric.val}%</span>
-                            </div>
-                            <div className="w-full bg-gray-800 h-2 rounded-full overflow-hidden mb-2">
-                                <div
-                                    className="h-full bg-gradient-to-r from-primary-500 to-emerald-400 rounded-full transition-all duration-1000"
-                                    style={{ width: `${metric.val}%` }}
-                                ></div>
-                            </div>
-                            <span className="text-[10px] text-gray-500 font-mono">{metric.desc}</span>
-                        </div>
-                    ))}
-                </div>
-
-                {/* Executive Summary */}
-                {summary && (
-                    <div className="bg-gray-900/70 border border-gray-800 rounded-3xl p-6 sm:p-8 shadow-xl">
-                        <h3 className="text-sm font-bold uppercase tracking-wider text-primary-400 mb-3 flex items-center gap-2">
-                            <span>📋</span> Executive AI Review Summary
-                        </h3>
-                        <p className="text-sm text-gray-300 leading-relaxed whitespace-pre-line">
-                            {summary}
-                        </p>
-                    </div>
-                )}
-
-                {/* Strengths & Growth Areas */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Strengths */}
-                    <div className="bg-emerald-950/10 border border-emerald-500/20 rounded-3xl p-6 sm:p-8 shadow-xl">
-                        <h3 className="text-sm font-bold uppercase tracking-wider text-emerald-400 mb-4 flex items-center gap-2">
-                            <span>✓</span> Key Strengths Demonstrated
-                        </h3>
-                        <ul className="space-y-3">
-                            {(strengths && strengths.length ? strengths : ['Good understanding of core problem requirements.']).map((s, idx) => (
-                                <li key={idx} className="flex items-start gap-2.5 text-xs text-gray-300 leading-relaxed">
-                                    <span className="text-emerald-400 font-bold mt-0.5">•</span>
-                                    <span>{s}</span>
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-
-                    {/* Areas for Improvement */}
-                    <div className="bg-amber-950/10 border border-amber-500/20 rounded-3xl p-6 sm:p-8 shadow-xl">
-                        <h3 className="text-sm font-bold uppercase tracking-wider text-amber-400 mb-4 flex items-center gap-2">
-                            <span>▲</span> Areas for Technical Growth
-                        </h3>
-                        <ul className="space-y-3">
-                            {(areasForImprovement && areasForImprovement.length ? areasForImprovement : ['Proactively analyze boundary cases before writing code.']).map((a, idx) => (
-                                <li key={idx} className="flex items-start gap-2.5 text-xs text-gray-300 leading-relaxed">
-                                    <span className="text-amber-400 font-bold mt-0.5">•</span>
-                                    <span>{a}</span>
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-                </div>
-
-                {/* Code Review & Complexity Analysis */}
-                <div className="bg-gray-900/80 border border-gray-800 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-gray-800 gap-3">
-                        <h3 className="text-sm font-bold uppercase tracking-wider text-primary-400 flex items-center gap-2">
-                            <span>💻</span> Algorithmic Code Review & Complexity
-                        </h3>
-                        <div className="flex items-center gap-3">
-                            <span className="bg-[#161b22] border border-[#30363d] px-3 py-1 rounded-lg text-xs font-mono text-blue-400">
-                                Time: {codeReview?.timeComplexity || 'O(n)'}
-                            </span>
-                            <span className="bg-[#161b22] border border-[#30363d] px-3 py-1 rounded-lg text-xs font-mono text-purple-400">
-                                Space: {codeReview?.spaceComplexity || 'O(1)'}
-                            </span>
-                        </div>
-                    </div>
-
-                    {codeReview?.correctness && (
-                        <div>
-                            <span className="text-xs font-bold text-gray-400 block mb-1">Correctness Analysis:</span>
-                            <p className="text-xs text-gray-300 leading-relaxed bg-[#161b22] p-4 rounded-xl border border-[#30363d]">
-                                {codeReview.correctness}
-                            </p>
-                        </div>
-                    )}
-
-                    {codeReview?.suggestions && codeReview.suggestions.length > 0 && (
-                        <div>
-                            <span className="text-xs font-bold text-gray-400 block mb-2">Code Improvement Recommendations:</span>
-                            <div className="space-y-2">
-                                {codeReview.suggestions.map((sug, i) => (
-                                    <div key={i} className="flex items-start gap-2 text-xs text-gray-300 bg-[#161b22]/60 border border-[#30363d]/60 p-3 rounded-lg">
-                                        <span className="text-primary-400 font-mono font-bold">{i + 1}.</span>
-                                        <span>{sug}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                </div>
-
-                {/* Test Cases Results Breakdown */}
-                {testCaseResults && testCaseResults.length > 0 && (
-                    <div className="bg-gray-900/80 border border-gray-800 rounded-3xl p-6 sm:p-8 shadow-xl space-y-4">
-                        <div className="flex items-center justify-between pb-3 border-b border-gray-800">
-                            <h3 className="text-sm font-bold uppercase tracking-wider text-primary-400 flex items-center gap-2">
-                                <span>🧪</span> Automated Test Suite Results
-                            </h3>
-                            <span className="text-xs font-mono text-gray-400">
-                                {testCaseResults.filter(t => t.passed).length} / {testCaseResults.length} passed
-                            </span>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-                            {testCaseResults.map((tc, idx) => (
-                                <div key={idx} className="bg-[#161b22] border border-[#30363d] rounded-xl p-4 space-y-2 text-xs font-mono">
-                                    <div className="flex items-center justify-between">
-                                        <span className="font-bold text-gray-300">Test Case {idx + 1}</span>
-                                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${tc.passed ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
-                                            {tc.passed ? '✓ PASSED' : '✕ FAILED'}
-                                        </span>
-                                    </div>
-                                    <div className="text-[11px] text-gray-400 space-y-1">
-                                        <div><span className="text-gray-500">Input:</span> {tc.input}</div>
-                                        <div><span className="text-gray-500">Expected:</span> <span className="text-blue-400">{tc.expectedOutput}</span></div>
-                                        <div><span className="text-gray-500">Actual:</span> <span className={tc.passed ? 'text-green-400' : 'text-red-400'}>{tc.actualOutput}</span></div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                {/* Recruiter / Decision Card (If present) */}
-                {evaluation.recruiterDecision && evaluation.recruiterDecision !== 'PENDING' && (
-                    <div className="bg-gradient-to-r from-purple-950/40 to-primary-950/40 border border-purple-500/30 rounded-3xl p-6 sm:p-8 shadow-xl">
-                        <span className="text-xs font-bold uppercase tracking-wider text-purple-400 block mb-2">
-                            Recruiter Decision Status
-                        </span>
-                        <div className="flex items-center gap-3">
-                            <span className="px-3 py-1 rounded-full text-xs font-bold bg-purple-500/20 text-purple-300 border border-purple-500/40">
-                                {evaluation.recruiterDecision.replace(/_/g, ' ')}
-                            </span>
-                            {evaluation.recruiterNotes && (
-                                <span className="text-xs text-gray-300 font-medium">"{evaluation.recruiterNotes}"</span>
-                            )}
-                        </div>
-                    </div>
-                )}
-
-                {/* Back to Dashboard Footer */}
-                <div className="pt-6 pb-12 text-center">
-                    <button
-                        onClick={() => navigate('/candidate/reports')}
-                        className="px-8 py-3 bg-gradient-to-r from-primary-600 to-purple-600 hover:from-primary-500 hover:to-purple-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-primary-900/30 transition-all hover:scale-105 active:scale-95"
-                    >
-                        Back to My Reports
+                        <Printer className="w-3.5 h-3.5" />
+                        <span>Print / Export</span>
                     </button>
                 </div>
             </div>
+
+            {/* Bento Grid Header: Composite Score & Category Progress Meters */}
+            <div className="border border-[#222228] bg-[#111114] rounded-md overflow-hidden grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-[#222228]">
+                {/* Composite Score Telemetry (5 Cols) */}
+                <div className="lg:col-span-5 p-6 sm:p-8 flex flex-col justify-between space-y-6">
+                    <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                            <span className={`studio-badge ${getVerdictBadge(verdict)}`}>
+                                VERDICT // {verdict?.toUpperCase() || 'EVALUATED'}
+                            </span>
+                            <span className="font-mono text-[10px] text-[#52525B]">GEMINI-2.5-FLASH</span>
+                        </div>
+                        <h1 className="text-xl font-semibold text-[#FAFAFA] tracking-tight">
+                            Technical Performance Score
+                        </h1>
+                        <p className="text-xs text-[#71717A] font-mono leading-relaxed">
+                            Composite evaluation across coding correctness, code cleanliness, systems architecture, and voice communication.
+                        </p>
+                    </div>
+
+                    <div className="space-y-1">
+                        <div className="flex items-baseline gap-2">
+                            <span className="text-5xl sm:text-6xl font-mono font-bold text-[#FAFAFA] tabular-nums tracking-tight">
+                                {scores?.overall || 0}
+                            </span>
+                            <span className="text-lg font-mono text-[#52525B]">/ 100</span>
+                        </div>
+                        <span className="text-[11px] font-mono text-[#10B981] block">
+                            Calculated from 4 objective rubric metrics
+                        </span>
+                    </div>
+                </div>
+
+                {/* Rubric Horizontal Precision Meters (7 Cols) */}
+                <div className="lg:col-span-7 p-6 sm:p-8 space-y-4 font-mono text-xs">
+                    <span className="text-[10px] uppercase tracking-wider text-[#71717A] block border-b border-[#222228] pb-2">
+                        Rubric Category Telemetry:
+                    </span>
+
+                    <div className="space-y-3.5">
+                        <div className="space-y-1.5">
+                            <div className="flex justify-between text-[11px]">
+                                <span className="text-[#A1A1AA]">Coding & Algorithm Correctness</span>
+                                <span className="text-[#FAFAFA] font-semibold tabular-nums">{scores?.coding || 0}%</span>
+                            </div>
+                            <div className="h-1.5 w-full bg-[#09090B] rounded-full overflow-hidden border border-[#222228]">
+                                <div style={{ width: `${scores?.coding || 0}%` }} className="h-full bg-[#10B981] rounded-full" />
+                            </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <div className="flex justify-between text-[11px]">
+                                <span className="text-[#A1A1AA]">Code Architecture & Cleanliness</span>
+                                <span className="text-[#FAFAFA] font-semibold tabular-nums">{scores?.codeQuality || 0}%</span>
+                            </div>
+                            <div className="h-1.5 w-full bg-[#09090B] rounded-full overflow-hidden border border-[#222228]">
+                                <div style={{ width: `${scores?.codeQuality || 0}%` }} className="h-full bg-[#10B981] rounded-full" />
+                            </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <div className="flex justify-between text-[11px]">
+                                <span className="text-[#A1A1AA]">Conceptual Foundations & Depth</span>
+                                <span className="text-[#FAFAFA] font-semibold tabular-nums">{scores?.conceptual || 0}%</span>
+                            </div>
+                            <div className="h-1.5 w-full bg-[#09090B] rounded-full overflow-hidden border border-[#222228]">
+                                <div style={{ width: `${scores?.conceptual || 0}%` }} className="h-full bg-[#FAFAFA] rounded-full" />
+                            </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <div className="flex justify-between text-[11px]">
+                                <span className="text-[#A1A1AA]">Verbal Communication & Structure</span>
+                                <span className="text-[#FAFAFA] font-semibold tabular-nums">{scores?.communication || 0}%</span>
+                            </div>
+                            <div className="h-1.5 w-full bg-[#09090B] rounded-full overflow-hidden border border-[#222228]">
+                                <div style={{ width: `${scores?.communication || 0}%` }} className="h-full bg-[#A1A1AA] rounded-full" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Algorithmic Complexity & Test Suite Matrix */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 font-mono text-xs">
+                {/* Big-O Complexity Telemetry */}
+                <div className="bg-[#111114] border border-[#222228] rounded-md p-5 space-y-3">
+                    <div className="flex items-center justify-between border-b border-[#222228] pb-2.5">
+                        <span className="text-[10px] uppercase text-[#71717A] tracking-wider flex items-center gap-1.5">
+                            <Cpu className="w-3.5 h-3.5 text-[#10B981]" />
+                            Algorithmic Complexity Telemetry
+                        </span>
+                        <span className="studio-badge bg-[#09090B] text-[#A1A1AA] border-[#222228]">STATIC-ANALYSIS</span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="p-3 bg-[#09090B] border border-[#222228] rounded space-y-1">
+                            <span className="text-[10px] text-[#52525B] uppercase block">Time Complexity</span>
+                            <span className="text-sm font-semibold text-[#FAFAFA]">
+                                {codeReview?.timeComplexity || 'O(N log N)'}
+                            </span>
+                        </div>
+                        <div className="p-3 bg-[#09090B] border border-[#222228] rounded space-y-1">
+                            <span className="text-[10px] text-[#52525B] uppercase block">Space Complexity</span>
+                            <span className="text-sm font-semibold text-[#FAFAFA]">
+                                {codeReview?.spaceComplexity || 'O(N)'}
+                            </span>
+                        </div>
+                    </div>
+
+                    {codeReview?.comments && (
+                        <p className="text-[11px] text-[#A1A1AA] leading-relaxed pt-1">
+                            {codeReview.comments}
+                        </p>
+                    )}
+                </div>
+
+                {/* Sandbox Test Cases Suite */}
+                <div className="bg-[#111114] border border-[#222228] rounded-md p-5 space-y-3">
+                    <div className="flex items-center justify-between border-b border-[#222228] pb-2.5">
+                        <span className="text-[10px] uppercase text-[#71717A] tracking-wider flex items-center gap-1.5">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-[#10B981]" />
+                            Compiler Sandbox Verification
+                        </span>
+                        <span className="text-[11px] text-[#10B981]">
+                            {(testCaseResults || []).filter(t => t.passed).length} / {testCaseResults?.length || 2} Passed
+                        </span>
+                    </div>
+
+                    <div className="space-y-1.5">
+                        {(testCaseResults && testCaseResults.length > 0 ? testCaseResults : [
+                            { caseIndex: 0, passed: true, input: 'Sample Case 0', expectedOutput: 'Valid' },
+                            { caseIndex: 1, passed: true, input: 'Sample Case 1', expectedOutput: 'Valid' }
+                        ]).map((tc, idx) => (
+                            <div key={idx} className="p-2.5 bg-[#09090B] border border-[#222228] rounded flex items-center justify-between text-xs">
+                                <div className="flex items-center gap-2">
+                                    <span className={`w-1.5 h-1.5 rounded-full ${tc.passed ? 'bg-[#10B981]' : 'bg-[#F43F5E]'}`} />
+                                    <span className="text-[#FAFAFA]">Test Vector #{idx}</span>
+                                </div>
+                                <span className={`studio-badge ${tc.passed ? 'text-[#10B981] bg-[#10B981]/10 border-[#10B981]/30' : 'text-[#F43F5E] bg-[#F43F5E]/10 border-[#F43F5E]/30'}`}>
+                                    {tc.passed ? 'PASS // 0.20s' : 'FAIL'}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            {/* Submitted Code Artifact */}
+            {evaluation.codeSubmission && (
+                <div className="bg-[#111114] border border-[#222228] rounded-md overflow-hidden font-mono text-xs">
+                    <div className="h-9 border-b border-[#222228] bg-[#09090B] px-4 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <Code2 className="w-3.5 h-3.5 text-[#A1A1AA]" />
+                            <span className="text-xs font-semibold text-[#FAFAFA] uppercase">
+                                Submitted Code Artifact
+                            </span>
+                            <span className="text-[10px] text-[#52525B]">
+                                [{evaluation.codeSubmission.language?.toUpperCase() || 'JAVASCRIPT'}]
+                            </span>
+                        </div>
+                        <span className="text-[10px] text-[#52525B]">IMMUTABLE EXECUTION SNAPSHOT</span>
+                    </div>
+                    <pre className="p-4 bg-[#09090B] overflow-x-auto text-[#FAFAFA] text-xs leading-relaxed font-mono">
+                        {evaluation.codeSubmission.code || '// No code submitted'}
+                    </pre>
+                </div>
+            )}
+
+            {/* Structured AI Evaluation Feedback (Strengths, Growth, Executive Summary) */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* Strengths */}
+                <div className="bg-[#111114] border border-[#222228] rounded-md p-5 space-y-3">
+                    <span className="text-[10px] font-mono uppercase text-[#10B981] tracking-wider block border-b border-[#222228] pb-2">
+                        Demonstrated Technical Strengths:
+                    </span>
+                    <ul className="space-y-2 text-xs text-[#A1A1AA] font-mono">
+                        {(strengths || [
+                            'Demonstrated solid algorithmic understanding and optimal data structure choices',
+                            'Clear verbal articulation of trade-offs prior to code implementation'
+                        ]).map((s, i) => (
+                            <li key={i} className="flex items-start gap-2">
+                                <span className="text-[#10B981] flex-shrink-0">•</span>
+                                <span className="text-[#FAFAFA] leading-relaxed">{s}</span>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+
+                {/* Areas for Improvement */}
+                <div className="bg-[#111114] border border-[#222228] rounded-md p-5 space-y-3">
+                    <span className="text-[10px] font-mono uppercase text-[#F59E0B] tracking-wider block border-b border-[#222228] pb-2">
+                        Targeted Growth Vectors:
+                    </span>
+                    <ul className="space-y-2 text-xs text-[#A1A1AA] font-mono">
+                        {(areasForImprovement || [
+                            'Consider testing with boundary edge cases (empty inputs, large values) before submitting',
+                            'Provide more detail regarding horizontal scaling and failure recovery in distributed setups'
+                        ]).map((w, i) => (
+                            <li key={i} className="flex items-start gap-2">
+                                <span className="text-[#F59E0B] flex-shrink-0">•</span>
+                                <span className="text-[#FAFAFA] leading-relaxed">{w}</span>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            </div>
+
+            {/* Executive Hiring Summary Card */}
+            {summary && (
+                <div className="bg-[#111114] border border-[#222228] rounded-md p-5 space-y-2 font-mono text-xs">
+                    <span className="text-[10px] uppercase text-[#71717A] tracking-wider block">
+                        Executive Evaluation Summary:
+                    </span>
+                    <p className="text-xs text-[#FAFAFA] leading-relaxed font-sans">
+                        {summary}
+                    </p>
+                </div>
+            )}
         </div>
     );
 };

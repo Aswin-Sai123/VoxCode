@@ -1,6 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import api from '../../services/api';
+import { 
+    Terminal, 
+    ArrowRight, 
+    Copy, 
+    Check, 
+    ChevronLeft, 
+    AlertCircle, 
+    CheckCircle2, 
+    Code2, 
+    Layers,
+    FileCode,
+    Sliders
+} from 'lucide-react';
 
 const CreateAssessment = () => {
     const navigate = useNavigate();
@@ -9,8 +22,8 @@ const CreateAssessment = () => {
     const [title, setTitle] = useState('');
     const [roleId, setRoleId] = useState('');
     const [skillInput, setSkillInput] = useState('');
-    const [skills, setSkills] = useState([]);
-    const [experienceLevel, setExperienceLevel] = useState('Entry');
+    const [skills, setSkills] = useState(['React', 'TypeScript', 'Node.js', 'Algorithms']);
+    const [experienceLevel, setExperienceLevel] = useState('Mid');
     const [durationMinutes, setDurationMinutes] = useState(30);
     const [blueprint, setBlueprint] = useState('');
 
@@ -18,7 +31,8 @@ const CreateAssessment = () => {
     const [roles, setRoles] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-    const [createdCode, setCreatedCode] = useState(''); // after success
+    const [createdCode, setCreatedCode] = useState('');
+    const [createdId, setCreatedId] = useState('');
     const [copied, setCopied] = useState(false);
 
     // fetch company's roles on mount
@@ -28,6 +42,9 @@ const CreateAssessment = () => {
                 const res = await api.get('/company/roles');
                 if (res.data.success) {
                     setRoles(res.data.data);
+                    if (res.data.data.length > 0 && !roleId) {
+                        setRoleId(res.data.data[0]._id);
+                    }
                 }
             } catch (err) {
                 console.error('Failed to fetch roles', err);
@@ -47,22 +64,20 @@ const CreateAssessment = () => {
         }
     };
 
-    // remove a skill tag
     const removeSkill = (skillToRemove) => {
         setSkills(skills.filter(s => s !== skillToRemove));
     };
 
-    // submit the form
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
 
         if (!title.trim()) {
-            setError('Please enter an assessment title');
+            setError('Please specify an assessment specification title');
             return;
         }
         if (!roleId) {
-            setError('Please select a role');
+            setError('Please select an active role profile');
             return;
         }
 
@@ -79,9 +94,10 @@ const CreateAssessment = () => {
 
             if (res.data.success) {
                 setCreatedCode(res.data.data.assessmentCode);
+                setCreatedId(res.data.data._id);
             }
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to create assessment');
+            setError(err.response?.data?.message || 'Failed to initialize assessment specification');
         } finally {
             setLoading(false);
         }
@@ -93,37 +109,64 @@ const CreateAssessment = () => {
         setTimeout(() => setCopied(false), 2000);
     };
 
-    // SUCCESS screen — show the generated code
+    const selectedRoleObj = roles.find(r => r._id === roleId);
+
+    // SUCCESS Screen
     if (createdCode) {
         return (
-            <div className="max-w-xl mx-auto px-4 py-16 text-center">
-                <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-10">
-                    <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                        <svg className="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                    </div>
-                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Assessment Created!</h2>
-                    <p className="text-gray-500 mb-8">Share this code with your candidates so they can join.</p>
-
-                    <div className="bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl p-6 mb-6">
-                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Assessment Code</p>
-                        <p className="text-3xl font-mono font-bold text-primary-600 tracking-widest">{createdCode}</p>
+            <div className="flex-1 flex items-center justify-center p-6 bg-[#09090B]">
+                <div className="max-w-md w-full bg-[#111114] border border-[#222228] rounded-md p-8 text-center space-y-6 font-mono">
+                    <div className="w-10 h-10 rounded bg-[#10B981]/10 border border-[#10B981]/30 flex items-center justify-center mx-auto text-[#10B981]">
+                        <CheckCircle2 className="w-5 h-5" />
                     </div>
 
-                    <div className="flex gap-3 justify-center">
-                        <button
-                            onClick={copyCode}
-                            className="px-6 py-3 bg-dark text-white font-bold rounded-xl hover:bg-gray-800 transition-all shadow-lg"
+                    <div className="space-y-1">
+                        <span className="studio-badge bg-[#10B981]/10 text-[#10B981] border-[#10B981]/30">
+                            SPEC GENERATED // LIVE
+                        </span>
+                        <h2 className="text-xl font-semibold text-[#FAFAFA] font-sans tracking-tight">
+                            Assessment Successfully Deployed
+                        </h2>
+                        <p className="text-xs text-[#71717A]">
+                            Share the unique access code or direct magic invite link with your candidates.
+                        </p>
+                    </div>
+
+                    {/* Access Code Box */}
+                    <div className="p-4 bg-[#09090B] border border-[#222228] rounded space-y-2">
+                        <span className="text-[10px] uppercase text-[#52525B] tracking-wider block">
+                            Candidate Assessment Access Code:
+                        </span>
+                        <div className="flex items-center justify-center gap-2">
+                            <span className="text-xl sm:text-2xl font-bold tracking-widest text-[#FAFAFA]">
+                                {createdCode}
+                            </span>
+                            <button
+                                onClick={copyCode}
+                                className="studio-btn-secondary p-1.5"
+                                title="Copy Access Code"
+                            >
+                                {copied ? <Check className="w-3.5 h-3.5 text-[#10B981]" /> : <Copy className="w-3.5 h-3.5" />}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="space-y-2 pt-2">
+                        {createdId && (
+                            <Link
+                                to={`/company/assessment/${createdId}/results`}
+                                className="studio-btn-primary w-full py-2.5 text-xs font-semibold"
+                            >
+                                <span>Open Assessment Leaderboard</span>
+                                <ArrowRight className="w-3.5 h-3.5" />
+                            </Link>
+                        )}
+                        <Link
+                            to="/company/dashboard"
+                            className="studio-btn-secondary w-full py-2 text-xs"
                         >
-                            {copied ? '✓ Copied!' : 'Copy Code'}
-                        </button>
-                        <button
-                            onClick={() => navigate('/company/dashboard')}
-                            className="px-6 py-3 bg-gray-100 text-gray-700 font-bold rounded-xl hover:bg-gray-200 transition-all"
-                        >
-                            Back to Dashboard
-                        </button>
+                            Return to Recruiter Pipeline
+                        </Link>
                     </div>
                 </div>
             </div>
@@ -131,140 +174,225 @@ const CreateAssessment = () => {
     }
 
     return (
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-            <div className="mb-8">
-                <button 
-                    onClick={() => navigate('/company/dashboard')}
-                    className="text-sm text-gray-500 hover:text-gray-700 font-medium mb-4 inline-flex items-center"
+        <div className="flex-1 bg-[#09090B] text-[#FAFAFA] p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full space-y-6">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-4 border-b border-[#222228]">
+                <Link
+                    to="/company/dashboard"
+                    className="inline-flex items-center gap-1.5 text-xs font-mono text-[#71717A] hover:text-[#FAFAFA] transition-colors"
                 >
-                    ← Back to Dashboard
-                </button>
-                <h2 className="text-2xl font-bold text-gray-900">Create New Assessment</h2>
-                <p className="mt-1 text-sm text-gray-500">Configure the interview assessment for your candidates.</p>
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                    <span>Back to Pipeline</span>
+                </Link>
+
+                <div className="flex items-center gap-2">
+                    <span className="studio-badge bg-[#111114] text-[#A1A1AA] border-[#222228]">
+                        SPEC-BUILDER v2.4
+                    </span>
+                </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 space-y-6">
-                {error && (
-                    <div className="bg-red-50 border border-red-100 text-red-600 text-sm p-3 rounded-lg font-medium">
-                        {error}
-                    </div>
-                )}
-
-                {/* Assessment Title */}
-                <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">Assessment Title</label>
-                    <input
-                        type="text"
-                        value={title}
-                        onChange={(e) => setTitle(e.target.value)}
-                        placeholder="e.g. Frontend Developer Interview - Round 1"
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-gray-50 focus:bg-white transition-all text-sm"
-                    />
+            {/* Error Message */}
+            {error && (
+                <div className="p-3 bg-[#F43F5E]/10 border border-[#F43F5E]/30 rounded-md text-xs font-mono text-[#F43F5E] flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                    <span>{error}</span>
                 </div>
+            )}
 
-                {/* Select Role */}
-                <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">Select Role</label>
-                    {roles.length === 0 ? (
-                        <p className="text-sm text-gray-400 italic">
-                            No roles found. <button type="button" onClick={() => navigate('/company/dashboard')} className="text-primary-600 underline">Create a role first</button>.
-                        </p>
-                    ) : (
-                        <select
-                            value={roleId}
-                            onChange={(e) => setRoleId(e.target.value)}
-                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-gray-50 focus:bg-white transition-all text-sm"
+            {/* Two-Column Specification Studio */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                {/* Left Column: Configuration Form (7 Cols) */}
+                <div className="lg:col-span-7 bg-[#111114] border border-[#222228] rounded-md p-6 space-y-6 font-mono text-xs">
+                    <div className="flex items-center justify-between border-b border-[#222228] pb-3">
+                        <span className="font-semibold uppercase text-[#FAFAFA] tracking-wider">
+                            Assessment Specification Parameters
+                        </span>
+                        <span className="text-[10px] text-[#52525B]">FORM // SPEC.CONF</span>
+                    </div>
+
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        <div className="space-y-1.5">
+                            <label className="text-[11px] uppercase text-[#A1A1AA] block">
+                                Assessment Title:
+                            </label>
+                            <input
+                                type="text"
+                                required
+                                value={title}
+                                onChange={(e) => setTitle(e.target.value)}
+                                placeholder="e.g. Senior Frontend Polyglot & AI Specialist"
+                                className="studio-input"
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                                <label className="text-[11px] uppercase text-[#A1A1AA] block">
+                                    Target Role Archetype:
+                                </label>
+                                <select
+                                    value={roleId}
+                                    onChange={(e) => setRoleId(e.target.value)}
+                                    className="studio-input font-mono"
+                                >
+                                    {roles.length === 0 ? (
+                                        <option value="">No roles defined yet</option>
+                                    ) : (
+                                        roles.map(r => (
+                                            <option key={r._id} value={r._id}>{r.title}</option>
+                                        ))
+                                    )}
+                                </select>
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <label className="text-[11px] uppercase text-[#A1A1AA] block">
+                                    Seniority Expectation:
+                                </label>
+                                <select
+                                    value={experienceLevel}
+                                    onChange={(e) => setExperienceLevel(e.target.value)}
+                                    className="studio-input font-mono"
+                                >
+                                    <option value="Entry">Entry / Junior Level</option>
+                                    <option value="Mid">Mid Level (2-4 yrs)</option>
+                                    <option value="Senior">Senior Level (5+ yrs)</option>
+                                    <option value="Staff">Staff / Principal Level</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <div className="flex items-center justify-between">
+                                <label className="text-[11px] uppercase text-[#A1A1AA]">
+                                    Allocated Duration:
+                                </label>
+                                <span className="text-[11px] text-[#FAFAFA] tabular-nums">{durationMinutes} Minutes</span>
+                            </div>
+                            <input
+                                type="range"
+                                min="15"
+                                max="60"
+                                step="5"
+                                value={durationMinutes}
+                                onChange={(e) => setDurationMinutes(Number(e.target.value))}
+                                className="w-full accent-[#FAFAFA] bg-[#09090B]"
+                            />
+                            <div className="flex justify-between text-[10px] text-[#52525B]">
+                                <span>15m (Rapid)</span>
+                                <span>30m (Standard)</span>
+                                <span>60m (Deep Dive)</span>
+                            </div>
+                        </div>
+
+                        {/* Competency Skills Input */}
+                        <div className="space-y-1.5">
+                            <label className="text-[11px] uppercase text-[#A1A1AA] block">
+                                Evaluated Competencies & Languages:
+                            </label>
+                            <input
+                                type="text"
+                                value={skillInput}
+                                onChange={(e) => setSkillInput(e.target.value)}
+                                onKeyDown={handleSkillKeyDown}
+                                placeholder="Type skill or language and press Enter (e.g. Python, React, C++)"
+                                className="studio-input"
+                            />
+                            <div className="flex flex-wrap gap-1.5 pt-1.5">
+                                {skills.map((skill, index) => (
+                                    <span
+                                        key={index}
+                                        className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-[#18181C] border border-[#222228] text-[11px] text-[#FAFAFA]"
+                                    >
+                                        <span>{skill}</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => removeSkill(skill)}
+                                            className="text-[#71717A] hover:text-[#F43F5E]"
+                                        >
+                                            ×
+                                        </button>
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Interviewer Blueprint Guidance */}
+                        <div className="space-y-1.5">
+                            <label className="text-[11px] uppercase text-[#A1A1AA] block">
+                                Autonomous Interviewer Blueprint & Prompt:
+                            </label>
+                            <textarea
+                                rows={3}
+                                value={blueprint}
+                                onChange={(e) => setBlueprint(e.target.value)}
+                                placeholder="Focus deeply on distributed systems architecture, state management trade-offs, and Big-O efficiency."
+                                className="studio-input resize-none"
+                            />
+                        </div>
+
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="studio-btn-primary w-full py-2.5 text-xs font-semibold"
                         >
-                            <option value="">-- Select a role --</option>
-                            {roles.map(role => (
-                                <option key={role._id} value={role._id}>{role.title}</option>
-                            ))}
-                        </select>
-                    )}
+                            {loading ? (
+                                <span className="flex items-center gap-2">
+                                    <span className="w-3.5 h-3.5 border-2 border-[#09090B] border-t-transparent rounded-full animate-spin"></span>
+                                    <span>Deploying Assessment Manifest...</span>
+                                </span>
+                            ) : (
+                                <span className="flex items-center gap-1.5">
+                                    <span>Deploy Assessment Specification</span>
+                                    <ArrowRight className="w-3.5 h-3.5" />
+                                </span>
+                            )}
+                        </button>
+                    </form>
                 </div>
 
-                {/* Skills Tags */}
-                <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">Required Skills</label>
-                    <div className="flex flex-wrap gap-2 mb-2">
-                        {skills.map((skill, index) => (
-                            <span key={index} className="inline-flex items-center gap-1 bg-primary-50 text-primary-700 text-xs font-bold px-3 py-1.5 rounded-full">
-                                {skill}
-                                <button type="button" onClick={() => removeSkill(skill)} className="text-primary-400 hover:text-primary-700 ml-1">
-                                    ×
-                                </button>
-                            </span>
-                        ))}
-                    </div>
-                    <input
-                        type="text"
-                        value={skillInput}
-                        onChange={(e) => setSkillInput(e.target.value)}
-                        onKeyDown={handleSkillKeyDown}
-                        placeholder="Type a skill and press Enter (e.g. JavaScript)"
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-gray-50 focus:bg-white transition-all text-sm"
-                    />
-                </div>
+                {/* Right Column: Sticky Live Specification Manifest Preview (5 Cols) */}
+                <div className="lg:col-span-5 space-y-4">
+                    <div className="bg-[#111114] border border-[#222228] rounded-md p-5 space-y-3 font-mono text-xs sticky top-16">
+                        <div className="flex items-center justify-between border-b border-[#222228] pb-3">
+                            <div className="flex items-center gap-2">
+                                <FileCode className="w-3.5 h-3.5 text-[#10B981]" />
+                                <span className="font-semibold uppercase text-[#FAFAFA]">
+                                    Live Specification Manifest
+                                </span>
+                            </div>
+                            <span className="text-[10px] text-[#10B981]">AUTONOMOUS-SYNC</span>
+                        </div>
 
-                {/* Experience Level + Duration — side by side */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-2">Experience Level</label>
-                        <select
-                            value={experienceLevel}
-                            onChange={(e) => setExperienceLevel(e.target.value)}
-                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-gray-50 focus:bg-white transition-all text-sm"
-                        >
-                            <option value="Entry">Entry Level</option>
-                            <option value="Mid">Mid Level</option>
-                            <option value="Senior">Senior Level</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-2">Duration</label>
-                        <select
-                            value={durationMinutes}
-                            onChange={(e) => setDurationMinutes(Number(e.target.value))}
-                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-gray-50 focus:bg-white transition-all text-sm"
-                        >
-                            <option value={15}>15 minutes</option>
-                            <option value={30}>30 minutes</option>
-                            <option value={45}>45 minutes</option>
-                            <option value={60}>60 minutes</option>
-                            <option value={90}>90 minutes</option>
-                        </select>
+                        <pre className="p-3 bg-[#09090B] border border-[#222228] rounded text-[11px] text-[#A1A1AA] overflow-x-auto leading-relaxed">
+{`# VoxCode Autonomous Assessment Manifest
+spec_version: "2.4.0"
+title: "${title || 'Untitled Assessment'}"
+role_archetype: "${selectedRoleObj?.title || 'General Engineering'}"
+seniority: "${experienceLevel}"
+time_limit_seconds: ${durationMinutes * 60}
+evaluation_engine: "gemini-2.5-flash"
+compilers:
+  - "javascript (node 24)"
+  - "python 3 (3.14)"
+  - "c++ (gcc 6.3)"
+  - "java (openjdk 24)"
+skills:
+${skills.map(s => `  - "${s}"`).join('\n')}
+blueprint_directive: >
+  ${blueprint ? blueprint.replace(/\n/g, ' ') : 'Assess foundational problem solving, code clarity, and edge cases.'}
+`}
+                        </pre>
+
+                        <div className="text-[10px] text-[#52525B] space-y-1 pt-1">
+                            <span className="text-[#71717A] uppercase block">Security & Policy:</span>
+                            <p>• Code is executed in native sub-second process isolation.</p>
+                            <p>• Audio transcriptions scored across 4 dimensional rubrics.</p>
+                        </div>
                     </div>
                 </div>
-
-                {/* Interview Blueprint */}
-                <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">
-                        Interview Blueprint
-                        <span className="text-gray-400 font-normal ml-1">(optional)</span>
-                    </label>
-                    <p className="text-xs text-gray-400 mb-2">
-                        Paste or type your interview guide here — topics to cover, expected depth, focus areas, sample questions, etc.
-                    </p>
-                    <textarea
-                        value={blueprint}
-                        onChange={(e) => setBlueprint(e.target.value)}
-                        rows={8}
-                        placeholder={"e.g.\n- Ask about React hooks (useState, useEffect, useContext)\n- Test understanding of closures and event loop\n- One medium-level coding problem on arrays\n- Ask about REST API design basics\n- Focus more on practical knowledge than theory"}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-gray-50 focus:bg-white transition-all text-sm font-mono resize-y"
-                    />
-                </div>
-
-                {/* Submit */}
-                <div className="pt-4">
-                    <button
-                        type="submit"
-                        disabled={loading}
-                        className="w-full py-3.5 bg-dark text-white font-bold rounded-xl hover:bg-gray-800 transition-all shadow-lg shadow-gray-900/20 disabled:opacity-60 disabled:cursor-not-allowed"
-                    >
-                        {loading ? 'Creating...' : 'Create Assessment & Generate Code'}
-                    </button>
-                </div>
-            </form>
+            </div>
         </div>
     );
 };

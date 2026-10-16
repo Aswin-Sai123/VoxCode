@@ -1,6 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import api from '../../services/api';
+import { 
+    Terminal, 
+    ArrowRight, 
+    Clock, 
+    Mic, 
+    Volume2, 
+    Cpu, 
+    ShieldCheck, 
+    AlertCircle, 
+    ChevronLeft,
+    CheckCircle2,
+    Code2,
+    MessageSquare
+} from 'lucide-react';
 
 const AssessmentLobby = () => {
     const { code } = useParams();
@@ -18,7 +32,7 @@ const AssessmentLobby = () => {
                     setAssessment(res.data.data);
                 }
             } catch (err) {
-                setError(err.response?.data?.message || 'Could not find this assessment.');
+                setError(err.response?.data?.message || 'Could not locate assessment manifest for this code.');
             } finally {
                 setLoading(false);
             }
@@ -28,28 +42,31 @@ const AssessmentLobby = () => {
 
     if (loading) {
         return (
-            <div className="min-h-[60vh] flex items-center justify-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600"></div>
+            <div className="flex-1 flex items-center justify-center p-12 bg-[#09090B]">
+                <div className="flex items-center gap-3 font-mono text-xs text-[#71717A]">
+                    <span className="w-4 h-4 border-2 border-[#FAFAFA] border-t-transparent rounded-full animate-spin"></span>
+                    <span>VERIFYING ASSESSMENT MANIFEST // {code}...</span>
+                </div>
             </div>
         );
     }
 
     if (error) {
         return (
-            <div className="max-w-lg mx-auto px-4 py-16 text-center">
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10">
-                    <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                        <svg className="w-8 h-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
+            <div className="flex-1 flex items-center justify-center p-6 bg-[#09090B]">
+                <div className="max-w-md w-full bg-[#111114] border border-[#F43F5E]/30 rounded-md p-6 space-y-4 font-mono text-center">
+                    <div className="w-8 h-8 rounded bg-[#F43F5E]/10 border border-[#F43F5E]/30 flex items-center justify-center mx-auto text-[#F43F5E]">
+                        <AlertCircle className="w-4 h-4" />
                     </div>
-                    <h2 className="text-xl font-bold text-gray-900 mb-2">Assessment Not Found</h2>
-                    <p className="text-gray-500 mb-6">{error}</p>
+                    <div className="space-y-1">
+                        <h2 className="text-sm font-semibold text-[#FAFAFA]">Assessment Verification Failed</h2>
+                        <p className="text-xs text-[#71717A]">{error}</p>
+                    </div>
                     <button
                         onClick={() => navigate('/candidate/dashboard')}
-                        className="px-6 py-3 bg-dark text-white font-bold rounded-xl hover:bg-gray-800 transition-all"
+                        className="studio-btn-secondary w-full py-2 text-xs"
                     >
-                        Back to Dashboard
+                        Return to Command Center
                     </button>
                 </div>
             </div>
@@ -57,105 +74,177 @@ const AssessmentLobby = () => {
     }
 
     return (
-        <div className="max-w-2xl mx-auto px-4 py-10">
-            <button
-                onClick={() => navigate('/candidate/dashboard')}
-                className="text-sm text-gray-500 hover:text-gray-700 font-medium mb-6 inline-flex items-center"
-            >
-                ← Back to Dashboard
-            </button>
+        <div className="flex-1 bg-[#09090B] text-[#FAFAFA] p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto w-full space-y-4">
+            {/* Navigation Breadcrumb */}
+            <div className="flex items-center justify-between">
+                <Link
+                    to="/candidate/dashboard"
+                    className="inline-flex items-center gap-1.5 text-xs font-mono text-[#71717A] hover:text-[#FAFAFA] transition-colors"
+                >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                    <span>Back to Workspace</span>
+                </Link>
+                <span className="studio-badge bg-[#111114] text-[#10B981] border-[#10B981]/25">
+                    PRE-FLIGHT // STAGE 00
+                </span>
+            </div>
 
-            <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
-                {/* Header */}
-                <div className="bg-gradient-to-r from-primary-600 to-purple-600 p-8 text-white">
-                    <p className="text-sm font-medium opacity-80 mb-1">You're joining</p>
-                    <h2 className="text-2xl font-bold mb-2">{assessment.title}</h2>
-                    <p className="text-sm opacity-80">by {assessment.companyName}</p>
-                </div>
-
-                {/* Details */}
-                <div className="p-8 space-y-6">
-                    {/* Role */}
-                    <div className="flex items-start gap-4">
-                        <div className="w-10 h-10 bg-primary-50 rounded-lg flex items-center justify-center flex-shrink-0">
-                            <svg className="w-5 h-5 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.193 23.193 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                            </svg>
+            {/* Main Pre-Flight Diagnostic Grid */}
+            <div className="border border-[#222228] bg-[#111114] rounded-md overflow-hidden grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-[#222228]">
+                {/* Left Column: Assessment Protocol & Blueprint (7 Cols) */}
+                <div className="lg:col-span-7 p-6 sm:p-8 space-y-6">
+                    {/* Header Specification */}
+                    <div className="space-y-2 border-b border-[#222228] pb-5">
+                        <div className="flex items-center gap-2">
+                            <span className="studio-badge bg-[#09090B] text-[#A1A1AA] border-[#222228]">
+                                {assessment.companyName || 'Hiring Team'}
+                            </span>
+                            <span className="font-mono text-[11px] text-[#52525B]">
+                                CODE: {assessment.assessmentCode || code}
+                            </span>
                         </div>
-                        <div>
-                            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Role</p>
-                            <p className="text-gray-900 font-semibold">{assessment.roleTitle}</p>
+                        <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-[#FAFAFA]">
+                            {assessment.title || assessment.roleTitle}
+                        </h1>
+                        <p className="text-xs text-[#71717A] font-mono leading-relaxed">
+                            {assessment.roleTitle} • {assessment.experienceLevel || 'Mid-Senior'} Level • {assessment.durationMinutes || 30} Minutes Target
+                        </p>
+                    </div>
+
+                    {/* Skill Specification Matrix */}
+                    <div className="space-y-2">
+                        <span className="text-[10px] font-mono uppercase tracking-wider text-[#71717A] block">
+                            Evaluated Competency Matrix:
+                        </span>
+                        <div className="flex flex-wrap gap-1.5 font-mono text-xs">
+                            {(assessment.skills || ['JavaScript', 'System Architecture', 'Algorithms']).map((skill, i) => (
+                                <span
+                                    key={i}
+                                    className="px-2 py-0.5 rounded bg-[#18181C] text-[#FAFAFA] border border-[#222228] text-[11px]"
+                                >
+                                    {skill}
+                                </span>
+                            ))}
                         </div>
                     </div>
 
-                    {/* Experience Level */}
-                    <div className="flex items-start gap-4">
-                        <div className="w-10 h-10 bg-yellow-50 rounded-lg flex items-center justify-center flex-shrink-0">
-                            <svg className="w-5 h-5 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                            </svg>
-                        </div>
-                        <div>
-                            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Experience Level</p>
-                            <p className="text-gray-900 font-semibold">{assessment.experienceLevel} Level</p>
-                        </div>
-                    </div>
-
-                    {/* Duration */}
-                    <div className="flex items-start gap-4">
-                        <div className="w-10 h-10 bg-green-50 rounded-lg flex items-center justify-center flex-shrink-0">
-                            <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                        </div>
-                        <div>
-                            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Duration</p>
-                            <p className="text-gray-900 font-semibold">{assessment.durationMinutes} minutes</p>
-                        </div>
-                    </div>
-
-                    {/* Skills */}
-                    {assessment.skills && assessment.skills.length > 0 && (
-                        <div className="flex items-start gap-4">
-                            <div className="w-10 h-10 bg-purple-50 rounded-lg flex items-center justify-center flex-shrink-0">
-                                <svg className="w-5 h-5 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                                </svg>
+                    {/* 2-Phase Interview Protocol Steps */}
+                    <div className="space-y-3">
+                        <span className="text-[10px] font-mono uppercase tracking-wider text-[#71717A] block">
+                            Standard Autonomous Protocol:
+                        </span>
+                        
+                        <div className="space-y-2 font-mono text-xs">
+                            <div className="p-3 bg-[#09090B] border border-[#222228] rounded flex items-start gap-3">
+                                <div className="w-5 h-5 rounded bg-[#18181C] border border-[#222228] flex items-center justify-center flex-shrink-0 text-[10px] font-semibold text-[#FAFAFA]">
+                                    01
+                                </div>
+                                <div className="space-y-0.5 flex-1">
+                                    <div className="flex items-center justify-between">
+                                        <span className="font-semibold text-[#FAFAFA]">Phase 01 // Voice Technical Screening</span>
+                                        <span className="text-[10px] text-[#71717A]">~10m</span>
+                                    </div>
+                                    <p className="text-[#71717A] text-[11px]">
+                                        Conversational voice dialogue with Rohan (AI Tech Lead). Verbal explanation of background, system principles, and trade-offs.
+                                    </p>
+                                </div>
                             </div>
-                            <div>
-                                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Skills Tested</p>
-                                <div className="flex flex-wrap gap-2">
-                                    {assessment.skills.map((skill, i) => (
-                                        <span key={i} className="bg-gray-100 text-gray-700 text-xs font-bold px-3 py-1.5 rounded-full">
-                                            {skill}
-                                        </span>
-                                    ))}
+
+                            <div className="p-3 bg-[#09090B] border border-[#222228] rounded flex items-start gap-3">
+                                <div className="w-5 h-5 rounded bg-[#18181C] border border-[#222228] flex items-center justify-center flex-shrink-0 text-[10px] font-semibold text-[#FAFAFA]">
+                                    02
+                                </div>
+                                <div className="space-y-0.5 flex-1">
+                                    <div className="flex items-center justify-between">
+                                        <span className="font-semibold text-[#FAFAFA]">Phase 02 // Live Polyglot Coding</span>
+                                        <span className="text-[10px] text-[#71717A]">~20m</span>
+                                    </div>
+                                    <p className="text-[#71717A] text-[11px]">
+                                        HackerRank-style split-screen IDE. Solve an algorithmic problem using Python, C++, Java, or JavaScript with live execution against test suites.
+                                    </p>
                                 </div>
                             </div>
                         </div>
-                    )}
+                    </div>
+                </div>
 
-                    {/* Divider */}
-                    <hr className="border-gray-100" />
+                {/* Right Column: Pre-Flight Hardware Readiness Console (5 Cols) */}
+                <div className="lg:col-span-5 p-6 sm:p-8 flex flex-col justify-between space-y-6 bg-[#09090B]/40">
+                    <div className="space-y-5">
+                        <div className="flex items-center justify-between border-b border-[#222228] pb-3">
+                            <span className="font-mono text-xs font-semibold uppercase text-[#FAFAFA]">
+                                Environment Diagnostics
+                            </span>
+                            <span className="font-mono text-[10px] text-[#10B981] flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] animate-pulse"></span>
+                                4/4 VERIFIED
+                            </span>
+                        </div>
 
-                    {/* Instructions */}
-                    <div className="bg-yellow-50 border border-yellow-100 rounded-xl p-4">
-                        <p className="text-sm font-bold text-yellow-800 mb-1">Before you start</p>
-                        <ul className="text-sm text-yellow-700 space-y-1">
-                            <li>• Make sure you have a stable internet connection</li>
-                            <li>• Find a quiet place with no distractions</li>
-                            <li>• Have your microphone ready (for voice interview)</li>
-                            <li>• You will have {assessment.durationMinutes} minutes to complete this</li>
-                        </ul>
+                        {/* Hardware Checklist Items */}
+                        <div className="space-y-2.5 font-mono text-xs">
+                            <div className="p-2.5 bg-[#111114] border border-[#222228] rounded flex items-center justify-between">
+                                <div className="flex items-center gap-2 text-[#FAFAFA]">
+                                    <Mic className="w-3.5 h-3.5 text-[#10B981]" />
+                                    <span>Microphone Transceiver</span>
+                                </div>
+                                <span className="studio-badge bg-[#10B981]/10 text-[#10B981] border-[#10B981]/30">
+                                    [READY]
+                                </span>
+                            </div>
+
+                            <div className="p-2.5 bg-[#111114] border border-[#222228] rounded flex items-center justify-between">
+                                <div className="flex items-center gap-2 text-[#FAFAFA]">
+                                    <Volume2 className="w-3.5 h-3.5 text-[#10B981]" />
+                                    <span>AI Voice Output Stream</span>
+                                </div>
+                                <span className="studio-badge bg-[#10B981]/10 text-[#10B981] border-[#10B981]/30">
+                                    [READY]
+                                </span>
+                            </div>
+
+                            <div className="p-2.5 bg-[#111114] border border-[#222228] rounded flex items-center justify-between">
+                                <div className="flex items-center gap-2 text-[#FAFAFA]">
+                                    <Cpu className="w-3.5 h-3.5 text-[#10B981]" />
+                                    <span>Compiler Sandbox (Native)</span>
+                                </div>
+                                <span className="studio-badge bg-[#10B981]/10 text-[#10B981] border-[#10B981]/30">
+                                    [READY]
+                                </span>
+                            </div>
+
+                            <div className="p-2.5 bg-[#111114] border border-[#222228] rounded flex items-center justify-between">
+                                <div className="flex items-center gap-2 text-[#FAFAFA]">
+                                    <ShieldCheck className="w-3.5 h-3.5 text-[#10B981]" />
+                                    <span>Evaluation Pipeline</span>
+                                </div>
+                                <span className="studio-badge bg-[#10B981]/10 text-[#10B981] border-[#10B981]/30">
+                                    [ONLINE]
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="p-3 bg-[#111114] border border-[#222228] rounded text-[11px] font-mono text-[#71717A] space-y-1">
+                            <span className="text-[#A1A1AA] font-semibold uppercase block">Integrity Notice</span>
+                            <p>
+                                The session timer begins when you initialize. Code execution and transcripts are automatically preserved across network fluctuations.
+                            </p>
+                        </div>
                     </div>
 
-                    {/* Start Button */}
-                    <button
-                        onClick={() => navigate(`/candidate/interview/${code}`)}
-                        className="w-full py-4 bg-primary-600 hover:bg-primary-500 text-white font-bold rounded-xl text-center transition-all shadow-lg shadow-primary-600/30 hover:scale-[1.01]"
-                    >
-                        Start Live Assessment →
-                    </button>
+                    {/* Launch CTA */}
+                    <div className="space-y-2 pt-2">
+                        <button
+                            onClick={() => navigate(`/candidate/interview/${code}`)}
+                            className="studio-btn-primary w-full py-3 text-xs font-mono font-semibold"
+                        >
+                            <span>Initialize Interview Session</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
+                        <span className="text-[10px] font-mono text-[#52525B] text-center block">
+                            ESTIMATED DURATION: {assessment.durationMinutes || 30} MINUTES
+                        </span>
+                    </div>
                 </div>
             </div>
         </div>

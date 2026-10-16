@@ -8,8 +8,9 @@ const connectDB = async () => {
         });
         console.log(`\nMongoDB connected !! DB HOST: ${connectionInstance.connection.host}`);
     } catch (error) {
-        console.log("MONGODB connection FAILED ", error);
-        process.exit(1);
+        console.log("MONGODB connection FAILED: ", error.message);
+        // Retry connection in background without killing the HTTP server process
+        setTimeout(connectDB, 6000);
     }
 }
 

@@ -1,6 +1,7 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
+import { Terminal, Shield, ArrowRight, Activity, Cpu, CheckCircle2, AlertCircle } from 'lucide-react';
 
 const Login = () => {
     const [role, setRole] = useState('CANDIDATE');
@@ -8,7 +9,7 @@ const Login = () => {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
-    
+
     const { login } = useContext(AuthContext);
     const navigate = useNavigate();
     const location = useLocation();
@@ -21,11 +22,10 @@ const Login = () => {
         const errorMsg = params.get('error');
 
         if (errorMsg) {
-            setError('Google login failed. Please try again.');
+            setError('OAuth authentication failed. Please enter credentials directly.');
         } else if (access && refresh) {
             localStorage.setItem('accessToken', access);
             localStorage.setItem('refreshToken', refresh);
-            // Force a hard reload to the dashboard so AuthContext catches the new token
             window.location.href = '/candidate/dashboard';
         }
     }, [location]);
@@ -34,160 +34,237 @@ const Login = () => {
         e.preventDefault();
         setError('');
         setIsSubmitting(true);
-        
+
         try {
             const success = await login(role, email, password);
             if (success) {
                 navigate(role === 'COMPANY' ? '/company/dashboard' : '/candidate/dashboard');
             }
         } catch (err) {
-            setError(err.response?.data?.message || 'Login failed. Please try again.');
+            setError(err.response?.data?.message || 'Authentication failed. Please verify credentials.');
         } finally {
             setIsSubmitting(false);
         }
     };
 
     return (
-        <div className="min-h-[calc(100vh-4rem)] flex">
-            {/* Left Side - Branding / Graphic */}
-            <div className="hidden lg:flex lg:w-1/2 relative bg-dark overflow-hidden flex-col justify-center items-center p-12">
-                {/* Background glowing effects */}
-                <div className="absolute top-0 -left-10 w-96 h-96 bg-primary-600 rounded-full mix-blend-screen filter blur-[100px] opacity-40 animate-blob"></div>
-                <div className="absolute bottom-0 -right-10 w-96 h-96 bg-purple-600 rounded-full mix-blend-screen filter blur-[100px] opacity-40 animate-blob animation-delay-4000"></div>
-                
-                <div className="relative z-10 w-full max-w-lg">
-                    <div className="glass-dark p-10 rounded-3xl shadow-2xl">
-                        <h1 className="text-5xl font-extrabold text-white mb-6 tracking-tight leading-tight">
-                            Hire the best,<br/>
-                            <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">zero bias.</span>
-                        </h1>
-                        <p className="text-gray-300 text-lg leading-relaxed mb-8">
-                            VoxCode uses advanced AI and voice analysis to conduct technical interviews that are fair, deep, and fully automated.
-                        </p>
-                        
-                        <div className="flex items-center space-x-4">
-                            <div className="flex -space-x-3">
-                                <img className="w-10 h-10 rounded-full border-2 border-dark" src="https://i.pravatar.cc/100?img=1" alt="Avatar" />
-                                <img className="w-10 h-10 rounded-full border-2 border-dark" src="https://i.pravatar.cc/100?img=2" alt="Avatar" />
-                                <img className="w-10 h-10 rounded-full border-2 border-dark" src="https://i.pravatar.cc/100?img=3" alt="Avatar" />
-                            </div>
-                            <p className="text-sm text-gray-400 font-medium">Trusted by 10,000+ engineers</p>
+        <div className="flex-1 flex min-h-[calc(100vh-48px)] bg-[#09090B]">
+            {/* Left Pane: Technical Evaluation Telemetry Showcase */}
+            <div className="hidden lg:flex lg:w-1/2 relative bg-[#09090B] bg-grid-studio border-r border-[#222228] p-12 flex-col justify-between overflow-hidden">
+                {/* Header Tag */}
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-sm bg-[#10B981]"></span>
+                        <span className="font-mono text-xs font-semibold text-[#A1A1AA] uppercase tracking-wider">
+                            VoxCode // Autonomous Evaluation Studio
+                        </span>
+                    </div>
+                    <span className="studio-badge bg-[#111114] text-[#10B981] border-[#10B981]/30">
+                        [SYS.READY]
+                    </span>
+                </div>
+
+                {/* Main Architectural Showcase Card */}
+                <div className="max-w-md w-full bg-[#111114] border border-[#222228] rounded-md p-6 space-y-5">
+                    <div className="flex items-center justify-between border-b border-[#222228] pb-3">
+                        <div className="flex items-center gap-2">
+                            <Activity className="w-4 h-4 text-[#10B981]" />
+                            <span className="font-mono text-xs text-[#FAFAFA] font-medium uppercase">
+                                Telemetry Dossier // Live Session
+                            </span>
+                        </div>
+                        <span className="font-mono text-[11px] text-[#52525B]">ID-8842-AX</span>
+                    </div>
+
+                    {/* Acoustic Waveform Simulation */}
+                    <div className="bg-[#09090B] border border-[#222228] rounded p-3.5 space-y-2">
+                        <div className="flex justify-between text-[11px] font-mono text-[#71717A]">
+                            <span>AUDIO.TRANSCEIVER // 48kHz PCM</span>
+                            <span className="text-[#10B981]">ACTIVE [ROHAN]</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 h-7">
+                            {[14, 26, 18, 32, 22, 10, 28, 20, 36, 16, 24, 12, 30, 22, 18, 28].map((h, i) => (
+                                <span
+                                    key={i}
+                                    style={{ height: `${h}px` }}
+                                    className="flex-1 bg-[#10B981]/70 rounded-sm animate-pulse"
+                                />
+                            ))}
                         </div>
                     </div>
+
+                    {/* Polyglot Compiler Sandbox Telemetry */}
+                    <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+                        <div className="bg-[#09090B] border border-[#222228] rounded p-2.5 space-y-1">
+                            <span className="text-[10px] text-[#52525B] uppercase block">Runtime Sandbox</span>
+                            <span className="text-[#FAFAFA] font-medium">Node.js 24 / C++ GCC</span>
+                            <span className="text-[10px] text-[#10B981] block">0.20s execution latency</span>
+                        </div>
+                        <div className="bg-[#09090B] border border-[#222228] rounded p-2.5 space-y-1">
+                            <span className="text-[10px] text-[#52525B] uppercase block">Algorithmic Grade</span>
+                            <span className="text-[#FAFAFA] font-medium">O(N log N) Optimal</span>
+                            <span className="text-[10px] text-[#A1A1AA] block">4/4 Test Cases Verified</span>
+                        </div>
+                    </div>
+
+                    {/* Feature Bullets */}
+                    <div className="space-y-1.5 pt-1 text-xs text-[#71717A] font-mono">
+                        <div className="flex items-center gap-2">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-[#10B981]" />
+                            <span>Zero human bias. Objective AI dialogue & DSA scoring.</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-[#10B981]" />
+                            <span>Real-time voice turn-taking and speech barge-in.</span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Footer Metadata */}
+                <div className="flex items-center justify-between text-[11px] font-mono text-[#52525B]">
+                    <span>VOXCODE v2.4 // PRODUCTION</span>
+                    <span>ENCRYPTION: TLS 1.3 AES-GCM</span>
                 </div>
             </div>
 
-            {/* Right Side - Form */}
-            <div className="w-full lg:w-1/2 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-20 xl:px-24 bg-white relative">
-                {/* Mobile background blobs */}
-                <div className="lg:hidden absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
-                    <div className="absolute top-0 -left-4 w-72 h-72 bg-purple-200 rounded-full mix-blend-multiply filter blur-2xl opacity-50 animate-blob"></div>
-                    <div className="absolute top-0 -right-4 w-72 h-72 bg-indigo-200 rounded-full mix-blend-multiply filter blur-2xl opacity-50 animate-blob animation-delay-2000"></div>
-                </div>
-
-                <div className="mx-auto w-full max-w-sm lg:max-w-md relative z-10">
-                    <div>
-                        <h2 className="mt-6 text-3xl font-extrabold text-gray-900 tracking-tight">
-                            Welcome back
-                        </h2>
-                        <p className="mt-2 text-sm text-gray-500 font-medium">
-                            Don't have an account?{' '}
-                            <Link to="/register" className="font-semibold text-primary-600 hover:text-primary-500 transition-colors">
-                                Sign up for free
-                            </Link>
+            {/* Right Pane: Authentication Console */}
+            <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-12">
+                <div className="w-full max-w-sm space-y-6">
+                    {/* Header */}
+                    <div className="space-y-1.5">
+                        <h1 className="text-xl font-semibold text-[#FAFAFA] tracking-tight">
+                            Sign in to VoxCode
+                        </h1>
+                        <p className="text-xs text-[#71717A]">
+                            Select your operational role and authenticate to access the workspace.
                         </p>
                     </div>
 
-                    <div className="mt-8">
-                        {/* Role Toggle */}
-                        <div className="flex p-1.5 space-x-1 bg-gray-100 rounded-xl mb-8">
-                            <button
-                                className={`w-full py-2 text-sm font-bold rounded-lg transition-all duration-200 ${role === 'CANDIDATE' ? 'bg-white text-gray-900 shadow' : 'text-gray-500 hover:text-gray-700'}`}
-                                onClick={() => setRole('CANDIDATE')}
-                            >
-                                Candidate
-                            </button>
-                            <button
-                                className={`w-full py-2 text-sm font-bold rounded-lg transition-all duration-200 ${role === 'COMPANY' ? 'bg-white text-gray-900 shadow' : 'text-gray-500 hover:text-gray-700'}`}
-                                onClick={() => setRole('COMPANY')}
-                            >
-                                Company
-                            </button>
+                    {/* Mechanical Segmented Role Selector */}
+                    <div className="grid grid-cols-2 p-1 bg-[#111114] border border-[#222228] rounded-md gap-1">
+                        <button
+                            type="button"
+                            onClick={() => setRole('CANDIDATE')}
+                            className={`py-1.5 text-xs font-mono font-medium rounded transition-all ${
+                                role === 'CANDIDATE'
+                                    ? 'bg-[#18181C] text-[#FAFAFA] border border-[#3F3F46]'
+                                    : 'text-[#71717A] hover:text-[#FAFAFA]'
+                            }`}
+                        >
+                            [CANDIDATE]
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setRole('COMPANY')}
+                            className={`py-1.5 text-xs font-mono font-medium rounded transition-all ${
+                                role === 'COMPANY'
+                                    ? 'bg-[#18181C] text-[#FAFAFA] border border-[#3F3F46]'
+                                    : 'text-[#71717A] hover:text-[#FAFAFA]'
+                            }`}
+                        >
+                            [RECRUITER]
+                        </button>
+                    </div>
+
+                    {/* Error Banner */}
+                    {error && (
+                        <div className="p-3 bg-[#F43F5E]/10 border border-[#F43F5E]/30 rounded-md text-xs text-[#F43F5E] flex items-center gap-2 font-mono">
+                            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                            <span>{error}</span>
+                        </div>
+                    )}
+
+                    {/* Login Form */}
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-mono text-[#A1A1AA] uppercase block">
+                                Account Email
+                            </label>
+                            <input
+                                type="email"
+                                required
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                placeholder="engineer@domain.com"
+                                className="studio-input"
+                            />
                         </div>
 
-                        <form className="space-y-6" onSubmit={handleSubmit}>
-                            {error && (
-                                <div className="bg-red-50 border border-red-100 text-red-600 text-sm p-3 rounded-lg text-center font-medium">
-                                    {error}
-                                </div>
+                        <div className="space-y-1.5">
+                            <div className="flex items-center justify-between">
+                                <label className="text-xs font-mono text-[#A1A1AA] uppercase">
+                                    Password
+                                </label>
+                                <span className="text-[11px] font-mono text-[#52525B]">8+ characters</span>
+                            </div>
+                            <input
+                                type="password"
+                                required
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                placeholder="••••••••••••"
+                                className="studio-input"
+                            />
+                        </div>
+
+                        <button
+                            type="submit"
+                            disabled={isSubmitting}
+                            className="studio-btn-primary w-full py-2.5 text-xs font-semibold"
+                        >
+                            {isSubmitting ? (
+                                <span className="flex items-center gap-2">
+                                    <span className="w-3.5 h-3.5 border-2 border-[#09090B] border-t-transparent rounded-full animate-spin"></span>
+                                    <span>Authenticating...</span>
+                                </span>
+                            ) : (
+                                <span className="flex items-center gap-1.5">
+                                    <span>Authenticate Session</span>
+                                    <ArrowRight className="w-3.5 h-3.5" />
+                                </span>
                             )}
-                            
-                            <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-2">Email address</label>
-                                <div>
-                                    <input
-                                        type="email"
-                                        required
-                                        value={email}
-                                        onChange={(e) => setEmail(e.target.value)}
-                                        placeholder="you@example.com"
-                                        className="appearance-none block w-full px-4 py-3.5 border border-gray-200 rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 sm:text-sm font-medium bg-gray-50 focus:bg-white"
-                                    />
-                                </div>
-                            </div>
+                        </button>
+                    </form>
 
-                            <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-2">Password</label>
-                                <div>
-                                    <input
-                                        type="password"
-                                        required
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                        placeholder="••••••••"
-                                        className="appearance-none block w-full px-4 py-3.5 border border-gray-200 rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 sm:text-sm font-medium bg-gray-50 focus:bg-white"
-                                    />
-                                </div>
-                            </div>
+                    {/* Demo Credentials Quick-Fill Helper */}
+                    <div className="border-t border-[#222228] pt-4 space-y-2">
+                        <span className="text-[10px] font-mono uppercase text-[#52525B] block">
+                            Quick-Fill Test Credentials:
+                        </span>
+                        <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setRole('CANDIDATE');
+                                    setEmail('sarah.chen@example.com');
+                                    setPassword('password123');
+                                }}
+                                className="studio-btn-secondary py-1 text-left justify-start"
+                            >
+                                <span className="truncate">Candidate: Sarah</span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setRole('COMPANY');
+                                    setEmail('recruiter@acme.ai');
+                                    setPassword('password123');
+                                }}
+                                className="studio-btn-secondary py-1 text-left justify-start"
+                            >
+                                <span className="truncate">Recruiter: Acme</span>
+                            </button>
+                        </div>
+                    </div>
 
-                            <div className="pt-2">
-                                <button
-                                    type="submit"
-                                    disabled={isSubmitting}
-                                    className="w-full flex justify-center py-3.5 px-4 border border-transparent rounded-xl shadow-lg shadow-primary-500/30 text-sm font-bold text-white bg-dark hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900 transition-all duration-200 transform hover:-translate-y-0.5 disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none"
-                                >
-                                    {isSubmitting ? 'Signing in...' : 'Sign in to account'}
-                                </button>
-                            </div>
-                        </form>
-
-                        {role === 'CANDIDATE' && (
-                            <div className="mt-8">
-                                <div className="relative">
-                                    <div className="absolute inset-0 flex items-center">
-                                        <div className="w-full border-t border-gray-200" />
-                                    </div>
-                                    <div className="relative flex justify-center text-sm">
-                                        <span className="px-4 bg-white text-gray-500 font-medium">Or continue with</span>
-                                    </div>
-                                </div>
-                                <div className="mt-6">
-                                    <button
-                                        type="button"
-                                        onClick={() => window.location.href = 'http://localhost:5000/api/auth/google'}
-                                        className="w-full inline-flex justify-center items-center py-3.5 px-4 border border-gray-200 rounded-xl shadow-sm bg-white text-sm font-bold text-gray-700 hover:bg-gray-50 hover:shadow-md transition-all duration-200"
-                                    >
-                                        <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
-                                            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                                            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                                            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                                            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-                                        </svg>
-                                        Google
-                                    </button>
-                                </div>
-                            </div>
-                        )}
+                    {/* Link to Register */}
+                    <div className="text-center pt-2">
+                        <p className="text-xs text-[#71717A]">
+                            Need a new developer or recruiter account?{' '}
+                            <Link to="/register" className="text-[#FAFAFA] underline underline-offset-4 hover:text-[#E4E4E7]">
+                                Register account
+                            </Link>
+                        </p>
                     </div>
                 </div>
             </div>

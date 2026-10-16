@@ -6,13 +6,16 @@ dotenv.config({
     path: './.env'
 });
 
+const PORT = process.env.PORT || 5000;
+
+app.listen(PORT, () => {
+    console.log(`⚙️ Server is running at port : ${PORT}`);
+});
+
 connectDB()
     .then(() => {
-        app.listen(process.env.PORT || 5000, () => {
-            console.log(`⚙️ Server is running at port : ${process.env.PORT || 5000}`);
-        });
+        console.log("MongoDB connection verified");
     })
     .catch((err) => {
-        console.log("MONGO db connection failed !!! ", err);
-        process.exit(1);
+        console.warn("MongoDB connection warning:", err.message);
     });

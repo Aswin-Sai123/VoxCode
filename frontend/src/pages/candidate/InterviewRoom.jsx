@@ -2,6 +2,29 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import api from '../../services/api';
+import { 
+    Terminal, 
+    Mic, 
+    MicOff, 
+    Volume2, 
+    VolumeX, 
+    Play, 
+    Clock, 
+    Send, 
+    RotateCcw, 
+    ArrowRight, 
+    CheckCircle2, 
+    AlertCircle, 
+    Code2, 
+    MessageSquare, 
+    ChevronRight,
+    Copy,
+    Check,
+    Maximize2,
+    Minimize2,
+    FileText,
+    Sparkles
+} from 'lucide-react';
 
 const InterviewRoom = () => {
     const { code } = useParams();
@@ -39,7 +62,7 @@ const InterviewRoom = () => {
     const [transitionBanner, setTransitionBanner] = useState(false);
 
     // HackerRank IDE Tabs & Console state
-    const [leftTab, setLeftTab] = useState('problem'); // 'problem' | 'guidance' | 'submissions'
+    const [leftTab, setLeftTab] = useState('problem'); // 'problem' | 'guidance'
     const [consoleTab, setConsoleTab] = useState('testcases'); // 'testcases' | 'results'
     const [activeTestCase, setActiveTestCase] = useState(0);
     const [useCustomInput, setUseCustomInput] = useState(false);
@@ -48,8 +71,8 @@ const InterviewRoom = () => {
     const [copySuccessIndex, setCopySuccessIndex] = useState(null);
 
     // Resizable split panels & console sliders
-    const [leftPanelWidth, setLeftPanelWidth] = useState(45); // percentage: 45% left / 55% right
-    const [consoleHeight, setConsoleHeight] = useState(250); // pixels: 250px console height
+    const [leftPanelWidth, setLeftPanelWidth] = useState(45); // percentage
+    const [consoleHeight, setConsoleHeight] = useState(250); // pixels
     const [isDraggingHorizontal, setIsDraggingHorizontal] = useState(false);
     const [isDraggingVertical, setIsDraggingVertical] = useState(false);
     const rightPanelRef = useRef(null);
@@ -57,22 +80,22 @@ const InterviewRoom = () => {
     // Refs
     const recognitionRef = useRef(null);
     const timerRef = useRef(null);
-    const isMutedRef = useRef(false); // ref so speakAiMessage always reads the latest mute state
-    const utteranceRef = useRef(null); // prevent Chrome GC from cutting off voice mid-speech
+    const isMutedRef = useRef(false);
+    const utteranceRef = useRef(null);
 
     // Split-panel and console drag listener
     useEffect(() => {
         const handleMouseMove = (e) => {
             if (isDraggingHorizontal) {
                 const newWidthPct = (e.clientX / window.innerWidth) * 100;
-                if (newWidthPct >= 20 && newWidthPct <= 80) {
+                if (newWidthPct >= 25 && newWidthPct <= 75) {
                     setLeftPanelWidth(newWidthPct);
                 }
             } else if (isDraggingVertical && rightPanelRef.current) {
                 const rect = rightPanelRef.current.getBoundingClientRect();
                 const newHeight = rect.bottom - e.clientY;
-                const maxHeight = Math.max(200, window.innerHeight - 150);
-                if (newHeight >= 94 && newHeight <= Math.min(650, maxHeight)) {
+                const maxHeight = Math.max(160, window.innerHeight - 150);
+                if (newHeight >= 80 && newHeight <= Math.min(650, maxHeight)) {
                     setConsoleHeight(newHeight);
                 }
             }
@@ -140,7 +163,7 @@ const InterviewRoom = () => {
         };
     }, [code]);
 
-    // 2. Countdown Timer — only start once the session (and its duration) is loaded
+    // 2. Countdown Timer
     useEffect(() => {
         if (!session || stage === 'COMPLETED') return;
 
@@ -160,95 +183,66 @@ const InterviewRoom = () => {
         return () => clearInterval(timerRef.current);
     }, [session, stage]);
 
-    // Preload available browser voices for natural TTS
-    useEffect(() => {
-        if ('speechSynthesis' in window) {
-            window.speechSynthesis.getVoices();
+    // 3. Audio Output (TTS) with Indian Accent Preference
+    const speakAiMessage = (text) => {
+        if (!text || isMutedRef.current || !window.speechSynthesis) return;
+
+        window.speechSynthesis.cancel();
+
+        const cleanText = text.replace(/[*_#`]/g, '').trim();
+        const utterance = new SpeechSynthesisUtterance(cleanText);
+        utteranceRef.current = utterance;
+
+        const setVoiceAndSpeak = () => {
+            const voices = window.speechSynthesis.getVoices();
+            if (voices.length > 0) {
+                const indianVoice = voices.find(v =>
+                    (v.lang === 'en-IN' || v.lang === 'hi-IN') &&
+                    (v.name.includes('Rishi') || v.name.includes('Veena') || v.name.includes('India') || v.name.includes('Google हिन्दी'))
+                ) || voices.find(v => v.lang === 'en-IN') || voices.find(v => v.lang.startsWith('en'));
+
+                if (indianVoice) utterance.voice = indianVoice;
+            }
+
+            utterance.rate = 1.05;
+            utterance.pitch = 0.98;
+
+            utterance.onstart = () => setIsAiSpeaking(true);
+            utterance.onend = () => {
+                setIsAiSpeaking(false);
+                utteranceRef.current = null;
+            };
+            utterance.onerror = (e) => {
+                console.warn('TTS warning:', e);
+                setIsAiSpeaking(false);
+                utteranceRef.current = null;
+            };
+
+            window.speechSynthesis.speak(utterance);
+        };
+
+        if (window.speechSynthesis.getVoices().length > 0) {
+            setVoiceAndSpeak();
+        } else {
             window.speechSynthesis.onvoiceschanged = () => {
-                window.speechSynthesis.getVoices();
+                setVoiceAndSpeak();
+                window.speechSynthesis.onvoiceschanged = null;
             };
         }
-    }, []);
-
-    // 3. Web Speech API — Text to Speech (Natural, smooth, non-choppy voice)
-    const speakAiMessage = (text) => {
-        if (isMutedRef.current || !('speechSynthesis' in window) || !text) return;
-
-        window.speechSynthesis.cancel(); // cancel any ongoing utterance
-
-        // 1. Clean text of markdown, code blocks, bullet points, and technical symbols that cause speech synth stutters
-        const cleanText = text
-            .replace(/```[\s\S]*?```/g, ' ') // remove code blocks
-            .replace(/`([^`]+)`/g, '$1') // unquote inline code
-            .replace(/Node\.js/gi, 'Node JS')
-            .replace(/\be\.g\./gi, 'for example')
-            .replace(/\bi\.e\./gi, 'that is')
-            .replace(/O\(([^)]+)\)/gi, 'O of $1')
-            .replace(/[*#_~[\](){}<>|]/g, ' ')
-            .replace(/\s+/g, ' ')
-            .trim();
-
-        if (!cleanText) return;
-
-        const utterance = new SpeechSynthesisUtterance(cleanText);
-        utterance.rate = 1.0;
-        utterance.pitch = 1.0;
-
-        // 2. Select voice: prioritize Neural / Online Natural voices for human warmth
-        const voices = window.speechSynthesis.getVoices();
-
-        // 1. High-definition Indian English Natural/Online voice (e.g. Microsoft Neerja / Prabhat Natural)
-        const indianNaturalVoice = voices.find(v => (v.lang === 'en-IN' || v.lang.startsWith('en_IN') || v.name.toLowerCase().includes('india')) && (v.name.includes('Natural') || v.name.includes('Online')) && !v.name.toLowerCase().includes('hindi'));
-        // 2. Local Indian voice (e.g. Microsoft Ravi, Heera on Windows)
-        const indianLocalVoice = voices.find(v => (v.lang === 'en-IN' || v.lang.startsWith('en_IN') || v.name.toLowerCase().includes('india')) && v.localService && !v.name.toLowerCase().includes('hindi'));
-        // 3. Any Indian voice
-        const indianVoice = voices.find(v => (v.lang === 'en-IN' || v.lang.startsWith('en_IN') || v.name.toLowerCase().includes('india')) && !v.name.toLowerCase().includes('hindi'));
-        // 4. High-definition Natural / Online English voice (e.g. Microsoft Christopher / Guy Online Natural, Google Natural)
-        const naturalVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Natural') || v.name.includes('Online')));
-        // 5. Local English voice (zero network buffering, e.g. Microsoft Mark, David, Zira)
-        const localVoice = voices.find(v => v.lang.startsWith('en') && v.localService);
-        // 6. Fallback voice
-        const fallbackVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Google') || v.name.includes('Samantha')));
-
-        const selectedVoice = indianNaturalVoice || indianLocalVoice || indianVoice || naturalVoice || localVoice || fallbackVoice;
-        if (selectedVoice) {
-            utterance.voice = selectedVoice;
-        }
-
-        utterance.onstart = () => setIsAiSpeaking(true);
-        utterance.onend = () => {
-            setIsAiSpeaking(false);
-            utteranceRef.current = null;
-        };
-        utterance.onerror = (e) => {
-            if (e.error !== 'interrupted' && e.error !== 'canceled') {
-                console.warn('SpeechSynthesis error:', e.error);
-            }
-            setIsAiSpeaking(false);
-            utteranceRef.current = null;
-        };
-
-        // Retain ref so Chrome's garbage collector never kills speech mid-sentence
-        utteranceRef.current = utterance;
-        window.speechSynthesis.speak(utterance);
     };
 
-    // 4. Web Speech API — Speech Recognition with Instant Barge-In (Microphone)
+    // 4. Speech Recognition with Barge-In Capability
     const toggleSpeechRecognition = () => {
-        // BARGE-IN: Stop AI speaking immediately when candidate engages mic
-        if (window.speechSynthesis) window.speechSynthesis.cancel();
-        setIsAiSpeaking(false);
-        if (utteranceRef.current) utteranceRef.current = null;
-
         if (isListening) {
-            if (recognitionRef.current) recognitionRef.current.stop();
-            setIsListening(false);
+            if (recognitionRef.current) {
+                recognitionRef.current.stop();
+                setIsListening(false);
+            }
             return;
         }
 
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SpeechRecognition) {
-            alert('Speech Recognition is not supported in this browser. Please use Google Chrome or type your answer.');
             setShowTextInput(true);
             return;
         }
@@ -264,7 +258,7 @@ const InterviewRoom = () => {
         };
 
         recognition.onresult = (event) => {
-            // BARGE-IN: If Rohan is speaking and candidate speaks into mic, cut off Rohan instantly!
+            // Barge-in: cut off AI immediately
             if (window.speechSynthesis && window.speechSynthesis.speaking) {
                 window.speechSynthesis.cancel();
                 setIsAiSpeaking(false);
@@ -306,7 +300,6 @@ const InterviewRoom = () => {
         const textToSend = (customText || candidateText || interimSpeech).trim();
         if (!textToSend || isSending) return;
 
-        // Stop mic and speech
         if (recognitionRef.current && isListening) {
             recognitionRef.current.stop();
             setIsListening(false);
@@ -318,7 +311,6 @@ const InterviewRoom = () => {
         setCandidateText('');
         setInterimSpeech('');
 
-        // Optimistically update transcript
         const userEntry = { role: 'candidate', text: textToSend, timestamp: new Date() };
         setTranscript(prev => [...prev, userEntry]);
 
@@ -336,7 +328,6 @@ const InterviewRoom = () => {
                 setLatestAiMessage(aiMessage);
                 if (updatedTranscript) setTranscript(updatedTranscript);
 
-                // Handle transition from CONCEPTUAL to CODING
                 if (newStage === 'CODING' && stage !== 'CODING') {
                     setTransitionBanner(true);
                     setStage('CODING');
@@ -359,11 +350,11 @@ const InterviewRoom = () => {
         }
     };
 
-    // 6. Run Code (HackerRank Test Suite Runner)
+    // 6. Run Code (Sub-second Native Sandbox Runner)
     const handleRunCode = async () => {
         setIsRunningCode(true);
         setConsoleTab('results');
-        setExecutionOutput('Compiling and executing code against test cases...');
+        setExecutionOutput('Compiling and executing code against sandbox test cases...');
         try {
             const res = await api.post('/interview/run-code', {
                 language: selectedLanguage,
@@ -371,11 +362,11 @@ const InterviewRoom = () => {
                 customInput: useCustomInput ? customInputText : undefined
             });
             if (res.data.success) {
-                const out = res.data.data.output || 'Code executed with no output.';
+                const out = res.data.data.output || 'Code executed with no stdout output.';
                 setExecutionOutput(out);
                 setExecutionDetails({
                     hasError: res.data.data.hasError || false,
-                    executionTime: res.data.data.executionTime || '0.04s',
+                    executionTime: res.data.data.executionTime || '0.20s',
                     output: out
                 });
             }
@@ -392,7 +383,7 @@ const InterviewRoom = () => {
         }
     };
 
-    // 7. Submit Assessment
+    // 7. Submit Assessment (Two-Step Non-blocking confirmation)
     const handleSubmitInterview = async (force = false) => {
         if (!force && !confirmSubmit) {
             setConfirmSubmit(true);
@@ -437,7 +428,6 @@ const InterviewRoom = () => {
         }
     };
 
-    // Format timer
     const formatTime = (secs) => {
         const m = Math.floor(secs / 60);
         const s = secs % 60;
@@ -446,86 +436,87 @@ const InterviewRoom = () => {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center text-white">
-                <div className="animate-spin rounded-full h-14 w-14 border-t-2 border-b-2 border-primary-500 mb-4"></div>
-                <p className="text-gray-400 font-medium">Entering AI Interview Room...</p>
+            <div className="h-screen bg-[#09090B] flex flex-col items-center justify-center font-mono text-xs text-[#71717A] space-y-3">
+                <div className="w-5 h-5 border-2 border-[#FAFAFA] border-t-transparent rounded-full animate-spin"></div>
+                <span>INITIALIZING AUTONOMOUS INTERVIEW STUDIO // {code}...</span>
             </div>
         );
     }
 
     if (error) {
         return (
-            <div className="min-h-screen bg-gray-950 flex items-center justify-center px-4">
-                <div className="bg-gray-900 border border-red-500/30 rounded-2xl p-8 max-w-md text-center text-white">
-                    <p className="text-red-400 font-bold text-lg mb-2">Interview Room Error</p>
-                    <p className="text-gray-400 text-sm mb-6">{error}</p>
+            <div className="h-screen bg-[#09090B] flex items-center justify-center p-6">
+                <div className="bg-[#111114] border border-[#F43F5E]/30 rounded-md p-6 max-w-sm w-full text-center space-y-4 font-mono">
+                    <AlertCircle className="w-6 h-6 text-[#F43F5E] mx-auto" />
+                    <div>
+                        <p className="text-xs font-semibold text-[#FAFAFA]">Interview Room Exception</p>
+                        <p className="text-[11px] text-[#71717A] mt-1">{error}</p>
+                    </div>
                     <button
                         onClick={() => navigate('/candidate/dashboard')}
-                        className="px-6 py-2.5 bg-primary-600 hover:bg-primary-500 rounded-xl font-bold text-sm"
+                        className="studio-btn-secondary w-full py-2 text-xs"
                     >
-                        Back to Dashboard
+                        Return to Dashboard
                     </button>
                 </div>
             </div>
         );
     }
 
-    // 8. STAGE 3 — Completed Screen
+    // 8. Stage 3: Completed Evaluation Screen
     if (stage === 'COMPLETED') {
         return (
-            <div className="min-h-screen bg-gray-950 flex items-center justify-center px-4 py-12 text-white">
-                <div className="bg-gray-900 border border-gray-800 rounded-3xl p-10 max-w-xl text-center shadow-2xl">
-                    <div className="w-20 h-20 bg-green-500/10 border border-green-500/30 rounded-full flex items-center justify-center mx-auto mb-6">
-                        <svg className="w-10 h-10 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                    </div>
-                    <h2 className="text-3xl font-extrabold mb-2">Interview Completed!</h2>
-                    <p className="text-gray-400 text-sm mb-6">
-                        Your dialogue exchanges and practical code submission have been evaluated by Rohan (AI Interviewer). Your comprehensive score breakdown and analysis are ready!
-                    </p>
-
-                    <div className="bg-gray-950 border border-gray-800 rounded-2xl p-6 mb-8 text-left space-y-3">
-                        <div className="flex justify-between text-sm">
-                            <span className="text-gray-500">Role:</span>
-                            <span className="font-semibold text-gray-200">{assessment?.roleTitle || assessment?.role?.title}</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                            <span className="text-gray-500">Company:</span>
-                            <span className="font-semibold text-gray-200">{assessment?.companyName}</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                            <span className="text-gray-500">Dialogue Exchanges:</span>
-                            <span className="font-semibold text-primary-400">{transcript.length} messages</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                            <span className="text-gray-500">Code Submitted:</span>
-                            <span className="font-semibold text-green-400">{selectedLanguage.toUpperCase()}</span>
-                        </div>
+            <div className="h-screen bg-[#09090B] flex items-center justify-center p-6">
+                <div className="bg-[#111114] border border-[#222228] rounded-md p-8 max-w-lg w-full text-center space-y-6">
+                    <div className="w-10 h-10 rounded bg-[#10B981]/10 border border-[#10B981]/30 flex items-center justify-center mx-auto text-[#10B981]">
+                        <CheckCircle2 className="w-5 h-5" />
                     </div>
 
-                    <div className="space-y-3">
+                    <div className="space-y-1">
+                        <span className="studio-badge bg-[#10B981]/10 text-[#10B981] border-[#10B981]/25">
+                            EVALUATION COMPLETED
+                        </span>
+                        <h2 className="text-xl font-semibold text-[#FAFAFA] tracking-tight">
+                            Assessment Successfully Recorded
+                        </h2>
+                        <p className="text-xs text-[#71717A] font-mono">
+                            Your dialogue exchanges and multi-language code submission have been autonomously graded by Gemini 2.5 Flash.
+                        </p>
+                    </div>
+
+                    <div className="bg-[#09090B] border border-[#222228] rounded p-4 text-left font-mono text-xs space-y-2">
+                        <div className="flex justify-between">
+                            <span className="text-[#52525B]">ROLE SPECIFICATION:</span>
+                            <span className="text-[#FAFAFA] font-medium">{assessment?.roleTitle || assessment?.title}</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span className="text-[#52525B]">EVALUATION ENTITY:</span>
+                            <span className="text-[#A1A1AA]">{assessment?.companyName}</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span className="text-[#52525B]">CONVERSATION TURNS:</span>
+                            <span className="text-[#10B981] font-semibold tabular-nums">{transcript.length} messages</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span className="text-[#52525B]">RUNTIME ENVIRONMENT:</span>
+                            <span className="text-[#FAFAFA] font-medium uppercase">{selectedLanguage}</span>
+                        </div>
+                    </div>
+
+                    <div className="space-y-2 pt-2">
                         <button
                             onClick={() => navigate(`/candidate/report/${session?._id}`)}
-                            className="w-full py-3.5 bg-gradient-to-r from-primary-600 to-purple-600 hover:from-primary-500 hover:to-purple-500 font-bold rounded-xl transition-all shadow-lg shadow-primary-600/30 text-white flex items-center justify-center gap-2 text-sm"
+                            className="studio-btn-primary w-full py-2.5 text-xs font-mono font-semibold"
                         >
-                            <span>📊</span>
-                            <span>View Full Performance Report Card</span>
+                            <span>Open Performance Evaluation Dossier</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
                         </button>
-                        <div className="grid grid-cols-2 gap-3">
-                            <button
-                                onClick={() => navigate('/candidate/reports')}
-                                className="py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 font-semibold rounded-xl text-xs transition-colors border border-gray-700"
-                            >
-                                All My Reports
-                            </button>
-                            <button
-                                onClick={() => navigate('/candidate/dashboard')}
-                                className="py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 font-semibold rounded-xl text-xs transition-colors border border-gray-700"
-                            >
-                                Return to Dashboard
-                            </button>
-                        </div>
+                        <button
+                            onClick={() => navigate('/candidate/dashboard')}
+                            className="studio-btn-secondary w-full py-2 text-xs font-mono"
+                        >
+                            Return to Command Center
+                        </button>
                     </div>
                 </div>
             </div>
@@ -533,205 +524,225 @@ const InterviewRoom = () => {
     }
 
     return (
-        <div className={`bg-gray-950 text-white flex flex-col font-sans ${stage === 'CODING' ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
-            {/* Transition Alert Banner */}
+        <div className="h-screen overflow-hidden flex flex-col bg-[#09090B] text-[#FAFAFA] font-sans select-none">
+            {/* Transition Alert Strip */}
             {transitionBanner && (
-                <div className="bg-gradient-to-r from-primary-600 to-purple-600 px-4 py-3 text-center text-sm font-bold flex items-center justify-center gap-2 animate-bounce">
-                    <span>⚡ Transitioning to Practical Coding Round — Opening Workspace!</span>
+                <div className="h-8 bg-[#18181C] border-b border-[#F59E0B]/40 px-4 flex items-center justify-between font-mono text-xs text-[#F59E0B]">
+                    <span className="flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B] animate-ping"></span>
+                        <span>[TRANSITION] Practical Coding Round Initialized — Code Workspace Unlocked.</span>
+                    </span>
+                    <span className="text-[10px] text-[#71717A]">STAGE 02 // CODING</span>
                 </div>
             )}
 
-            {/* Top Navigation Bar */}
-            <header className="h-16 border-b border-gray-800 bg-gray-900/80 backdrop-blur px-6 flex items-center justify-between flex-shrink-0">
-                <div className="flex items-center gap-4">
-                    <span className="text-lg font-black tracking-tight bg-gradient-to-r from-primary-400 to-purple-400 bg-clip-text text-transparent">
-                        VoxCode
+            {/* Top Studio Bar (h-11) */}
+            <header className="h-11 border-b border-[#222228] bg-[#09090B] px-4 sm:px-6 flex items-center justify-between flex-shrink-0 z-40">
+                {/* Left: Studio Identity & Role */}
+                <div className="flex items-center gap-2.5">
+                    <span className="font-mono text-xs font-semibold tracking-wider text-[#FAFAFA] uppercase">
+                        VoxCode // Studio
                     </span>
-                    <span className="text-gray-600">|</span>
-                    <div>
-                        <p className="text-sm font-bold text-gray-200">{assessment?.title || 'Technical Interview'}</p>
-                        <p className="text-xs text-gray-400">{assessment?.roleTitle} • {assessment?.companyName}</p>
-                    </div>
-                </div>
-
-                {/* Center Timer & Stage Pill */}
-                <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2 bg-gray-800/80 border border-gray-700/60 px-4 py-1.5 rounded-full">
-                        <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></span>
-                        <span className="font-mono font-bold text-sm tracking-wider text-gray-200">
-                            {formatTime(timeLeftSeconds)}
-                        </span>
-                    </div>
-                    <span className={`text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider ${
-                        stage === 'CONCEPTUAL'
-                            ? 'bg-blue-500/10 text-blue-400 border border-blue-500/30'
-                            : 'bg-purple-500/10 text-purple-400 border border-purple-500/30'
-                    }`}>
-                        {stage === 'CONCEPTUAL' ? 'Round 1: Conceptual Q&A' : 'Round 2: Coding & DSA'}
+                    <span className="text-[#3F3F46] font-mono text-xs">/</span>
+                    <span className="font-mono text-[11px] text-[#A1A1AA] truncate max-w-[200px] sm:max-w-xs">
+                        {assessment?.title || assessment?.roleTitle}
                     </span>
                 </div>
 
-                {/* Right Controls */}
+                {/* Center: Phase Badge */}
                 <div className="flex items-center gap-3">
+                    <span className={`studio-badge ${
+                        stage === 'CONCEPTUAL'
+                            ? 'bg-[#18181C] text-[#FAFAFA] border-[#3F3F46]'
+                            : 'bg-[#10B981]/10 text-[#10B981] border-[#10B981]/25'
+                    }`}>
+                        {stage === 'CONCEPTUAL' ? 'PHASE 01 // VOICE SCREENING' : 'PHASE 02 // POLYGLOT CODING'}
+                    </span>
+                </div>
+
+                {/* Right: Timer, Audio Controls & Submit */}
+                <div className="flex items-center gap-2.5">
+                    {/* Monospace Countdown Timer */}
+                    <div className={`px-2.5 py-1 rounded bg-[#111114] border font-mono text-xs font-medium tabular-nums flex items-center gap-1.5 ${
+                        timeLeftSeconds < 300
+                            ? 'border-[#F59E0B]/40 text-[#F59E0B]'
+                            : 'border-[#222228] text-[#FAFAFA]'
+                    }`}>
+                        <Clock className="w-3.5 h-3.5 text-[#71717A]" />
+                        <span>{formatTime(timeLeftSeconds)}</span>
+                    </div>
+
+                    {/* Mute Toggle */}
                     <button
                         onClick={() => {
                             const newMuted = !isMuted;
-                            isMutedRef.current = newMuted; // keep ref in sync
+                            isMutedRef.current = newMuted;
                             if (newMuted && window.speechSynthesis) window.speechSynthesis.cancel();
                             setIsMuted(newMuted);
                         }}
-                        className={`p-2 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all ${
-                            isMuted ? 'border-red-500/30 bg-red-500/10 text-red-400' : 'border-gray-700 bg-gray-800 text-gray-300 hover:bg-gray-700'
-                        }`}
+                        className="studio-btn-secondary p-1.5"
                         title={isMuted ? 'Unmute AI Voice' : 'Mute AI Voice'}
                     >
-                        {isMuted ? '🔇 Voice Muted' : '🔊 Voice On'}
+                        {isMuted ? <VolumeX className="w-3.5 h-3.5 text-[#F43F5E]" /> : <Volume2 className="w-3.5 h-3.5 text-[#A1A1AA]" />}
                     </button>
+
+                    {/* End & Submit Button */}
                     <button
                         id="submit-interview-btn"
                         onClick={() => handleSubmitInterview()}
                         disabled={isSubmitting}
-                        className={`px-4 py-2 text-white rounded-xl text-xs font-bold transition-all shadow-lg disabled:opacity-50 ${
-                            confirmSubmit
-                                ? 'bg-amber-600 hover:bg-amber-500 ring-2 ring-amber-400 animate-pulse'
-                                : 'bg-red-600/90 hover:bg-red-600 shadow-red-900/20'
+                        className={`studio-btn-primary text-xs font-mono ${
+                            confirmSubmit 
+                                ? 'bg-[#F43F5E] text-white hover:bg-[#E11D48] border border-[#F43F5E]' 
+                                : 'bg-[#FAFAFA] text-[#09090B]'
                         }`}
-                        title="Submit and grade this assessment"
+                        title="Submit interview assessment for AI evaluation"
                     >
-                        {isSubmitting ? 'Submitting...' : confirmSubmit ? '⚠️ Click again to Confirm Submit' : 'End & Submit'}
+                        {isSubmitting ? 'Evaluating...' : confirmSubmit ? 'Confirm Submit [!]' : 'End Session'}
                     </button>
                 </div>
             </header>
 
             {/* MAIN CONTENT AREA */}
             {stage === 'CONCEPTUAL' ? (
-                /* ================= STAGE 1: IMMERSIVE Q&A ROOM (NO CODE EDITOR) ================= */
-                <main className="flex-1 flex flex-col items-center justify-center px-4 py-8 max-w-4xl mx-auto w-full">
-                    {/* Glowing AI Avatar Hub */}
-                    <div className="relative mb-8 flex flex-col items-center">
-                        <div className={`w-32 h-32 rounded-full flex items-center justify-center transition-all duration-500 ${
-                            isAiSpeaking
-                                ? 'bg-gradient-to-tr from-primary-500 to-purple-600 ring-8 ring-primary-500/30 shadow-2xl shadow-primary-500/50 scale-105'
-                                : 'bg-gray-900 border-2 border-gray-800 shadow-xl'
-                        }`}>
-                            <svg className="w-16 h-16 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                            </svg>
-                        </div>
-
-                        {/* Animated voice activity waves */}
-                        <div className="flex items-center gap-1.5 mt-4 h-6">
-                            {[1, 2, 3, 4, 5].map(i => (
-                                <span
-                                    key={i}
-                                    className={`w-1 rounded-full transition-all duration-200 ${
-                                        isAiSpeaking ? 'bg-primary-400 animate-pulse' : 'bg-gray-700 h-2'
-                                    }`}
-                                    style={{ height: isAiSpeaking ? `${12 + (i % 3) * 10}px` : '6px' }}
-                                />
-                            ))}
-                            <span className="text-xs text-gray-400 ml-2 font-medium">
-                                {isAiSpeaking ? 'Interviewer is speaking...' : isSending ? 'Interviewer is thinking...' : 'Listening to you'}
+                /* ================= STAGE 1: IMMERSIVE HARDWARE AUDIO STUDIO ================= */
+                <main className="flex-1 flex flex-col items-center justify-center p-6 max-w-3xl mx-auto w-full space-y-6">
+                    {/* Visualizer Module */}
+                    <div className="w-full bg-[#111114] border border-[#222228] rounded-md p-6 flex flex-col items-center space-y-4">
+                        <div className="flex items-center justify-between w-full border-b border-[#222228] pb-3 text-xs font-mono">
+                            <span className="text-[#71717A] flex items-center gap-2">
+                                <span className={`w-2 h-2 rounded-full ${
+                                    isAiSpeaking ? 'bg-[#10B981] animate-pulse' : isSending ? 'bg-[#F59E0B] animate-pulse' : 'bg-[#52525B]'
+                                }`}></span>
+                                ROHAN // AI LEAD INTERVIEWER
+                            </span>
+                            <span className="studio-badge bg-[#09090B] text-[#A1A1AA] border-[#222228]">
+                                {isAiSpeaking ? 'TRANSMITTING AUDIO' : isSending ? 'EVALUATING REASONING' : isListening ? 'RECEIVING STREAM' : 'LISTENING'}
                             </span>
                         </div>
+
+                        {/* Frequency Bar Visualizer */}
+                        <div className="flex items-center justify-center gap-1.5 h-12 w-full max-w-md py-1">
+                            {[16, 28, 22, 38, 26, 14, 32, 20, 42, 24, 30, 16, 36, 26, 20, 32, 18, 24].map((h, i) => (
+                                <span
+                                    key={i}
+                                    style={{
+                                        height: isAiSpeaking ? `${h}px` : isListening ? `${(h * 0.8)}px` : '4px',
+                                    }}
+                                    className={`w-1 rounded-sm transition-all duration-200 ${
+                                        isAiSpeaking 
+                                            ? 'bg-[#10B981]' 
+                                            : isListening 
+                                                ? 'bg-[#F43F5E]' 
+                                                : isSending 
+                                                    ? 'bg-[#F59E0B] animate-pulse' 
+                                                    : 'bg-[#222228]'
+                                    }`}
+                                />
+                            ))}
+                        </div>
+
+                        <span className="text-[11px] font-mono text-[#52525B]">
+                            Acoustic Transceiver • 48kHz Voice Synthesis Active
+                        </span>
                     </div>
 
-                    {/* AI Question Subtitle Card */}
-                    <div className="w-full bg-gray-900/90 border border-gray-800 rounded-3xl p-8 mb-6 shadow-2xl backdrop-blur">
-                        <div className="flex items-center justify-between mb-3">
-                            <span className="text-xs font-bold text-primary-400 uppercase tracking-widest flex items-center gap-1.5">
-                                <span className="w-2 h-2 rounded-full bg-primary-400"></span> Current Question
+                    {/* Question Card */}
+                    <div className="w-full bg-[#111114] border border-[#222228] rounded-md p-6 space-y-4">
+                        <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-mono uppercase tracking-wider text-[#71717A] flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-[#FAFAFA]"></span> Current Interrogation
                             </span>
                             <button
                                 onClick={() => speakAiMessage(latestAiMessage)}
-                                className="text-xs text-gray-400 hover:text-white flex items-center gap-1 transition-colors"
+                                className="studio-btn-secondary text-[11px] py-1"
                             >
-                                ↺ Repeat Question
+                                <RotateCcw className="w-3 h-3" />
+                                <span>Repeat Audio</span>
                             </button>
                         </div>
-                        <p className="text-xl sm:text-2xl font-semibold text-gray-100 leading-relaxed">
-                            "{latestAiMessage || 'Preparing your opening question...'}"
+                        <p className="text-base sm:text-lg font-medium text-[#FAFAFA] leading-relaxed">
+                            "{latestAiMessage || 'Initializing introductory questions...'}"
                         </p>
                     </div>
 
-                    {/* Candidate Live Transcription Display */}
+                    {/* Live Speech Recognition Transcript Box */}
                     {(candidateText || interimSpeech || isListening) && (
-                        <div className="w-full bg-primary-950/30 border border-primary-500/20 rounded-2xl p-5 mb-6 text-left">
-                            <p className="text-xs font-bold text-primary-400 uppercase tracking-wider mb-1">Your Spoken Answer</p>
-                            <p className="text-base text-gray-200">
-                                {candidateText} <span className="text-primary-400 italic">{interimSpeech}</span>
+                        <div className="w-full bg-[#09090B] border border-[#222228] rounded-md p-4 space-y-1 font-mono text-xs">
+                            <div className="flex justify-between text-[10px] text-[#71717A] uppercase">
+                                <span>Candidate Spoken Buffer:</span>
+                                {isListening && <span className="text-[#F43F5E]">RECORDING...</span>}
+                            </div>
+                            <p className="text-[#FAFAFA] leading-relaxed">
+                                {candidateText} <span className="text-[#71717A] italic">{interimSpeech}</span>
                             </p>
                         </div>
                     )}
 
-                    {/* Speech / Action Dock */}
-                    <div className="w-full flex flex-col sm:flex-row items-center justify-center gap-4">
-                        {/* Mic Button */}
-                        <button
-                            onClick={toggleSpeechRecognition}
-                            className={`px-8 py-4 rounded-2xl font-bold text-base flex items-center gap-3 transition-all shadow-xl ${
-                                isListening
-                                    ? 'bg-red-600 hover:bg-red-500 text-white ring-4 ring-red-500/30 animate-pulse'
-                                    : 'bg-primary-600 hover:bg-primary-500 text-white shadow-primary-600/30 hover:scale-105'
-                            }`}
-                        >
-                            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                            </svg>
-                            {isListening ? 'Listening (Click to Finish)' : 'Press to Speak'}
-                        </button>
-
-                        {/* Submit Spoken Answer */}
-                        {(candidateText || interimSpeech) && (
+                    {/* Control Action Deck */}
+                    <div className="w-full flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+                        <div className="flex items-center gap-2 w-full sm:w-auto">
                             <button
-                                onClick={() => handleSendMessage()}
-                                disabled={isSending}
-                                className="px-6 py-4 bg-green-600 hover:bg-green-500 text-white rounded-2xl font-bold text-sm transition-all shadow-lg shadow-green-600/20 disabled:opacity-50"
+                                onClick={toggleSpeechRecognition}
+                                className={`px-5 py-2.5 rounded-md font-mono text-xs font-semibold flex items-center justify-center gap-2 transition-all flex-1 sm:flex-initial ${
+                                    isListening
+                                        ? 'bg-[#F43F5E] text-white animate-pulse'
+                                        : 'studio-btn-primary'
+                                }`}
                             >
-                                {isSending ? 'Sending...' : 'Send Answer →'}
+                                {isListening ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
+                                <span>{isListening ? 'Halt Recording' : 'Press to Speak'}</span>
                             </button>
-                        )}
 
-                        <button
-                            id="jump-to-coding-btn"
-                            onClick={() => handleSendMessage("I am ready for the coding challenge now! Let's start coding.")}
-                            disabled={isSending}
-                            className="px-5 py-3.5 bg-gradient-to-r from-purple-600 to-primary-600 hover:from-purple-500 hover:to-primary-500 text-white rounded-2xl font-bold text-xs transition-all shadow-lg shadow-purple-600/20 disabled:opacity-50 flex items-center gap-1.5"
-                        >
-                            <span>⚡</span>
-                            <span>Ready for Coding Round</span>
-                        </button>
+                            {(candidateText || interimSpeech) && (
+                                <button
+                                    onClick={() => handleSendMessage()}
+                                    disabled={isSending}
+                                    className="studio-btn-secondary px-4 py-2.5 font-mono text-xs font-semibold"
+                                >
+                                    <span>Transmit</span>
+                                    <Send className="w-3 h-3" />
+                                </button>
+                            )}
+                        </div>
 
-                        <button
-                            onClick={() => setShowTextInput(!showTextInput)}
-                            className="text-xs text-gray-400 hover:text-gray-200 underline font-medium py-2 px-3"
-                        >
-                            {showTextInput ? 'Hide text chat' : 'Prefer typing? Open text input'}
-                        </button>
+                        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                            <button
+                                id="jump-to-coding-btn"
+                                onClick={() => handleSendMessage("I am ready for the coding challenge now! Let's start coding.")}
+                                disabled={isSending}
+                                className="studio-btn-secondary text-xs font-mono py-2.5"
+                                title="Transition to Stage 2: Coding & DSA Workspace"
+                            >
+                                <Code2 className="w-3.5 h-3.5 text-[#10B981]" />
+                                <span>Proceed to Coding Round</span>
+                                <ArrowRight className="w-3 h-3" />
+                            </button>
+
+                            <button
+                                onClick={() => setShowTextInput(!showTextInput)}
+                                className="text-[11px] font-mono text-[#71717A] hover:text-[#FAFAFA] px-2 py-1"
+                            >
+                                {showTextInput ? '[Hide Text Input]' : '[Text Mode]'}
+                            </button>
+                        </div>
                     </div>
 
-                    {/* Optional Text Input Modal/Drawer */}
+                    {/* Text Input Drawer */}
                     {showTextInput && (
-                        <div className="w-full mt-6 bg-gray-900 border border-gray-800 rounded-2xl p-4 flex gap-3">
+                        <div className="w-full bg-[#111114] border border-[#222228] rounded-md p-3 flex gap-2">
                             <input
                                 type="text"
                                 value={candidateText}
-                                onChange={(e) => {
-                                    if (window.speechSynthesis && window.speechSynthesis.speaking) {
-                                        window.speechSynthesis.cancel();
-                                        setIsAiSpeaking(false);
-                                        if (utteranceRef.current) utteranceRef.current = null;
-                                    }
-                                    setCandidateText(e.target.value);
-                                }}
+                                onChange={(e) => setCandidateText(e.target.value)}
                                 onKeyDown={(e) => { if (e.key === 'Enter') handleSendMessage(); }}
-                                placeholder="Type your response to the interviewer..."
-                                className="flex-1 bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 text-sm text-gray-100 focus:outline-none focus:border-primary-500"
+                                placeholder="Type candidate explanation or answer..."
+                                className="studio-input font-mono text-xs"
                             />
                             <button
                                 onClick={() => handleSendMessage()}
                                 disabled={isSending || !candidateText.trim()}
-                                className="px-6 py-3 bg-primary-600 hover:bg-primary-500 text-white rounded-xl text-sm font-bold disabled:opacity-50"
+                                className="studio-btn-primary px-4 font-mono text-xs"
                             >
                                 Send
                             </button>
@@ -739,279 +750,155 @@ const InterviewRoom = () => {
                     )}
                 </main>
             ) : (
-                /* ================= STAGE 2: AUTHENTIC HACKERRANK CODING WORKSPACE ================= */
-                <main className="flex-1 flex overflow-hidden bg-[#0d1117] relative">
-                    {/* LEFT PANEL: Problem Workspace with HackerRank Tabs */}
+                /* ================= STAGE 2: PRECISION HACKERRANK CODING WORKSPACE ================= */
+                <main className="flex-1 flex overflow-hidden bg-[#09090B] relative">
+                    {/* LEFT PANEL: Problem Specification & Live Interviewer Guidance */}
                     <div
                         style={{ width: `${leftPanelWidth}%` }}
-                        className="flex flex-col bg-[#0d1117] overflow-hidden flex-shrink-0"
+                        className="flex flex-col bg-[#111114] overflow-hidden flex-shrink-0"
                     >
                         {/* Tab Bar */}
-                        <div className="h-10 border-b border-[#30363d] bg-[#161b22] px-4 flex items-center justify-between flex-shrink-0">
-                            <div className="flex items-center gap-1">
+                        <div className="h-10 border-b border-[#222228] bg-[#09090B] px-3 flex items-center justify-between flex-shrink-0">
+                            <div className="flex items-center gap-1 font-mono text-xs">
                                 <button
                                     onClick={() => setLeftTab('problem')}
-                                    className={`px-3 py-1.5 text-xs font-bold rounded-md flex items-center gap-1.5 transition-all ${
+                                    className={`px-3 py-1.5 rounded-t text-xs font-medium transition-colors flex items-center gap-1.5 ${
                                         leftTab === 'problem'
-                                            ? 'bg-[#0d1117] text-white border-t-2 border-primary-500 shadow-sm'
-                                            : 'text-gray-400 hover:text-gray-200'
+                                            ? 'bg-[#111114] text-[#FAFAFA] border-t border-x border-[#222228]'
+                                            : 'text-[#71717A] hover:text-[#FAFAFA]'
                                     }`}
                                 >
-                                    <svg className="w-3.5 h-3.5 text-primary-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                    </svg>
-                                    Problem Statement
+                                    <FileText className="w-3.5 h-3.5" />
+                                    <span>Problem Specification</span>
                                 </button>
                                 <button
                                     onClick={() => setLeftTab('guidance')}
-                                    className={`px-3 py-1.5 text-xs font-bold rounded-md flex items-center gap-1.5 transition-all ${
+                                    className={`px-3 py-1.5 rounded-t text-xs font-medium transition-colors flex items-center gap-1.5 ${
                                         leftTab === 'guidance'
-                                            ? 'bg-[#0d1117] text-white border-t-2 border-primary-500 shadow-sm'
-                                            : 'text-gray-400 hover:text-gray-200'
+                                            ? 'bg-[#111114] text-[#FAFAFA] border-t border-x border-[#222228]'
+                                            : 'text-[#71717A] hover:text-[#FAFAFA]'
                                     }`}
                                 >
-                                    <svg className="w-3.5 h-3.5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                                    </svg>
-                                    Interviewer (Rohan)
-                                    <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
+                                    <MessageSquare className="w-3.5 h-3.5 text-[#10B981]" />
+                                    <span>Tech Lead (Rohan)</span>
+                                    <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]"></span>
                                 </button>
                             </div>
-                            <div className="flex items-center gap-1.5 text-xs font-mono text-gray-400">
-                                <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                                <span className="text-[11px] text-green-400">Live 1-on-1 Interview</span>
-                            </div>
+                            <span className="font-mono text-[10px] text-[#52525B]">ACTIVE ROUND</span>
                         </div>
 
-                        {/* Tab Content: Problem */}
+                        {/* Problem Tab Content */}
                         {leftTab === 'problem' && (
-                            <div className="flex-1 overflow-y-auto p-6 space-y-6 text-gray-200">
-                                {/* Title & Meta tags */}
-                                <div>
-                                    <h2 className="text-2xl font-bold text-gray-100 mb-2">
-                                        {codingChallenge?.title || 'Algorithmic Challenge'}
-                                    </h2>
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                        <span className="px-2.5 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">
+                            <div className="flex-1 overflow-y-auto p-5 space-y-5 text-[#A1A1AA] font-mono text-xs">
+                                <div className="space-y-1.5 border-b border-[#222228] pb-4">
+                                    <div className="flex items-center gap-2">
+                                        <h2 className="text-base font-semibold text-[#FAFAFA] font-sans">
+                                            {codingChallenge?.title || 'Algorithmic Challenge'}
+                                        </h2>
+                                        <span className="studio-badge bg-[#18181C] text-[#F59E0B] border-[#F59E0B]/30">
                                             {codingChallenge?.difficulty || 'Medium'}
                                         </span>
-                                        <span className="px-2.5 py-0.5 rounded text-[11px] font-bold text-gray-300 bg-[#161b22] border border-[#30363d]">
-                                            Target: ~20 mins
-                                        </span>
-                                        <span className="px-2.5 py-0.5 rounded text-[11px] font-bold text-green-400 bg-green-500/10 border border-green-500/20 flex items-center gap-1">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-green-400"></span>
-                                            Active Coding Round
-                                        </span>
                                     </div>
-                                </div>
-
-                                <hr className="border-[#30363d]" />
-
-                                {/* Problem Description */}
-                                <div>
-                                    <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">
-                                        Problem Statement
-                                    </h3>
-                                    <p className="text-sm text-gray-300 leading-relaxed whitespace-pre-line font-sans">
-                                        {codingChallenge?.description || 'Write an efficient solution to solve the given technical problem.'}
+                                    <p className="text-[11px] text-[#52525B]">
+                                        Estimated Target: 20 minutes • Native isolated sandbox execution
                                     </p>
                                 </div>
 
-                                {/* Function Description */}
+                                <div className="space-y-2">
+                                    <span className="text-[10px] uppercase text-[#71717A] tracking-wider block">
+                                        Problem Description
+                                    </span>
+                                    <p className="text-[#FAFAFA] leading-relaxed whitespace-pre-line font-sans text-xs">
+                                        {codingChallenge?.description || 'Write an efficient algorithm solving the specified technical requirements.'}
+                                    </p>
+                                </div>
+
                                 {codingChallenge?.functionDescription && (
-                                    <div>
-                                        <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">
-                                            Function Description
-                                        </h3>
-                                        <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-3 text-xs text-gray-300 leading-relaxed font-mono">
+                                    <div className="space-y-1.5">
+                                        <span className="text-[10px] uppercase text-[#71717A] tracking-wider block">
+                                            Function Signature
+                                        </span>
+                                        <pre className="p-3 bg-[#09090B] border border-[#222228] rounded text-xs text-[#FAFAFA] font-mono overflow-x-auto">
                                             {codingChallenge.functionDescription}
-                                        </div>
+                                        </pre>
                                     </div>
                                 )}
 
-                                {/* Input & Output Format */}
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div>
-                                        <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5">
-                                            Input Format
-                                        </h3>
-                                        <p className="text-xs text-gray-300 bg-[#161b22] border border-[#30363d] rounded-lg p-2.5">
-                                            {codingChallenge?.inputFormat || 'Passed directly into function arguments.'}
-                                        </p>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <div className="space-y-1">
+                                        <span className="text-[10px] uppercase text-[#71717A] block">Input Format</span>
+                                        <div className="p-2.5 bg-[#09090B] border border-[#222228] rounded text-[11px] text-[#A1A1AA]">
+                                            {codingChallenge?.inputFormat || 'Passed via standard function parameters.'}
+                                        </div>
                                     </div>
-                                    <div>
-                                        <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5">
-                                            Output Format
-                                        </h3>
-                                        <p className="text-xs text-gray-300 bg-[#161b22] border border-[#30363d] rounded-lg p-2.5">
-                                            {codingChallenge?.outputFormat || 'Return the computed result matching the return type.'}
-                                        </p>
+                                    <div className="space-y-1">
+                                        <span className="text-[10px] uppercase text-[#71717A] block">Output Format</span>
+                                        <div className="p-2.5 bg-[#09090B] border border-[#222228] rounded text-[11px] text-[#A1A1AA]">
+                                            {codingChallenge?.outputFormat || 'Return the computed result matching return type.'}
+                                        </div>
                                     </div>
                                 </div>
 
-                                {/* Constraints */}
-                                <div>
-                                    <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">
-                                        Constraints
-                                    </h3>
-                                    <div className="flex flex-wrap gap-2">
-                                        {(codingChallenge?.constraints && codingChallenge.constraints.length > 0) ? (
-                                            codingChallenge.constraints.map((c, i) => (
-                                                <span key={i} className="font-mono text-xs text-gray-300 bg-[#161b22] border border-[#30363d] px-2.5 py-1 rounded">
+                                {codingChallenge?.constraints && codingChallenge.constraints.length > 0 && (
+                                    <div className="space-y-1.5">
+                                        <span className="text-[10px] uppercase text-[#71717A] tracking-wider block">
+                                            Constraints
+                                        </span>
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {codingChallenge.constraints.map((c, i) => (
+                                                <span key={i} className="px-2 py-0.5 rounded bg-[#09090B] border border-[#222228] text-[11px] text-[#A1A1AA]">
                                                     {c}
                                                 </span>
-                                            ))
-                                        ) : (
-                                            <>
-                                                <span className="font-mono text-xs text-gray-300 bg-[#161b22] border border-[#30363d] px-2.5 py-1 rounded">
-                                                    2 &le; n &le; 10^5
-                                                </span>
-                                                <span className="font-mono text-xs text-gray-300 bg-[#161b22] border border-[#30363d] px-2.5 py-1 rounded">
-                                                    Memory limit: 512 MB
-                                                </span>
-                                                <span className="font-mono text-xs text-gray-300 bg-[#161b22] border border-[#30363d] px-2.5 py-1 rounded">
-                                                    Time limit: 2.0s
-                                                </span>
-                                            </>
-                                        )}
+                                            ))}
+                                        </div>
                                     </div>
-                                </div>
-
-                                {/* Sample Test Cases */}
-                                <div>
-                                    <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-3">
-                                        Sample Test Cases
-                                    </h3>
-                                    <div className="space-y-4">
-                                        {((codingChallenge?.sampleTestCases && codingChallenge.sampleTestCases.length > 0)
-                                            ? codingChallenge.sampleTestCases
-                                            : [
-                                                {
-                                                    input: 'nums = [2, 7, 11, 15], target = 9',
-                                                    expectedOutput: '[0, 1]',
-                                                    explanation: 'Because nums[0] + nums[1] == 2 + 7 == 9, we return [0, 1].'
-                                                },
-                                                {
-                                                    input: 'nums = [3, 2, 4], target = 6',
-                                                    expectedOutput: '[1, 2]',
-                                                    explanation: 'Because nums[1] + nums[2] == 2 + 4 == 6, we return [1, 2].'
-                                                }
-                                            ]
-                                        ).map((tc, idx) => (
-                                            <div key={idx} className="bg-[#161b22] border border-[#30363d] rounded-lg p-4 space-y-3">
-                                                <div className="flex items-center justify-between">
-                                                    <span className="text-xs font-bold text-gray-300 uppercase tracking-wider">
-                                                        Sample Input {idx}
-                                                    </span>
-                                                    <button
-                                                        onClick={() => {
-                                                            navigator.clipboard.writeText(tc.input);
-                                                            setCopySuccessIndex(idx);
-                                                            setTimeout(() => setCopySuccessIndex(null), 2000);
-                                                        }}
-                                                        className="text-[11px] text-gray-400 hover:text-white flex items-center gap-1 font-mono"
-                                                    >
-                                                        {copySuccessIndex === idx ? '✓ Copied' : 'Copy'}
-                                                    </button>
-                                                </div>
-                                                <pre className="bg-[#0d1117] p-2.5 rounded font-mono text-xs text-green-400 border border-[#30363d] overflow-x-auto">
-                                                    {tc.input}
-                                                </pre>
-
-                                                <span className="text-xs font-bold text-gray-300 uppercase tracking-wider block">
-                                                    Sample Output {idx}
-                                                </span>
-                                                <pre className="bg-[#0d1117] p-2.5 rounded font-mono text-xs text-blue-400 border border-[#30363d] overflow-x-auto">
-                                                    {tc.expectedOutput}
-                                                </pre>
-
-                                                {tc.explanation && (
-                                                    <div className="pt-1">
-                                                        <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
-                                                            Explanation
-                                                        </span>
-                                                        <p className="text-xs text-gray-300 leading-relaxed font-sans">
-                                                            {tc.explanation}
-                                                        </p>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
+                                )}
                             </div>
                         )}
 
-                        {/* Tab Content: Interviewer Notes & Live Chat */}
+                        {/* Interviewer Tab Content */}
                         {leftTab === 'guidance' && (
-                            <div className="flex-1 overflow-y-auto p-4 flex flex-col justify-between">
+                            <div className="flex-1 overflow-y-auto p-4 flex flex-col justify-between font-mono text-xs">
                                 <div className="space-y-3 overflow-y-auto mb-4">
-                                    <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-3 mb-2 flex items-center justify-between">
+                                    <div className="p-2.5 bg-[#09090B] border border-[#222228] rounded flex items-center justify-between">
                                         <div className="flex items-center gap-2">
-                                            <div className="w-7 h-7 rounded-full bg-primary-600 flex items-center justify-center font-bold text-xs text-white">
-                                                R
-                                            </div>
-                                            <div>
-                                                <p className="text-xs font-bold text-gray-200">Rohan (Senior Tech Lead)</p>
-                                                <p className="text-[10px] text-gray-400">Observing your code & logic in real-time</p>
-                                            </div>
+                                            <span className="w-2 h-2 rounded-full bg-[#10B981]"></span>
+                                            <span className="font-semibold text-[#FAFAFA]">Rohan (Tech Lead)</span>
                                         </div>
-                                        <span className="text-[10px] bg-green-500/10 text-green-400 border border-green-500/20 px-2 py-0.5 rounded font-mono">
-                                            Live
-                                        </span>
+                                        <span className="text-[10px] text-[#52525B]">MONITORING SOLUTION</span>
                                     </div>
 
                                     {transcript.map((msg, i) => (
                                         <div
                                             key={i}
-                                            className={`p-3 rounded-xl text-xs max-w-[90%] ${
+                                            className={`p-3 rounded text-xs space-y-1 ${
                                                 msg.role === 'ai'
-                                                    ? 'bg-primary-950/40 border border-primary-500/20 text-gray-200 self-start'
-                                                    : 'bg-[#161b22] border border-[#30363d] text-gray-300 self-end ml-auto'
+                                                    ? 'bg-[#09090B] border border-[#222228] text-[#FAFAFA]'
+                                                    : 'bg-[#18181C] border border-[#3F3F46] text-[#A1A1AA] ml-4'
                                             }`}
                                         >
-                                            <span className="text-[10px] font-bold uppercase tracking-wider block mb-1 opacity-70">
-                                                {msg.role === 'ai' ? 'Rohan' : 'You'}
+                                            <span className="text-[10px] text-[#52525B] uppercase block">
+                                                {msg.role === 'ai' ? 'ROHAN // TECH LEAD' : 'CANDIDATE // SOLUTION'}
                                             </span>
-                                            <p className="whitespace-pre-line leading-relaxed">{msg.text}</p>
+                                            <p className="whitespace-pre-line leading-relaxed font-sans">{msg.text}</p>
                                         </div>
                                     ))}
                                 </div>
 
-                                {/* Spoken / Query Dock inside Tab */}
-                                <div className="border-t border-[#30363d] pt-3 flex flex-col gap-2">
-                                    <div className="flex items-center gap-2">
-                                        <button
-                                            onClick={toggleSpeechRecognition}
-                                            className={`flex-1 py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-2 transition-all ${
-                                                isListening
-                                                    ? 'bg-red-600 text-white animate-pulse'
-                                                    : 'bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700'
-                                            }`}
-                                        >
-                                            🎙️ {isListening ? 'Listening (Click to send)' : 'Talk to Rohan'}
-                                        </button>
-                                    </div>
+                                <div className="border-t border-[#222228] pt-3 space-y-2">
                                     <div className="flex gap-2">
                                         <input
                                             type="text"
                                             value={candidateText}
-                                            onChange={(e) => {
-                                                if (window.speechSynthesis && window.speechSynthesis.speaking) {
-                                                    window.speechSynthesis.cancel();
-                                                    setIsAiSpeaking(false);
-                                                    if (utteranceRef.current) utteranceRef.current = null;
-                                                }
-                                                setCandidateText(e.target.value);
-                                            }}
+                                            onChange={(e) => setCandidateText(e.target.value)}
                                             onKeyDown={(e) => { if (e.key === 'Enter') handleSendMessage(); }}
-                                            placeholder="Ask a question about the problem or explain your code..."
-                                            className="flex-1 bg-[#161b22] border border-[#30363d] rounded-lg px-3 py-1.5 text-xs text-gray-200 focus:outline-none focus:border-primary-500"
+                                            placeholder="Ask Rohan a technical question or explain logic..."
+                                            className="studio-input text-xs"
                                         />
                                         <button
                                             onClick={() => handleSendMessage()}
                                             disabled={isSending || !candidateText.trim()}
-                                            className="px-3 py-1.5 bg-primary-600 hover:bg-primary-500 text-white font-bold text-xs rounded-lg disabled:opacity-50"
+                                            className="studio-btn-primary px-3 text-xs"
                                         >
                                             Send
                                         </button>
@@ -1021,33 +908,30 @@ const InterviewRoom = () => {
                         )}
                     </div>
 
-                    {/* HORIZONTAL RESIZER SLIDER (Vertical divider bar) */}
+                    {/* Horizontal Hairline Resizer */}
                     <div
                         onMouseDown={() => setIsDraggingHorizontal(true)}
-                        className={`w-1.5 ${
-                            isDraggingHorizontal ? 'bg-[#1ba94c]' : 'bg-[#21262d]'
-                        } hover:bg-[#1ba94c] active:bg-[#1ba94c] cursor-col-resize transition-colors flex items-center justify-center flex-shrink-0 group z-30 relative select-none`}
-                        title="Drag left/right to resize problem description and code editor"
-                    >
-                        <div className="w-0.5 h-8 bg-gray-500 group-hover:bg-white rounded-full transition-colors"></div>
-                    </div>
+                        className={`w-1 ${
+                            isDraggingHorizontal ? 'bg-[#FAFAFA]' : 'bg-[#222228]'
+                        } hover:bg-[#3F3F46] cursor-col-resize transition-colors flex items-center justify-center flex-shrink-0 z-30 select-none`}
+                        title="Resize problem description and editor"
+                    />
 
-                    {/* RIGHT PANEL: HackerRank IDE & Runner */}
+                    {/* RIGHT PANEL: Monaco IDE & Native Compiler Sandbox */}
                     <div
                         ref={rightPanelRef}
                         style={{ width: `${100 - leftPanelWidth}%` }}
-                        className="flex flex-col bg-[#0d1117] overflow-hidden flex-1 min-w-0"
+                        className="flex flex-col bg-[#09090B] overflow-hidden flex-1 min-w-0"
                     >
-                        {/* Editor Top Bar */}
-                        <div className="h-10 border-b border-[#30363d] bg-[#161b22] px-4 flex items-center justify-between flex-shrink-0">
-                            <div className="flex items-center gap-3">
-                                <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Language:</span>
+                        {/* Editor Top Bar (h-10) */}
+                        <div className="h-10 border-b border-[#222228] bg-[#111114] px-3 flex items-center justify-between flex-shrink-0 font-mono text-xs">
+                            <div className="flex items-center gap-2.5">
+                                <span className="text-[11px] text-[#71717A] uppercase">Language:</span>
                                 <select
                                     value={selectedLanguage}
                                     onChange={(e) => {
                                         const newLang = e.target.value;
                                         setSelectedLanguage(newLang);
-                                        // If code is empty or basic, provide language starter
                                         if (!editorCode.trim() || editorCode.includes('// Starter template') || editorCode.includes('Write your')) {
                                             if (newLang === 'python') {
                                                 setEditorCode("# Write your Python 3 solution below\ndef solution(data):\n    # TODO: Implement logic\n    return data\n\nif __name__ == '__main__':\n    import sys\n    inp = sys.stdin.read().strip()\n    print(solution(inp) or 'Execution completed')\n");
@@ -1060,34 +944,40 @@ const InterviewRoom = () => {
                                             }
                                         }
                                     }}
-                                    className="bg-[#0d1117] border border-[#30363d] text-xs font-bold text-gray-200 px-2.5 py-1 rounded focus:outline-none focus:border-primary-500 font-mono"
+                                    className="bg-[#09090B] border border-[#222228] text-xs font-mono text-[#FAFAFA] px-2 py-1 rounded focus:outline-none focus:border-[#3F3F46]"
                                 >
                                     <option value="javascript">JavaScript (Node.js 24)</option>
                                     <option value="python">Python 3 (3.14)</option>
                                     <option value="cpp">C++ (GCC 6.3 / C++17)</option>
                                     <option value="java">Java (OpenJDK 24)</option>
                                 </select>
-                                <div className="hidden sm:flex items-center gap-1.5 text-[11px] font-mono text-gray-300 bg-[#0d1117] border border-[#30363d] px-2.5 py-0.5 rounded-full">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></span>
-                                    <span>Rohan watching live</span>
-                                </div>
                             </div>
 
                             <div className="flex items-center gap-2">
                                 <button
                                     onClick={() => setEditorCode(codingChallenge?.starterCode || '')}
-                                    className="text-xs text-gray-400 hover:text-gray-200 px-2 py-1 rounded hover:bg-gray-800 transition-all flex items-center gap-1 font-mono text-[11px]"
-                                    title="Reset code to default template"
+                                    className="studio-btn-secondary text-[11px] py-1"
+                                    title="Reset code to default challenge starter"
                                 >
-                                    ↺ Reset Code
+                                    <RotateCcw className="w-3 h-3" />
+                                    <span>Reset</span>
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setLeftTab('guidance');
+                                        handleSendMessage("I've finished writing and testing my solution. Rohan, please review it and walk through the implementation with me!");
+                                    }}
+                                    className="studio-btn-secondary text-[11px] py-1 text-[#10B981] hover:text-[#10B981]"
+                                    title="Discuss solution with AI tech lead"
+                                >
+                                    <Sparkles className="w-3 h-3" />
+                                    <span>Discuss with Rohan</span>
                                 </button>
                             </div>
                         </div>
 
                         {/* Monaco Editor Canvas */}
-                        <div className={`flex-1 min-h-0 bg-[#1e1e1e] overflow-hidden ${
-                            isDraggingHorizontal || isDraggingVertical ? 'pointer-events-none select-none' : ''
-                        }`}>
+                        <div className="flex-1 min-h-0 bg-[#09090B] overflow-hidden">
                             <Editor
                                 height="100%"
                                 language={selectedLanguage}
@@ -1096,126 +986,115 @@ const InterviewRoom = () => {
                                 onChange={(value) => setEditorCode(value || '')}
                                 options={{
                                     fontSize: 13,
-                                    fontFamily: 'Fira Code, Menlo, Monaco, Consolas, Courier New, monospace',
+                                    fontFamily: '"JetBrains Mono", Consolas, monospace',
                                     minimap: { enabled: false },
                                     scrollBeyondLastLine: false,
                                     automaticLayout: true,
                                     tabSize: 4,
                                     lineNumbers: 'on',
-                                    renderLineHighlight: 'all'
+                                    renderLineHighlight: 'all',
+                                    backgroundColor: '#09090B'
                                 }}
                             />
                         </div>
 
-                        {/* VERTICAL RESIZER SLIDER (Horizontal divider bar) */}
+                        {/* Vertical Hairline Resizer */}
                         <div
                             onMouseDown={() => setIsDraggingVertical(true)}
-                            className={`h-2 ${
-                                isDraggingVertical ? 'bg-[#1ba94c]' : 'bg-[#21262d]'
-                            } hover:bg-[#1ba94c] active:bg-[#1ba94c] cursor-row-resize transition-colors flex items-center justify-center flex-shrink-0 group z-30 relative select-none`}
-                            title="Drag up/down to resize code editor and testcase console"
-                        >
-                            <div className="h-0.5 w-12 bg-gray-500 group-hover:bg-white rounded-full transition-colors"></div>
-                        </div>
+                            className={`h-1 ${
+                                isDraggingVertical ? 'bg-[#FAFAFA]' : 'bg-[#222228]'
+                            } hover:bg-[#3F3F46] cursor-row-resize transition-colors flex items-center justify-center flex-shrink-0 z-30 select-none`}
+                            title="Resize console drawer"
+                        />
 
-                        {/* HackerRank Bottom Runner Panel */}
+                        {/* Bottom Execution Terminal Drawer */}
                         <div
                             style={{ height: `${consoleHeight}px` }}
-                            className="bg-[#0d1117] flex flex-col flex-shrink-0 border-t border-[#30363d] overflow-hidden"
+                            className="bg-[#09090B] flex flex-col flex-shrink-0 border-t border-[#222228] overflow-hidden font-mono"
                         >
                             {/* Console Header Bar */}
-                            <div className="h-10 border-b border-[#30363d] bg-[#161b22] px-4 flex items-center justify-between flex-shrink-0">
-                                <div className="flex items-center gap-2">
+                            <div className="h-9 border-b border-[#222228] bg-[#111114] px-3 flex items-center justify-between flex-shrink-0 text-xs">
+                                <div className="flex items-center gap-1.5">
                                     <button
                                         onClick={() => setConsoleTab('testcases')}
-                                        className={`px-3 py-1 text-xs font-bold rounded transition-all ${
+                                        className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
                                             consoleTab === 'testcases'
-                                                ? 'bg-[#0d1117] text-white border-b-2 border-primary-500'
-                                                : 'text-gray-400 hover:text-gray-200'
+                                                ? 'bg-[#18181C] text-[#FAFAFA] border border-[#222228]'
+                                                : 'text-[#71717A] hover:text-[#FAFAFA]'
                                         }`}
                                     >
                                         Test Cases
                                     </button>
                                     <button
                                         onClick={() => setConsoleTab('results')}
-                                        className={`px-3 py-1 text-xs font-bold rounded transition-all flex items-center gap-1.5 ${
+                                        className={`px-2.5 py-1 rounded text-xs font-medium transition-colors flex items-center gap-1.5 ${
                                             consoleTab === 'results'
-                                                ? 'bg-[#0d1117] text-white border-b-2 border-primary-500'
-                                                : 'text-gray-400 hover:text-gray-200'
+                                                ? 'bg-[#18181C] text-[#FAFAFA] border border-[#222228]'
+                                                : 'text-[#71717A] hover:text-[#FAFAFA]'
                                         }`}
                                     >
-                                        Execution Results
+                                        Execution Output
                                         {executionDetails.output && (
-                                            <span className={`w-1.5 h-1.5 rounded-full ${executionDetails.hasError ? 'bg-red-400' : 'bg-green-400'}`}></span>
+                                            <span className={`w-1.5 h-1.5 rounded-full ${executionDetails.hasError ? 'bg-[#F43F5E]' : 'bg-[#10B981]'}`}></span>
                                         )}
                                     </button>
                                 </div>
 
-                                <div className="flex items-center gap-3">
-                                    <label className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-200 cursor-pointer">
+                                <div className="flex items-center gap-3 text-xs">
+                                    <label className="flex items-center gap-1.5 text-[11px] text-[#71717A] hover:text-[#FAFAFA] cursor-pointer">
                                         <input
                                             type="checkbox"
                                             checked={useCustomInput}
                                             onChange={(e) => setUseCustomInput(e.target.checked)}
-                                            className="rounded border-gray-700 bg-gray-900 text-primary-600 focus:ring-0 w-3.5 h-3.5"
+                                            className="rounded border-[#222228] bg-[#09090B] text-[#FAFAFA] focus:ring-0 w-3 h-3"
                                         />
-                                        <span>Test against custom input</span>
+                                        <span>Custom stdin</span>
                                     </label>
-                                    {executionOutput && (
-                                        <button
-                                            onClick={() => { setExecutionOutput(''); setExecutionDetails({ hasError: false, executionTime: '', output: '' }); }}
-                                            className="text-[11px] text-gray-500 hover:text-gray-300 font-mono"
-                                        >
-                                            Clear
-                                        </button>
-                                    )}
                                     <button
-                                        onClick={() => setConsoleHeight(consoleHeight <= 100 ? 280 : 94)}
-                                        className="text-[11px] text-gray-400 hover:text-white px-2 py-0.5 rounded hover:bg-gray-800 transition-colors flex items-center gap-1 font-mono border border-transparent hover:border-gray-700"
-                                        title={consoleHeight <= 100 ? 'Expand console' : 'Minimize console'}
+                                        onClick={() => setConsoleHeight(consoleHeight <= 90 ? 250 : 80)}
+                                        className="text-[11px] text-[#71717A] hover:text-[#FAFAFA]"
                                     >
-                                        {consoleHeight <= 100 ? '▲ Expand' : '▼ Minimize'}
+                                        {consoleHeight <= 90 ? '[Expand]' : '[Collapse]'}
                                     </button>
                                 </div>
                             </div>
 
                             {/* Console Body Area */}
-                            <div className="flex-1 min-h-0 p-4 overflow-y-auto font-mono text-xs text-gray-300 bg-[#0d1117]">
+                            <div className="flex-1 min-h-0 p-3 overflow-y-auto text-xs text-[#FAFAFA] bg-[#09090B]">
                                 {useCustomInput ? (
-                                    <div className="h-full flex flex-col">
-                                        <label className="text-[11px] font-bold text-gray-400 mb-1">
-                                            Custom stdin input:
-                                        </label>
+                                    <div className="h-full flex flex-col space-y-1">
+                                        <span className="text-[10px] text-[#52525B] uppercase">Custom stdin input stream:</span>
                                         <textarea
                                             value={customInputText}
                                             onChange={(e) => setCustomInputText(e.target.value)}
-                                            placeholder="Enter your custom input here..."
-                                            className="flex-1 bg-[#161b22] border border-[#30363d] rounded p-2.5 text-xs text-gray-200 focus:outline-none focus:border-primary-500 font-mono resize-none"
+                                            placeholder="Enter custom stdin test values..."
+                                            className="flex-1 bg-[#111114] border border-[#222228] rounded p-2 text-xs font-mono text-[#FAFAFA] resize-none focus:outline-none"
                                         />
                                     </div>
                                 ) : consoleTab === 'testcases' ? (
-                                    <div>
-                                        <div className="flex items-center gap-2 mb-3">
+                                    <div className="space-y-2">
+                                        <div className="flex items-center gap-1.5">
                                             {((codingChallenge?.sampleTestCases && codingChallenge.sampleTestCases.length > 0)
                                                 ? codingChallenge.sampleTestCases
                                                 : [
                                                     { input: 'nums = [2, 7, 11, 15], target = 9', expectedOutput: '[0, 1]' },
                                                     { input: 'nums = [3, 2, 4], target = 6', expectedOutput: '[1, 2]' }
                                                 ]
-                                            ).map((tc, idx) => (
+                                            ).map((_, idx) => (
                                                 <button
                                                     key={idx}
                                                     onClick={() => setActiveTestCase(idx)}
-                                                    className={`px-3 py-1 rounded text-xs font-bold transition-all ${
+                                                    className={`px-2.5 py-0.5 rounded text-[11px] font-mono transition-colors ${
                                                         activeTestCase === idx
-                                                            ? 'bg-[#161b22] text-green-400 border border-[#30363d]'
-                                                            : 'text-gray-500 hover:text-gray-300'
+                                                            ? 'bg-[#18181C] text-[#FAFAFA] border border-[#3F3F46]'
+                                                            : 'text-[#71717A] hover:text-[#FAFAFA]'
                                                     }`}
                                                 >
                                                     Case {idx}
                                                 </button>
                                             ))}
                                         </div>
+
                                         {((codingChallenge?.sampleTestCases && codingChallenge.sampleTestCases.length > 0)
                                             ? codingChallenge.sampleTestCases
                                             : [
@@ -1223,29 +1102,27 @@ const InterviewRoom = () => {
                                                 { input: 'nums = [3, 2, 4], target = 6', expectedOutput: '[1, 2]' }
                                             ]
                                         )[activeTestCase] && (
-                                            <div className="space-y-2">
-                                                <div>
-                                                    <span className="text-[10px] text-gray-500 uppercase tracking-wider block">Compiler Input</span>
-                                                    <pre className="bg-[#161b22] p-2 rounded text-xs text-gray-300 border border-[#30363d]">
+                                            <div className="grid grid-cols-2 gap-2 text-xs">
+                                                <div className="space-y-1">
+                                                    <span className="text-[10px] text-[#52525B] uppercase block">Compiler Input</span>
+                                                    <pre className="p-2 bg-[#111114] border border-[#222228] rounded text-[11px] text-[#FAFAFA] overflow-x-auto">
                                                         {((codingChallenge?.sampleTestCases && codingChallenge.sampleTestCases.length > 0)
                                                             ? codingChallenge.sampleTestCases
                                                             : [
-                                                                { input: 'nums = [2, 7, 11, 15], target = 9', expectedOutput: '[0, 1]' },
-                                                                { input: 'nums = [3, 2, 4], target = 6', expectedOutput: '[1, 2]' }
+                                                                { input: 'nums = [2, 7, 11, 15], target = 9', expectedOutput: '[0, 1]' }
                                                             ]
-                                                        )[activeTestCase].input}
+                                                        )[activeTestCase]?.input}
                                                     </pre>
                                                 </div>
-                                                <div>
-                                                    <span className="text-[10px] text-gray-500 uppercase tracking-wider block">Expected Output</span>
-                                                    <pre className="bg-[#161b22] p-2 rounded text-xs text-blue-400 border border-[#30363d]">
+                                                <div className="space-y-1">
+                                                    <span className="text-[10px] text-[#52525B] uppercase block">Expected Output</span>
+                                                    <pre className="p-2 bg-[#111114] border border-[#222228] rounded text-[11px] text-[#10B981] overflow-x-auto">
                                                         {((codingChallenge?.sampleTestCases && codingChallenge.sampleTestCases.length > 0)
                                                             ? codingChallenge.sampleTestCases
                                                             : [
-                                                                { input: 'nums = [2, 7, 11, 15], target = 9', expectedOutput: '[0, 1]' },
-                                                                { input: 'nums = [3, 2, 4], target = 6', expectedOutput: '[1, 2]' }
+                                                                { expectedOutput: '[0, 1]' }
                                                             ]
-                                                        )[activeTestCase].expectedOutput}
+                                                        )[activeTestCase]?.expectedOutput}
                                                     </pre>
                                                 </div>
                                             </div>
@@ -1255,92 +1132,58 @@ const InterviewRoom = () => {
                                     /* Execution Results */
                                     <div>
                                         {isRunningCode ? (
-                                            <div className="flex items-center gap-2 text-gray-400 py-4">
-                                                <div className="w-4 h-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
-                                                <span>Compiling and running against test suite...</span>
+                                            <div className="flex items-center gap-2 text-[#71717A] py-3">
+                                                <div className="w-3.5 h-3.5 border-2 border-[#FAFAFA] border-t-transparent rounded-full animate-spin"></div>
+                                                <span>Compiling with native {selectedLanguage} runtime...</span>
                                             </div>
                                         ) : executionDetails.output ? (
-                                            <div className="space-y-2">
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-2">
-                                                        <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
-                                                            executionDetails.hasError
-                                                                ? 'bg-red-500/10 text-red-400 border border-red-500/20'
-                                                                : 'bg-green-500/10 text-green-400 border border-green-500/20'
-                                                        }`}>
-                                                            {executionDetails.hasError ? '✕ Runtime / Compilation Error' : '✓ Execution Finished'}
-                                                        </span>
-                                                        <span className="text-gray-500 text-[11px]">
-                                                            Time: {executionDetails.executionTime || '0.04s'}
-                                                        </span>
-                                                    </div>
+                                            <div className="space-y-1.5">
+                                                <div className="flex items-center justify-between text-[11px]">
+                                                    <span className={`studio-badge ${
+                                                        executionDetails.hasError
+                                                            ? 'text-[#F43F5E] bg-[#F43F5E]/10 border-[#F43F5E]/30'
+                                                            : 'text-[#10B981] bg-[#10B981]/10 border-[#10B981]/30'
+                                                    }`}>
+                                                        {executionDetails.hasError ? 'ERROR // NON-ZERO EXIT' : 'OK // EXECUTION COMPLETED'}
+                                                    </span>
+                                                    <span className="text-[#52525B]">
+                                                        Latency: {executionDetails.executionTime || '0.20s'}
+                                                    </span>
                                                 </div>
-                                                <pre className={`p-3 rounded border text-xs whitespace-pre-wrap ${
-                                                    executionDetails.hasError
-                                                        ? 'bg-red-950/20 border-red-900/30 text-red-300'
-                                                        : 'bg-[#161b22] border-[#30363d] text-green-300'
-                                                }`}>
+                                                <pre className="p-2.5 bg-[#111114] border border-[#222228] rounded text-xs whitespace-pre-wrap text-[#FAFAFA] overflow-x-auto">
                                                     {executionDetails.output}
                                                 </pre>
                                             </div>
                                         ) : (
-                                            <p className="text-gray-500 py-4">
-                                                Click "Run Code" below to compile and view execution results against sample test cases.
+                                            <p className="text-[#52525B] py-3">
+                                                Click "Run Code" below to compile against the test runner.
                                             </p>
                                         )}
                                     </div>
                                 )}
                             </div>
 
-                            {/* Live Interview Action Dock */}
-                            <div className="h-14 border-t border-[#30363d] bg-[#161b22] px-4 sm:px-6 flex items-center justify-between flex-shrink-0">
-                                <div className="flex items-center gap-3">
-                                    {/* Run Code Button */}
+                            {/* Live Interview Action Dock (h-12) */}
+                            <div className="h-12 border-t border-[#222228] bg-[#111114] px-4 flex items-center justify-between flex-shrink-0">
+                                <div className="flex items-center gap-2">
                                     <button
                                         onClick={handleRunCode}
                                         disabled={isRunningCode}
-                                        className="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-600 font-semibold text-xs transition-all flex items-center gap-1.5 disabled:opacity-50"
+                                        className="studio-btn-primary text-xs font-mono"
                                         title="Run code with sample or custom test inputs"
                                     >
-                                        <svg className="w-3.5 h-3.5 text-green-400" fill="currentColor" viewBox="0 0 24 24">
-                                            <path d="M8 5v14l11-7z" />
-                                        </svg>
-                                        {isRunningCode ? 'Compiling...' : 'Run Code'}
+                                        <Play className="w-3 h-3 fill-current" />
+                                        <span>{isRunningCode ? 'Compiling...' : 'Run Code'}</span>
                                     </button>
-                                    <span className="text-xs text-gray-400 font-mono hidden md:inline">
-                                        {isRunningCode ? 'Compiling & running...' : executionDetails.output ? 'Output ready' : 'Test against sample or custom input'}
+                                    <span className="text-[11px] text-[#52525B] font-mono hidden sm:inline">
+                                        {isRunningCode ? 'Sub-second compilation active' : 'Native compiler ready'}
                                     </span>
                                 </div>
 
-                                <div className="flex items-center gap-3">
-                                    {/* Discuss Solution with Rohan */}
-                                    <button
-                                        onClick={() => {
-                                            setLeftTab('guidance');
-                                            handleSendMessage("I've finished writing and testing my solution. Rohan, please review it and walk through the implementation with me!");
-                                        }}
-                                        disabled={isSending}
-                                        className="px-4 py-2 rounded-lg bg-gradient-to-r from-purple-700 to-primary-600 hover:from-purple-600 hover:to-primary-500 text-white font-bold text-xs transition-all shadow-md shadow-purple-900/30 flex items-center gap-1.5 disabled:opacity-50 active:scale-95"
-                                        title="Send solution to Rohan and switch to live review discussion"
-                                    >
-                                        <svg className="w-3.5 h-3.5 text-purple-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                                        </svg>
-                                        {isSending ? 'Sending to Rohan...' : 'Discuss Solution with Rohan'}
-                                    </button>
-
-                                    {/* Finish Interview Button */}
-                                    <button
-                                        onClick={handleSubmitInterview}
-                                        disabled={isSubmitting}
-                                        className="px-4 py-2 rounded-lg bg-red-600/90 hover:bg-red-600 text-white font-bold text-xs transition-all shadow-md shadow-red-900/30 flex items-center gap-1.5 disabled:opacity-50 active:scale-95"
-                                        title="Conclude and submit the entire interview"
-                                    >
-                                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                        </svg>
-                                        {isSubmitting ? 'Submitting...' : 'End Interview'}
-                                    </button>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[10px] text-[#52525B] font-mono hidden md:inline">
+                                        SUBMISSION WILL TRIGGER GEMINI 2.5 FLASH EVALUATION
+                                    </span>
                                 </div>
                             </div>
                         </div>

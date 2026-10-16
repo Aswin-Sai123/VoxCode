@@ -19,9 +19,9 @@ const AppContent = () => {
     const isInterviewRoom = location.pathname.includes('/candidate/interview/');
 
     return (
-        <div className="min-h-screen">
+        <div className="min-h-screen bg-[#09090B] text-[#FAFAFA] flex flex-col antialiased selection:bg-[#222228] selection:text-[#FAFAFA]">
             {!isInterviewRoom && <Navbar />}
-            <main className={!isInterviewRoom ? "pt-16" : ""}>
+            <main className={!isInterviewRoom ? "pt-12 flex-1 flex flex-col" : "flex-1 flex flex-col"}>
                 <Routes>
                     <Route path="/" element={<Navigate to="/login" />} />
                     <Route path="/login" element={<Login />} />
