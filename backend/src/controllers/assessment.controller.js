@@ -3,6 +3,7 @@ import { Role } from '../models/role.model.js';
 import { ApiError } from '../utils/ApiError.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
+import { sendAssessmentInvite } from '../services/email.service.js';
 
 // helper to generate a unique assessment code like "ASMT-7821-9043"
 const generateCode = () => {
@@ -117,3 +118,61 @@ export const verifyAssessmentCode = asyncHandler(async (req, res) => {
 
     res.json(new ApiResponse(200, lobbyData, 'Assessment found'));
 });
+
+// Company invites candidates via email with automated magic links
+export const inviteCandidates = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const { emails, customMessage } = req.body;
+
+    if (!emails || (Array.isArray(emails) && emails.length === 0)) {
+        throw new ApiError(400, 'At least one candidate email is required');
+    }
+
+    const assessment = await Assessment.findOne({ _id: id, company: req.user.id })
+        .populate('role', 'title')
+        .populate('company', 'name');
+
+    if (!assessment) {
+        throw new ApiError(404, 'Assessment not found or unauthorized');
+    }
+
+    // Support either array of emails or comma-separated string
+    const emailList = Array.isArray(emails)
+        ? emails.map(e => e.trim()).filter(Boolean)
+        : emails.split(/[\n,;]+/).map(e => e.trim()).filter(Boolean);
+
+    const results = [];
+    for (const email of emailList) {
+        try {
+            const inviteRes = await sendAssessmentInvite({
+                candidateEmail: email,
+                companyName: assessment.companyName || assessment.company?.name || 'Company',
+                roleTitle: assessment.roleTitle || assessment.role?.title || 'Software Engineer',
+                assessmentTitle: assessment.title,
+                assessmentCode: assessment.assessmentCode,
+                durationMinutes: assessment.durationMinutes,
+                customMessage
+            });
+            results.push({
+                email,
+                success: true,
+                magicLink: inviteRes.magicLink,
+                previewUrl: inviteRes.previewUrl
+            });
+        } catch (err) {
+            results.push({
+                email,
+                success: false,
+                error: err.message
+            });
+        }
+    }
+
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    res.status(200).json(new ApiResponse(200, {
+        assessmentCode: assessment.assessmentCode,
+        magicLink: `${frontendUrl}/candidate/assessment/${assessment.assessmentCode}`,
+        invitations: results
+    }, `Invitations processed for ${results.length} candidate(s)`));
+});
+

@@ -16,6 +16,14 @@ const AssessmentResults = () => {
     const [verdictFilter, setVerdictFilter] = useState('ALL');
     const [sortBy, setSortBy] = useState('score');
 
+    // Email Invite State
+    const [showInviteModal, setShowInviteModal] = useState(false);
+    const [inviteEmails, setInviteEmails] = useState('');
+    const [inviteMessage, setInviteMessage] = useState('');
+    const [inviteLoading, setInviteLoading] = useState(false);
+    const [inviteSuccessData, setInviteSuccessData] = useState(null);
+    const [copied, setCopied] = useState(false);
+
     useEffect(() => {
         const fetchResults = async () => {
             try {
@@ -54,6 +62,34 @@ const AssessmentResults = () => {
         }
     };
 
+    const handleSendInvites = async (e) => {
+        if (e) e.preventDefault();
+        if (!inviteEmails.trim()) return;
+        setInviteLoading(true);
+        try {
+            const res = await api.post(`/assessments/${id}/invite`, {
+                emails: inviteEmails,
+                customMessage: inviteMessage
+            });
+            if (res.data.success) {
+                setInviteSuccessData(res.data.data);
+                setInviteEmails('');
+            }
+        } catch (err) {
+            console.error('Failed to send invites', err);
+            alert('Failed to send invites: ' + (err.response?.data?.message || err.message));
+        } finally {
+            setInviteLoading(false);
+        }
+    };
+
+    const copyMagicLink = () => {
+        const link = `${window.location.origin}/candidate/assessment/${assessment?.assessmentCode}`;
+        navigator.clipboard.writeText(link);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
     const getVerdictBadge = (verdict) => {
         switch (verdict) {
             case 'Strong Hire':
@@ -85,16 +121,28 @@ const AssessmentResults = () => {
         <div className="min-h-screen bg-gray-950 text-white py-10 px-4 sm:px-6 lg:px-8 font-sans">
             <div className="max-w-7xl mx-auto space-y-8">
                 {/* Navigation Bar */}
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <button
                         onClick={() => navigate('/company/dashboard')}
                         className="text-xs text-gray-400 hover:text-white flex items-center gap-1.5 transition-colors font-mono"
                     >
                         <span>←</span> Back to Company Dashboard
                     </button>
-                    <span className="text-xs text-gray-500 font-mono">
-                        Assessment ID: {assessment?.assessmentCode || 'ASMT-CODE'}
-                    </span>
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => {
+                                setInviteSuccessData(null);
+                                setShowInviteModal(true);
+                            }}
+                            className="px-4 py-2 bg-gradient-to-r from-primary-600 to-purple-600 hover:from-primary-500 hover:to-purple-500 text-white font-bold text-xs rounded-xl transition-all shadow-md shadow-primary-600/30 flex items-center gap-1.5 active:scale-95"
+                        >
+                            <span>📧</span>
+                            <span>Invite Candidates</span>
+                        </button>
+                        <span className="text-xs text-gray-400 font-mono bg-gray-900 border border-gray-800 px-3 py-1.5 rounded-xl">
+                            Code: {assessment?.assessmentCode || 'ASMT-CODE'}
+                        </span>
+                    </div>
                 </div>
 
                 {/* Hero Assessment Overview Card */}
@@ -301,6 +349,114 @@ const AssessmentResults = () => {
                                     ))}
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+                )}
+
+                {/* 7. Invite Candidates Modal */}
+                {showInviteModal && (
+                    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                        <div className="bg-gray-900 border border-gray-800 rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative">
+                            <button
+                                onClick={() => setShowInviteModal(false)}
+                                className="absolute top-5 right-5 text-gray-400 hover:text-white text-lg font-bold"
+                            >
+                                ✕
+                            </button>
+
+                            <div className="flex items-center gap-2 mb-2">
+                                <span className="text-xl">📧</span>
+                                <h2 className="text-xl font-bold text-white">Invite Candidates</h2>
+                            </div>
+                            <p className="text-xs text-gray-400 mb-5">
+                                Send automated email invitations with personalized assessment links for <strong>{assessment?.title}</strong>.
+                            </p>
+
+                            {/* Magic Link Box */}
+                            <div className="bg-gray-950 border border-gray-800 rounded-2xl p-4 mb-5">
+                                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">
+                                    Direct Magic Link
+                                </span>
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="text"
+                                        readOnly
+                                        value={`${window.location.origin}/candidate/assessment/${assessment?.assessmentCode}`}
+                                        className="flex-1 bg-transparent border-0 text-xs text-primary-300 font-mono focus:outline-none truncate"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={copyMagicLink}
+                                        className="px-3 py-1 bg-gray-800 hover:bg-gray-700 text-white text-xs font-semibold rounded-lg transition-colors flex-shrink-0"
+                                    >
+                                        {copied ? '✓ Copied' : 'Copy Link'}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Form */}
+                            <form onSubmit={handleSendInvites} className="space-y-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-300 uppercase tracking-wider mb-1.5">
+                                        Candidate Email Address(es)
+                                    </label>
+                                    <textarea
+                                        rows={3}
+                                        required
+                                        value={inviteEmails}
+                                        onChange={(e) => setInviteEmails(e.target.value)}
+                                        placeholder="sarah@example.com, alex@example.com"
+                                        className="w-full bg-gray-950 border border-gray-800 focus:border-primary-500 rounded-xl p-3 text-xs text-gray-200 placeholder-gray-600 focus:outline-none font-mono"
+                                    />
+                                    <p className="text-[11px] text-gray-500 mt-1">Separate multiple emails with commas or newlines</p>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-300 uppercase tracking-wider mb-1.5">
+                                        Optional Note to Candidates
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={inviteMessage}
+                                        onChange={(e) => setInviteMessage(e.target.value)}
+                                        placeholder="e.g. Please complete this technical interview by Friday."
+                                        className="w-full bg-gray-950 border border-gray-800 focus:border-primary-500 rounded-xl px-3 py-2 text-xs text-gray-200 placeholder-gray-600 focus:outline-none"
+                                    />
+                                </div>
+
+                                {inviteSuccessData && (
+                                    <div className="bg-emerald-950/40 border border-emerald-500/30 rounded-xl p-3 text-xs text-emerald-300 space-y-1">
+                                        <p className="font-bold">✓ Successfully dispatched {inviteSuccessData.invitations?.length} invitation(s)!</p>
+                                        {inviteSuccessData.invitations?.[0]?.previewUrl && (
+                                            <a
+                                                href={inviteSuccessData.invitations[0].previewUrl}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="underline text-[11px] text-emerald-400 block"
+                                            >
+                                                View Ethereal Email Preview ↗
+                                            </a>
+                                        )}
+                                    </div>
+                                )}
+
+                                <div className="flex justify-end gap-3 pt-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowInviteModal(false)}
+                                        className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs font-bold rounded-xl transition-colors"
+                                    >
+                                        Close
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={inviteLoading || !inviteEmails.trim()}
+                                        className="px-5 py-2 bg-gradient-to-r from-primary-600 to-purple-600 hover:from-primary-500 hover:to-purple-500 text-white font-bold text-xs rounded-xl transition-all shadow-md shadow-primary-600/30 disabled:opacity-50"
+                                    >
+                                        {inviteLoading ? 'Sending Invites...' : 'Send Invitations 🚀'}
+                                    </button>
+                                </div>
+                            </form>
                         </div>
                     </div>
                 )}

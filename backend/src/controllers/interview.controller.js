@@ -5,6 +5,7 @@ import { ApiResponse } from '../utils/ApiResponse.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { generateOpeningGreeting, generateNextInterviewStep } from '../services/ai.service.js';
 import { evaluateInterviewSession } from '../services/evaluation.service.js';
+import { executeCodeSandbox } from '../services/sandbox.service.js';
 
 // In-memory fallback cache in case MongoDB is temporarily bypassed
 const inMemorySessions = new Map();
@@ -223,77 +224,26 @@ export const sendCandidateMessage = asyncHandler(async (req, res) => {
 });
 
 /**
- * Execute candidate code safely
+ * Execute candidate code safely across JavaScript, Python, C++, and Java
  */
 export const runCandidateCode = asyncHandler(async (req, res) => {
-    const { language, code, customInput } = req.body;
+    const { language = 'javascript', code, customInput } = req.body;
 
     if (!code || !code.trim()) {
         throw new ApiError(400, 'Code cannot be empty');
     }
 
-    let output = '';
-    let hasError = false;
-    const startTime = Date.now();
+    const result = await executeCodeSandbox({
+        language,
+        code,
+        customInput: customInput || ''
+    });
 
-    if (language === 'javascript') {
-        // Run JavaScript safely with captured console and customInput
-        const logs = [];
-        const customConsole = {
-            log: (...args) => logs.push(args.map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ')),
-            error: (...args) => logs.push('[ERROR] ' + args.join(' ')),
-            warn: (...args) => logs.push('[WARN] ' + args.join(' '))
-        };
-
-        try {
-            const runner = new Function('console', 'customInput', `
-                try {
-                    ${code}
-                } catch (e) {
-                    console.error(e.message);
-                }
-            `);
-            runner(customConsole, customInput || '');
-            output = logs.join('\n') || 'Code executed successfully with no output.';
-        } catch (err) {
-            output = `Execution error: ${err.message}`;
-            hasError = true;
-        }
-    } else if (language === 'python') {
-        // Execute Python using Piston API with optional stdin
-        try {
-            const pistonBody = {
-                language: 'python',
-                version: '3.10.0',
-                files: [{ content: code }]
-            };
-            if (customInput) pistonBody.stdin = customInput;
-
-            const response = await fetch('https://emkc.org/api/v2/piston/execute', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(pistonBody)
-            });
-
-            const data = await response.json();
-            if (data.run) {
-                output = (data.run.stdout || '') + (data.run.stderr || '');
-                hasError = data.run.code !== 0;
-            } else {
-                output = 'Execution failed: Piston service unavailable.';
-                hasError = true;
-            }
-        } catch (err) {
-            output = `Python runner error: ${err.message}`;
-            hasError = true;
-        }
-    } else {
-        output = `Language '${language}' is not yet supported for live execution.`;
-    }
-
-    const executionTime = `${((Date.now() - startTime) / 1000).toFixed(2)}s`;
-
-    res.status(200).json(new ApiResponse(200, { output, hasError, executionTime }, 'Code executed'));
+    res.status(200).json(new ApiResponse(200, {
+        output: result.output,
+        hasError: result.hasError,
+        executionTime: result.executionTime
+    }, 'Code executed'));
 });
 
 /**

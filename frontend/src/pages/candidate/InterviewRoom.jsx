@@ -1022,11 +1022,28 @@ const InterviewRoom = () => {
                                 <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Language:</span>
                                 <select
                                     value={selectedLanguage}
-                                    onChange={(e) => setSelectedLanguage(e.target.value)}
+                                    onChange={(e) => {
+                                        const newLang = e.target.value;
+                                        setSelectedLanguage(newLang);
+                                        // If code is empty or basic, provide language starter
+                                        if (!editorCode.trim() || editorCode.includes('// Starter template') || editorCode.includes('Write your')) {
+                                            if (newLang === 'python') {
+                                                setEditorCode("# Write your Python 3 solution below\ndef solution(data):\n    # TODO: Implement logic\n    return data\n\nif __name__ == '__main__':\n    import sys\n    inp = sys.stdin.read().strip()\n    print(solution(inp) or 'Execution completed')\n");
+                                            } else if (newLang === 'cpp') {
+                                                setEditorCode("// Write your C++ solution below\n#include <iostream>\n#include <string>\nusing namespace std;\n\nint main() {\n    // TODO: Implement logic\n    cout << \"C++ Solution Output\" << endl;\n    return 0;\n}\n");
+                                            } else if (newLang === 'java') {
+                                                setEditorCode("// Write your Java solution below\nimport java.util.*;\n\npublic class Solution {\n    public static void main(String[] args) {\n        // TODO: Implement logic\n        System.out.println(\"Java Solution Output\");\n    }\n}\n");
+                                            } else {
+                                                setEditorCode(codingChallenge?.starterCode || "// Write your JavaScript solution below\nfunction solution(input) {\n    return input;\n}\n");
+                                            }
+                                        }
+                                    }}
                                     className="bg-[#0d1117] border border-[#30363d] text-xs font-bold text-gray-200 px-2.5 py-1 rounded focus:outline-none focus:border-primary-500 font-mono"
                                 >
-                                    <option value="javascript">JavaScript (Node.js 20)</option>
-                                    <option value="python">Python 3 (3.10)</option>
+                                    <option value="javascript">JavaScript (Node.js 24)</option>
+                                    <option value="python">Python 3 (3.14)</option>
+                                    <option value="cpp">C++ (GCC 6.3 / C++17)</option>
+                                    <option value="java">Java (OpenJDK 24)</option>
                                 </select>
                                 <div className="hidden sm:flex items-center gap-1.5 text-[11px] font-mono text-gray-300 bg-[#0d1117] border border-[#30363d] px-2.5 py-0.5 rounded-full">
                                     <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></span>

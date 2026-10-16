@@ -5,7 +5,8 @@ import {
     getMyAssessments,
     getAssessmentById,
     toggleAssessmentStatus,
-    verifyAssessmentCode
+    verifyAssessmentCode,
+    inviteCandidates
 } from '../controllers/assessment.controller.js';
 
 const router = Router();
@@ -18,6 +19,7 @@ router.post('/', protect(['COMPANY']), createAssessment);
 router.get('/', protect(['COMPANY']), getMyAssessments);
 router.get('/:id', protect(['COMPANY']), getAssessmentById);
 router.patch('/:id/status', protect(['COMPANY']), toggleAssessmentStatus);
+router.post('/:id/invite', protect(['COMPANY']), inviteCandidates);
 
 export default router;
 
