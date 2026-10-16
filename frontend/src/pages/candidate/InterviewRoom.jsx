@@ -35,6 +35,7 @@ const InterviewRoom = () => {
     const [executionOutput, setExecutionOutput] = useState('');
     const [isRunningCode, setIsRunningCode] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [confirmSubmit, setConfirmSubmit] = useState(false);
     const [transitionBanner, setTransitionBanner] = useState(false);
 
     // HackerRank IDE Tabs & Console state
@@ -392,8 +393,13 @@ const InterviewRoom = () => {
     };
 
     // 7. Submit Assessment
-    const handleSubmitInterview = async () => {
-        if (!window.confirm('Are you ready to submit your interview assessment?')) return;
+    const handleSubmitInterview = async (force = false) => {
+        if (!force && !confirmSubmit) {
+            setConfirmSubmit(true);
+            setTimeout(() => setConfirmSubmit(false), 6000);
+            return;
+        }
+        setConfirmSubmit(false);
         setIsSubmitting(true);
         try {
             await api.post('/interview/submit', {
@@ -582,11 +588,17 @@ const InterviewRoom = () => {
                         {isMuted ? '🔇 Voice Muted' : '🔊 Voice On'}
                     </button>
                     <button
-                        onClick={handleSubmitInterview}
+                        id="submit-interview-btn"
+                        onClick={() => handleSubmitInterview()}
                         disabled={isSubmitting}
-                        className="px-4 py-2 bg-red-600/90 hover:bg-red-600 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-red-900/20 disabled:opacity-50"
+                        className={`px-4 py-2 text-white rounded-xl text-xs font-bold transition-all shadow-lg disabled:opacity-50 ${
+                            confirmSubmit
+                                ? 'bg-amber-600 hover:bg-amber-500 ring-2 ring-amber-400 animate-pulse'
+                                : 'bg-red-600/90 hover:bg-red-600 shadow-red-900/20'
+                        }`}
+                        title="Submit and grade this assessment"
                     >
-                        {isSubmitting ? 'Submitting...' : 'End & Submit'}
+                        {isSubmitting ? 'Submitting...' : confirmSubmit ? '⚠️ Click again to Confirm Submit' : 'End & Submit'}
                     </button>
                 </div>
             </header>
@@ -679,6 +691,16 @@ const InterviewRoom = () => {
                                 {isSending ? 'Sending...' : 'Send Answer →'}
                             </button>
                         )}
+
+                        <button
+                            id="jump-to-coding-btn"
+                            onClick={() => handleSendMessage("I am ready for the coding challenge now! Let's start coding.")}
+                            disabled={isSending}
+                            className="px-5 py-3.5 bg-gradient-to-r from-purple-600 to-primary-600 hover:from-purple-500 hover:to-primary-500 text-white rounded-2xl font-bold text-xs transition-all shadow-lg shadow-purple-600/20 disabled:opacity-50 flex items-center gap-1.5"
+                        >
+                            <span>⚡</span>
+                            <span>Ready for Coding Round</span>
+                        </button>
 
                         <button
                             onClick={() => setShowTextInput(!showTextInput)}
