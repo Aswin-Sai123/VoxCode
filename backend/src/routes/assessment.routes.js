@@ -13,6 +13,7 @@ const router = Router();
 
 // Candidate route — verify assessment code (must be above /:id to avoid conflict)
 router.get('/join/:code', protect(['CANDIDATE']), verifyAssessmentCode);
+router.get('/code/:code', protect(['CANDIDATE']), verifyAssessmentCode);
 
 // Company routes (protected — COMPANY only)
 router.post('/', protect(['COMPANY']), createAssessment);

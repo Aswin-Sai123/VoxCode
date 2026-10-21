@@ -16,7 +16,13 @@ import {
     Users, 
     ChevronRight,
     AlertCircle,
-    Activity
+    Activity,
+    Edit3,
+    FileText,
+    Sparkles,
+    RefreshCw,
+    CheckCircle2,
+    User
 } from 'lucide-react';
 
 const Dashboard = () => {
@@ -25,8 +31,10 @@ const Dashboard = () => {
 
     const [roles, setRoles] = useState([]);
     const [assessments, setAssessments] = useState([]);
+    const [interviews, setInterviews] = useState({ ongoing: [], completed: [] });
     const [loadingRoles, setLoadingRoles] = useState(true);
     const [loadingAssessments, setLoadingAssessments] = useState(true);
+    const [loadingInterviews, setLoadingInterviews] = useState(true);
 
     // role form state
     const [showRoleForm, setShowRoleForm] = useState(false);
@@ -35,34 +43,57 @@ const Dashboard = () => {
     const [roleError, setRoleError] = useState('');
     const [copiedCode, setCopiedCode] = useState(null);
 
+    // role editing state
+    const [editingRoleId, setEditingRoleId] = useState(null);
+    const [editRoleTitle, setEditRoleTitle] = useState('');
+    const [editRoleDesc, setEditRoleDesc] = useState('');
+
+    // report generation state
+    const [generatingReportId, setGeneratingReportId] = useState(null);
+
     // fetch roles
-    useEffect(() => {
-        const fetchRoles = async () => {
-            try {
-                const res = await api.get('/company/roles');
-                if (res.data.success) setRoles(res.data.data);
-            } catch (err) {
-                console.error('Failed to fetch roles', err);
-            } finally {
-                setLoadingRoles(false);
-            }
-        };
-        fetchRoles();
-    }, []);
+    const fetchRoles = async () => {
+        try {
+            const res = await api.get('/company/roles');
+            if (res.data.success) setRoles(res.data.data);
+        } catch (err) {
+            console.error('Failed to fetch roles', err);
+        } finally {
+            setLoadingRoles(false);
+        }
+    };
 
     // fetch assessments
-    useEffect(() => {
-        const fetchAssessments = async () => {
-            try {
-                const res = await api.get('/assessments');
-                if (res.data.success) setAssessments(res.data.data);
-            } catch (err) {
-                console.error('Failed to fetch assessments', err);
-            } finally {
-                setLoadingAssessments(false);
+    const fetchAssessments = async () => {
+        try {
+            const res = await api.get('/assessments');
+            if (res.data.success) setAssessments(res.data.data);
+        } catch (err) {
+            console.error('Failed to fetch assessments', err);
+        } finally {
+            setLoadingAssessments(false);
+        }
+    };
+
+    // fetch interviews telemetry
+    const fetchInterviews = async () => {
+        setLoadingInterviews(true);
+        try {
+            const res = await api.get('/company/interviews');
+            if (res.data.success) {
+                setInterviews(res.data.data);
             }
-        };
+        } catch (err) {
+            console.error('Failed to fetch company interviews', err);
+        } finally {
+            setLoadingInterviews(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchRoles();
         fetchAssessments();
+        fetchInterviews();
     }, []);
 
     // create role
@@ -89,6 +120,33 @@ const Dashboard = () => {
         }
     };
 
+    // update role
+    const handleUpdateRole = async (e) => {
+        e.preventDefault();
+        if (!editRoleTitle.trim()) return;
+        try {
+            const res = await api.put(`/company/roles/${editingRoleId}`, {
+                title: editRoleTitle.trim(),
+                description: editRoleDesc.trim()
+            });
+            if (res.data.success) {
+                setRoles(roles.map(r => r._id === editingRoleId ? res.data.data : r));
+                setEditingRoleId(null);
+                setEditRoleTitle('');
+                setEditRoleDesc('');
+            }
+        } catch (err) {
+            console.error('Failed to update role', err);
+            alert(err.response?.data?.message || 'Failed to update role');
+        }
+    };
+
+    const startEditRole = (role) => {
+        setEditingRoleId(role._id);
+        setEditRoleTitle(role.title);
+        setEditRoleDesc(role.description || '');
+    };
+
     // delete role
     const handleDeleteRole = async (roleId) => {
         if (!window.confirm('Delete this role specification?')) return;
@@ -111,6 +169,22 @@ const Dashboard = () => {
             }
         } catch (err) {
             console.error('Failed to toggle status', err);
+        }
+    };
+
+    // trigger report generation manually
+    const handleTriggerEvaluation = async (sessionId) => {
+        setGeneratingReportId(sessionId);
+        try {
+            const res = await api.post(`/evaluation/trigger/${sessionId}`);
+            if (res.data.success) {
+                await fetchInterviews();
+            }
+        } catch (err) {
+            console.error('Failed to trigger evaluation', err);
+            alert(err.response?.data?.message || 'Failed to generate evaluation report');
+        } finally {
+            setGeneratingReportId(null);
         }
     };
 
@@ -171,13 +245,25 @@ const Dashboard = () => {
 
                 <div className="p-4 space-y-1">
                     <span className="text-[10px] font-mono uppercase tracking-wider text-[#71717A] block">
-                        Total Created Specs
+                        Live Ongoing Interviews
+                    </span>
+                    <div className="flex items-baseline gap-2">
+                        <span className="text-2xl font-mono font-semibold text-[#10B981] tabular-nums">
+                            {interviews.ongoing.length}
+                        </span>
+                        <span className="text-[11px] font-mono text-[#10B981]">in session</span>
+                    </div>
+                </div>
+
+                <div className="p-4 space-y-1">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-[#71717A] block">
+                        Completed Sessions
                     </span>
                     <div className="flex items-baseline gap-2">
                         <span className="text-2xl font-mono font-semibold text-[#FAFAFA] tabular-nums">
-                            {assessments.length}
+                            {interviews.completed.length}
                         </span>
-                        <span className="text-[11px] font-mono text-[#52525B]">specs</span>
+                        <span className="text-[11px] font-mono text-[#52525B]">candidates</span>
                     </div>
                 </div>
 
@@ -190,18 +276,6 @@ const Dashboard = () => {
                             {roles.length}
                         </span>
                         <span className="text-[11px] font-mono text-[#71717A]">archetypes</span>
-                    </div>
-                </div>
-
-                <div className="p-4 space-y-1">
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-[#71717A] block">
-                        Evaluation Engine
-                    </span>
-                    <div className="flex items-baseline gap-2">
-                        <span className="text-sm font-mono font-medium text-[#10B981]">
-                            GEMINI 2.5 FLASH
-                        </span>
-                        <span className="text-[10px] font-mono text-[#52525B]">READY</span>
                     </div>
                 </div>
             </div>
@@ -256,6 +330,156 @@ const Dashboard = () => {
                             </button>
                         </div>
                     </form>
+                </div>
+            )}
+
+            {/* Live Ongoing Interviews Section (Change F) */}
+            <div className="space-y-2">
+                <div className="flex items-center justify-between px-1">
+                    <div className="flex items-center gap-2">
+                        <Activity className="w-4 h-4 text-[#10B981] animate-pulse" />
+                        <h2 className="text-xs font-mono font-semibold uppercase text-[#A1A1AA] tracking-wider">
+                            Interviews in progress ({interviews.ongoing.length})
+                        </h2>
+                    </div>
+                    <button
+                        onClick={fetchInterviews}
+                        disabled={loadingInterviews}
+                        className="text-[11px] font-mono text-[#71717A] hover:text-[#FAFAFA] flex items-center gap-1 transition-colors"
+                        title="Refresh session list"
+                    >
+                        <RefreshCw className={`w-3 h-3 ${loadingInterviews ? 'animate-spin' : ''}`} />
+                        <span>Refresh</span>
+                    </button>
+                </div>
+
+                <div className="border border-[#222228] bg-[#111114] rounded-md overflow-hidden">
+                    {loadingInterviews ? (
+                        <div className="p-8 flex items-center justify-center font-mono text-xs text-[#71717A] gap-2">
+                            <div className="w-4 h-4 border-2 border-[#10B981] border-t-transparent rounded-full animate-spin"></div>
+                            <span>Loading...</span>
+                        </div>
+                    ) : interviews.ongoing.length > 0 ? (
+                        <div className="divide-y divide-[#222228]">
+                            {interviews.ongoing.map((session) => (
+                                <div
+                                    key={session.sessionId}
+                                    className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-[#18181C] transition-colors"
+                                >
+                                    <div className="space-y-1.5 flex-1 min-w-0 font-mono">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <span className="font-sans text-xs font-semibold text-[#FAFAFA]">
+                                                {session.candidateName}
+                                            </span>
+                                            <span className="text-[11px] text-[#71717A]">
+                                                &lt;{session.candidateEmail}&gt;
+                                            </span>
+                                            <span className="studio-badge text-[#10B981] bg-[#10B981]/10 border-[#10B981]/30 flex items-center gap-1">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] animate-ping"></span>
+                                                <span>Live: {session.currentStage?.replace('_', ' ')}</span>
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-3 text-[11px] text-[#71717A] flex-wrap">
+                                            <span>Assessment: <strong className="text-[#A1A1AA]">{session.assessmentTitle}</strong></span>
+                                            <span>•</span>
+                                            <span>Code: <span className="font-mono text-[#FAFAFA]">{session.assessmentCode}</span></span>
+                                            <span>•</span>
+                                            <span>Started: {new Date(session.startedAt).toLocaleTimeString()}</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 font-mono text-xs text-[#10B981]">
+                                        <span className="text-[11px] bg-[#10B981]/10 px-2.5 py-1 rounded border border-[#10B981]/20">
+                                            In Progress
+                                        </span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="p-6 text-center font-mono space-y-1">
+                            <p className="text-xs text-[#71717A]">No candidate interviews are currently in progress.</p>
+                            <p className="text-[10px] text-[#52525B]">Candidates show up here while they are taking your assessment.</p>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Completed Interviews & Evaluation Reports (Change F & Module 6) */}
+            {interviews.completed.length > 0 && (
+                <div className="space-y-2">
+                    <div className="flex items-center justify-between px-1">
+                        <div className="flex items-center gap-2">
+                            <CheckCircle2 className="w-4 h-4 text-[#71717A]" />
+                            <h2 className="text-xs font-mono font-semibold uppercase text-[#A1A1AA] tracking-wider">
+                                Finished interviews ({interviews.completed.length})
+                            </h2>
+                        </div>
+                    </div>
+
+                    <div className="border border-[#222228] bg-[#111114] rounded-md overflow-hidden">
+                        <div className="divide-y divide-[#222228]">
+                            {interviews.completed.map((session) => (
+                                <div
+                                    key={session.sessionId}
+                                    className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-[#18181C] transition-colors"
+                                >
+                                    <div className="space-y-1.5 flex-1 min-w-0 font-mono">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <span className="font-sans text-xs font-semibold text-[#FAFAFA]">
+                                                {session.candidateName}
+                                            </span>
+                                            <span className="text-[11px] text-[#71717A]">
+                                                &lt;{session.candidateEmail}&gt;
+                                            </span>
+                                            <span className="studio-badge text-[#A1A1AA] bg-[#18181C] border-[#222228]">
+                                                FINISHED
+                                            </span>
+                                            {session.score !== null && (
+                                                <span className="studio-badge text-[#10B981] bg-[#10B981]/10 border-[#10B981]/30">
+                                                    Score: {session.score}%
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center gap-3 text-[11px] text-[#71717A] flex-wrap">
+                                            <span>Assessment: <strong className="text-[#A1A1AA]">{session.assessmentTitle}</strong></span>
+                                            <span>•</span>
+                                            <span>Finished: {new Date(session.updatedAt).toLocaleDateString()} {new Date(session.updatedAt).toLocaleTimeString()}</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-2 flex-shrink-0 font-mono">
+                                        {session.hasReport ? (
+                                            <Link
+                                                to={`/candidate/report/${session.sessionId}`}
+                                                className="studio-btn-primary text-xs py-1"
+                                            >
+                                                <FileText className="w-3.5 h-3.5" />
+                                                <span>View report</span>
+                                            </Link>
+                                        ) : (
+                                            <button
+                                                onClick={() => handleTriggerEvaluation(session.sessionId)}
+                                                disabled={generatingReportId === session.sessionId}
+                                                className="studio-btn-secondary text-xs py-1 text-[#10B981] border-[#10B981]/30 hover:bg-[#10B981]/10"
+                                            >
+                                                {generatingReportId === session.sessionId ? (
+                                                    <>
+                                                        <div className="w-3 h-3 border-2 border-[#10B981] border-t-transparent rounded-full animate-spin"></div>
+                                                        <span>Generating...</span>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Sparkles className="w-3.5 h-3.5" />
+                                                        <span>Generate Report</span>
+                                                    </>
+                                                )}
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
                 </div>
             )}
 
@@ -360,7 +584,7 @@ const Dashboard = () => {
                 </div>
             </div>
 
-            {/* Configured Role Archetypes Matrix */}
+            {/* Configured Role Archetypes Matrix with In-line Edit */}
             <div className="space-y-2">
                 <div className="flex items-center justify-between px-1">
                     <span className="text-xs font-mono font-semibold uppercase text-[#A1A1AA] tracking-wider">
@@ -372,18 +596,66 @@ const Dashboard = () => {
                     {roles.length > 0 ? (
                         <div className="divide-y divide-[#222228]">
                             {roles.map((r) => (
-                                <div key={r._id} className="p-3.5 flex items-center justify-between gap-3 text-xs font-mono hover:bg-[#18181C]">
-                                    <div className="space-y-0.5">
-                                        <span className="font-semibold text-[#FAFAFA] font-sans">{r.title}</span>
-                                        {r.description && <p className="text-[11px] text-[#71717A]">{r.description}</p>}
-                                    </div>
-                                    <button
-                                        onClick={() => handleDeleteRole(r._id)}
-                                        className="studio-btn-secondary p-1 text-[#71717A] hover:text-[#F43F5E] hover:border-[#F43F5E]/30"
-                                        title="Delete role profile"
-                                    >
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
+                                <div key={r._id} className="p-3.5 text-xs font-mono hover:bg-[#18181C]">
+                                    {editingRoleId === r._id ? (
+                                        <form onSubmit={handleUpdateRole} className="space-y-2">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                <input
+                                                    type="text"
+                                                    value={editRoleTitle}
+                                                    onChange={(e) => setEditRoleTitle(e.target.value)}
+                                                    className="studio-input text-xs"
+                                                    placeholder="Role Title"
+                                                    required
+                                                />
+                                                <input
+                                                    type="text"
+                                                    value={editRoleDesc}
+                                                    onChange={(e) => setEditRoleDesc(e.target.value)}
+                                                    className="studio-input text-xs"
+                                                    placeholder="Role Description"
+                                                />
+                                            </div>
+                                            <div className="flex justify-end gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setEditingRoleId(null)}
+                                                    className="studio-btn-secondary text-xs py-1"
+                                                >
+                                                    Cancel
+                                                </button>
+                                                <button
+                                                    type="submit"
+                                                    className="studio-btn-primary text-xs py-1"
+                                                >
+                                                    Save Changes
+                                                </button>
+                                            </div>
+                                        </form>
+                                    ) : (
+                                        <div className="flex items-center justify-between gap-3">
+                                            <div className="space-y-0.5">
+                                                <span className="font-semibold text-[#FAFAFA] font-sans">{r.title}</span>
+                                                {r.description && <p className="text-[11px] text-[#71717A]">{r.description}</p>}
+                                            </div>
+                                            <div className="flex items-center gap-1.5">
+                                                <button
+                                                    onClick={() => startEditRole(r)}
+                                                    className="studio-btn-secondary p-1 text-[#71717A] hover:text-[#FAFAFA]"
+                                                    title="Edit role specification"
+                                                >
+                                                    <Edit3 className="w-3.5 h-3.5" />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDeleteRole(r._id)}
+                                                    className="studio-btn-secondary p-1 text-[#71717A] hover:text-[#F43F5E] hover:border-[#F43F5E]/30"
+                                                    title="Delete role profile"
+                                                >
+                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             ))}
                         </div>

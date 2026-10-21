@@ -19,14 +19,22 @@ const Login = () => {
         const params = new URLSearchParams(location.search);
         const access = params.get('accessToken');
         const refresh = params.get('refreshToken');
+        const roleParam = params.get('role') || 'CANDIDATE';
         const errorMsg = params.get('error');
 
         if (errorMsg) {
-            setError('OAuth authentication failed. Please enter credentials directly.');
+            if (errorMsg === 'google_not_configured') {
+                setError('Google OAuth credentials not configured on backend. Please use email/password login.');
+            } else if (errorMsg === 'google_failed') {
+                setError('Google sign-in was cancelled or failed. Please verify credentials.');
+            } else {
+                setError('OAuth authentication failed. Please enter credentials directly.');
+            }
         } else if (access && refresh) {
             localStorage.setItem('accessToken', access);
             localStorage.setItem('refreshToken', refresh);
-            window.location.href = '/candidate/dashboard';
+            localStorage.setItem('userRole', roleParam);
+            window.location.href = roleParam === 'COMPANY' ? '/company/dashboard' : '/candidate/dashboard';
         }
     }, [location]);
 
@@ -225,6 +233,43 @@ const Login = () => {
                             )}
                         </button>
                     </form>
+
+                    {/* Google OAuth (Candidate only) */}
+                    {role === 'CANDIDATE' && (
+                        <div className="space-y-3 pt-1">
+                            <div className="relative flex items-center justify-center">
+                                <div className="border-t border-[#222228] w-full"></div>
+                                <span className="bg-[#09090B] px-2 text-[10px] font-mono text-[#52525B] uppercase absolute">
+                                    or continue with
+                                </span>
+                            </div>
+
+                            <a
+                                href="http://localhost:5000/api/auth/google"
+                                className="studio-btn-secondary w-full py-2.5 flex items-center justify-center gap-2.5 text-xs font-mono font-medium hover:border-[#3F3F46] transition-all"
+                            >
+                                <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24">
+                                    <path
+                                        fill="#EA4335"
+                                        d="M12 5c1.6 0 3 .6 4.1 1.6l3.1-3.1C17.3 1.8 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.4 9 5 12 5z"
+                                    />
+                                    <path
+                                        fill="#4285F4"
+                                        d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.8z"
+                                    />
+                                    <path
+                                        fill="#FBBC05"
+                                        d="M5.6 14.8c-.2-.7-.4-1.5-.4-2.3s.2-1.6.4-2.3L1.9 7.3C.7 9.7 0 12 0 14.8s.7 5.1 1.9 7.5l3.7-2.9z"
+                                    />
+                                    <path
+                                        fill="#34A853"
+                                        d="M12 23.5c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2.4-6.4-5.2L1.9 16.5C3.7 20.2 7.5 23.5 12 23.5z"
+                                    />
+                                </svg>
+                                <span>Sign in with Google</span>
+                            </a>
+                        </div>
+                    )}
 
                     {/* Demo Credentials Quick-Fill Helper */}
                     <div className="border-t border-[#222228] pt-4 space-y-2">

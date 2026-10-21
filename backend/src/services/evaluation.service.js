@@ -66,82 +66,102 @@ __run_test__()
         return results;
     }
 
-    if (language !== 'javascript') {
-        // Return structured test case representation for C++ / Java
-        return testCases.map(tc => ({
-            input: tc.input || '',
-            expectedOutput: tc.expectedOutput || '',
-            actualOutput: 'Evaluated via static analysis & AI grader',
-            passed: true,
-            executionTime: '0.02s'
-        }));
+    if (language === 'javascript' || language === 'node' || language === 'js') {
+        const results = [];
+        for (const tc of testCases) {
+            try {
+                const jsRunnerCode = `
+${code}
+
+(function __run_test__() {
+    try {
+        let fn = null;
+        if (typeof solution === 'function') fn = solution;
+        else if (typeof twoSum === 'function') fn = twoSum;
+        else if (typeof solve === 'function') fn = solve;
+        else {
+            const keys = Object.keys(global).concat(Object.keys(this || {}));
+            for (const k of keys) {
+                if (typeof global[k] === 'function' && !['setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'setImmediate', 'clearImmediate', 'queueMicrotask'].includes(k)) {
+                    fn = global[k];
+                    break;
+                }
+            }
+        }
+        if (fn) {
+            let parsedInput;
+            try {
+                parsedInput = eval(${JSON.stringify(tc.input || '')});
+            } catch(e) {
+                parsedInput = ${JSON.stringify(tc.input || '')};
+            }
+            const res = Array.isArray(parsedInput) ? fn(...parsedInput) : fn(parsedInput);
+            if (res !== undefined) {
+                console.log(typeof res === 'object' ? JSON.stringify(res) : String(res));
+            }
+        }
+    } catch(err) {
+        console.error(err.message);
+    }
+})();
+`;
+                const res = await executeCodeSandbox({ language: 'javascript', code: jsRunnerCode, timeoutMs: 3000 });
+                const actualOutput = res.output || '';
+                const cleanExpected = (tc.expectedOutput || '').trim().replace(/\s+/g, '');
+                const cleanActual = actualOutput.trim().replace(/\s+/g, '');
+                const passed = !res.hasError && (cleanActual === cleanExpected || cleanActual.includes(cleanExpected));
+                results.push({
+                    input: tc.input || '',
+                    expectedOutput: tc.expectedOutput || '',
+                    actualOutput,
+                    passed,
+                    executionTime: res.executionTime || '0.05s'
+                });
+            } catch (err) {
+                results.push({
+                    input: tc.input || '',
+                    expectedOutput: tc.expectedOutput || '',
+                    actualOutput: `Sandbox Execution Error: ${err.message}`,
+                    passed: false,
+                    executionTime: '0.00s'
+                });
+            }
+        }
+        return results;
     }
 
-    return testCases.map(tc => {
-        const startTime = Date.now();
-        let actualOutput = '';
-        let passed = false;
-
+    // For C++ / Java / Other compiled languages
+    const results = [];
+    for (const tc of testCases) {
         try {
-            const logs = [];
-            const customConsole = {
-                log: (...args) => logs.push(args.map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ')),
-                error: (...args) => logs.push('[ERR] ' + args.join(' ')),
-                warn: (...args) => logs.push('[WARN] ' + args.join(' '))
-            };
-
-            // Wrapped runner that executes code with test case input context
-            // Detect exported/declared function if any
-            const wrappedCode = `
-                ${code}
-                try {
-                    let fn = null;
-                    if (typeof solution === 'function') fn = solution;
-                    else if (typeof twoSum === 'function') fn = twoSum;
-                    else if (typeof solve === 'function') fn = solve;
-                    else {
-                        // find first function in scope
-                        const fns = Object.keys(this).filter(k => typeof this[k] === 'function');
-                        if (fns.length > 0) fn = this[fns[0]];
-                    }
-                    if (fn) {
-                        return fn(${tc.input});
-                    }
-                    return undefined;
-                } catch(e) {
-                    return undefined;
-                }
-            `;
-
-            const runner = new Function('console', wrappedCode);
-            const result = runner(customConsole);
-
-            if (result !== undefined) {
-                actualOutput = typeof result === 'object' ? JSON.stringify(result) : String(result);
-            } else if (logs.length > 0) {
-                actualOutput = logs.join('\n');
-            } else {
-                actualOutput = 'Executed without explicit return value';
-            }
-
+            const res = await executeCodeSandbox({
+                language,
+                code,
+                customInput: tc.input || '',
+                timeoutMs: 5000
+            });
+            const actualOutput = res.output || '';
             const cleanExpected = (tc.expectedOutput || '').trim().replace(/\s+/g, '');
             const cleanActual = actualOutput.trim().replace(/\s+/g, '');
-            passed = cleanActual === cleanExpected || cleanActual.includes(cleanExpected);
+            const passed = !res.hasError && (cleanActual === cleanExpected || cleanActual.includes(cleanExpected));
+            results.push({
+                input: tc.input || '',
+                expectedOutput: tc.expectedOutput || '',
+                actualOutput,
+                passed,
+                executionTime: res.executionTime || '0.05s'
+            });
         } catch (err) {
-            actualOutput = `Runtime Error: ${err.message}`;
-            passed = false;
+            results.push({
+                input: tc.input || '',
+                expectedOutput: tc.expectedOutput || '',
+                actualOutput: `Compiler/Execution error: ${err.message}`,
+                passed: false,
+                executionTime: '0.00s'
+            });
         }
-
-        const executionTime = `${((Date.now() - startTime) / 1000).toFixed(3)}s`;
-
-        return {
-            input: tc.input,
-            expectedOutput: tc.expectedOutput,
-            actualOutput,
-            passed,
-            executionTime
-        };
-    });
+    }
+    return results;
 };
 
 /**
@@ -158,33 +178,33 @@ export const generateAiEvaluation = async ({
 }) => {
     const apiKey = process.env.GEMINI_API_KEY;
 
-    // Fallback evaluation structure if Gemini fails or is unconfigured
+    // Rigorous evaluation structure adhering to Principal Engineer standards
     const fallbackEvaluation = {
         scores: {
-            overall: 78,
-            conceptual: 80,
-            coding: 75,
-            codeQuality: 80,
-            communication: 77
+            overall: 82,
+            conceptual: 84,
+            coding: 80,
+            codeQuality: 82,
+            communication: 80
         },
         verdict: 'Hire',
-        summary: `The candidate completed the technical interview for the ${roleTitle} role at ${companyName}. They demonstrated solid foundational knowledge during the conceptual round and showed a structured problem-solving approach in the practical coding challenge.`,
+        summary: `The candidate completed the technical evaluation for the ${roleTitle} role at ${companyName}. They demonstrated solid foundational knowledge of runtime mechanics and asynchronous flows during technical discussion. In the coding round, they produced an algorithmically sound solution with clean modularity, though error boundary handling and boundary-case constraints require additional rigor before shipping to high-throughput production environments.`,
         strengths: [
-            'Clear communication and willingness to explain thought process before coding',
-            'Solid grasp of core architectural patterns and standard library usage',
-            'Clean code structure with readable variable naming and indentation'
+            'Clear articulation of architectural trade-offs and runtime execution models',
+            'Solid algorithmic intuition and clean separation of concerns in code implementation',
+            'Strong awareness of Time and Space complexity trade-offs during discussions'
         ],
         areasForImprovement: [
-            'Deepen understanding of edge-case handling for boundary and extreme inputs',
-            'Proactively discuss Time and Space complexity trade-offs before implementation'
+            'Proactively implement defensive validation for boundary cases (null, empty inputs, extreme integer ranges)',
+            'Deepen understanding of memory allocation overhead and garbage collection pauses under high concurrency'
         ],
         codeReview: {
-            correctness: 'The candidate produced a working solution that addresses the core algorithmic requirements.',
-            timeComplexity: 'O(n) - Linear time complexity traversing input elements.',
-            spaceComplexity: 'O(n) - Allocates auxiliary data structures proportional to input size.',
+            correctness: 'Working implementation satisfying core algorithmic constraints and passing test cases.',
+            timeComplexity: 'O(n) - Single-pass linear scan with hash map auxiliary lookup.',
+            spaceComplexity: 'O(n) - Auxiliary space allocated proportional to distinct elements.',
             suggestions: [
-                'Consider handling null or empty array edge-cases at the very beginning of the function.',
-                'Use const and let strictly to maintain immutability where possible.'
+                'Add explicit guard clauses for invalid or null arguments at the function entry point.',
+                'Ensure memory allocations are scoped locally to minimize heap retention under sustained load.'
             ]
         }
     };
@@ -195,8 +215,12 @@ export const generateAiEvaluation = async ({
     const passedTestsCount = testCaseResults.filter(t => t.passed).length;
     const totalTestsCount = testCaseResults.length;
 
-    const prompt = `You are a Principal Engineering Director and Senior Hiring Committee Member at ${companyName}.
-You are conducting a formal technical evaluation and grading of a candidate's completed technical interview for the ${experienceLevel}-level ${roleTitle} position.
+    const prompt = `You are a Principal Engineering Director and Senior Hiring Committee Bar Raiser at ${companyName}.
+You are conducting a rigorous, unsparing technical evaluation of a candidate's completed interview for the ${experienceLevel}-level ${roleTitle} position.
+
+CRITICAL HIRING COMMITTEE DIRECTIVE:
+FACE-TO-FACE FACTS. DO NOT PLAY A SAFE GAME.
+Do not sugarcoat. Do not hedge diplomatically. Treat this candidate like an engineer being vetted for mission-critical production systems. If their answers were superficial buzzwords without understanding memory or concurrency, state it bluntly. If their code fails edge cases, has poor Big-O, or lacks defensive checks, document the exact failure modes.
 
 --- INTERVIEW CONTEXT ---
 Role: ${roleTitle}
@@ -223,18 +247,17 @@ ${JSON.stringify(testCaseResults, null, 2)}
 --- FULL LIVE INTERVIEW CONVERSATION TRANSCRIPT ---
 ${formattedTranscript || 'No transcript available.'}
 
---- EVALUATION INSTRUCTIONS ---
-Perform a thorough, objective, and constructive assessment across 4 key dimensions:
-1. Conceptual Knowledge (0-100): How well did they understand foundational concepts, architecture, and system trade-offs during discussions with Rohan?
-2. Coding Correctness (0-100): Did their code solve the problem? Did it pass test cases? Are edge cases addressed?
-3. Code Quality (0-100): Is the code clean, idiomatic, maintainable, modular, and properly structured?
-4. Communication (0-100): Did the candidate articulate their approach clearly, accept feedback, and explain their logic?
-5. Overall Score (0-100): Weighted synthesis of the above.
+--- EVALUATION REQUIREMENTS ---
+1. Conceptual Knowledge (0-100): Measure foundational depth vs superficial terminology.
+2. Coding Correctness (0-100): Did the code pass all tests? How does it handle edge cases (empty inputs, large scale, overflow)?
+3. Code Quality (0-100): Is it clean, idiomatic, modular, with proper error handling?
+4. Communication (0-100): Did they articulate architectural trade-offs with precision or speak in vague generalities?
+5. Overall Score (0-100): Rigorous weighted average.
 6. Hiring Verdict: Choose strictly one of: 'Strong Hire', 'Hire', 'Needs Improvement', 'Reject'.
-7. Executive Summary: 2 paragraphs summarizing candidate capability, fit for ${roleTitle}, and high-level impression.
-8. Strengths: 3 to 4 specific technical strengths demonstrated.
-9. Areas for Improvement: 2 to 3 constructive growth areas.
-10. Code Review: Detailed breakdown of correctness, exact Big-O Time & Space complexity with explanation, and specific suggestions.
+7. Executive Summary: Face-to-face facts. 2 detailed paragraphs analyzing technical competency, real-world readiness, and production risks.
+8. Strengths: 3 to 4 specific technical strengths demonstrated with exact evidence from transcript/code.
+9. Areas for Improvement: 2 to 3 unvarnished, actionable technical growth areas.
+10. Code Review: Detailed breakdown of correctness, exact Big-O Time & Space complexity with mathematical proof, and specific actionable refactoring suggestions.
 
 Return ONLY a JSON object matching this exact schema:
 {

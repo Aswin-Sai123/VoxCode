@@ -1,7 +1,7 @@
 import { Evaluation } from '../models/evaluation.model.js';
 import { InterviewSession } from '../models/interviewSession.model.js';
+import { Assessment } from '../models/assessment.model.js';
 import '../models/candidate.model.js';
-import '../models/assessment.model.js';
 import { evaluateInterviewSession } from '../services/evaluation.service.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
@@ -17,14 +17,29 @@ export const getEvaluationBySession = asyncHandler(async (req, res) => {
         throw new ApiError(400, 'Session ID is required');
     }
 
+    const session = await InterviewSession.findById(sessionId).populate('assessment');
+    if (!session) {
+        throw new ApiError(404, 'Interview session not found');
+    }
+
+    // Role-based access verification
+    if (req.user?.role === 'CANDIDATE') {
+        if (session.candidate.toString() !== req.user.id) {
+            throw new ApiError(403, 'Forbidden: You cannot access another candidate\'s evaluation');
+        }
+    } else if (req.user?.role === 'COMPANY') {
+        if (session.assessment?.company?.toString() !== req.user.id) {
+            throw new ApiError(403, 'Forbidden: You cannot access evaluations outside your company');
+        }
+    }
+
     let evaluation = await Evaluation.findOne({ session: sessionId })
         .populate('candidate', 'name email skills experience')
         .populate('assessment', 'title roleTitle companyName skills experienceLevel durationMinutes');
 
     // If evaluation not found but session is completed, automatically trigger evaluation!
     if (!evaluation || evaluation.status === 'PENDING') {
-        const session = await InterviewSession.findById(sessionId);
-        if (session) {
+        if (session.status === 'COMPLETED') {
             try {
                 evaluation = await evaluateInterviewSession(sessionId);
                 evaluation = await Evaluation.findById(evaluation._id)
@@ -72,6 +87,15 @@ export const getAssessmentEvaluations = asyncHandler(async (req, res) => {
         throw new ApiError(400, 'Assessment ID is required');
     }
 
+    // Verify company ownership of this assessment
+    const assessment = await Assessment.findById(assessmentId);
+    if (!assessment) {
+        throw new ApiError(404, 'Assessment not found');
+    }
+    if (assessment.company.toString() !== req.user.id) {
+        throw new ApiError(403, 'Forbidden: You do not have access to this assessment');
+    }
+
     const query = { assessment: assessmentId };
     if (verdict && verdict !== 'ALL') {
         query.verdict = verdict;
@@ -108,9 +132,14 @@ export const updateRecruiterDecision = asyncHandler(async (req, res) => {
     const { evaluationId } = req.params;
     const { recruiterDecision, recruiterNotes } = req.body;
 
-    const evaluation = await Evaluation.findById(evaluationId);
+    const evaluation = await Evaluation.findById(evaluationId).populate('assessment');
     if (!evaluation) {
         throw new ApiError(404, 'Evaluation not found');
+    }
+
+    // Verify company ownership
+    if (evaluation.assessment?.company?.toString() !== req.user.id) {
+        throw new ApiError(403, 'Forbidden: You cannot modify decisions for assessments outside your company');
     }
 
     if (recruiterDecision) {
@@ -130,6 +159,28 @@ export const updateRecruiterDecision = asyncHandler(async (req, res) => {
  */
 export const triggerEvaluation = asyncHandler(async (req, res) => {
     const { sessionId } = req.params;
+
+    const session = await InterviewSession.findById(sessionId).populate('assessment');
+    if (!session) {
+        throw new ApiError(404, 'Interview session not found');
+    }
+
+    // Authorization check
+    if (req.user?.role === 'CANDIDATE') {
+        if (session.candidate.toString() !== req.user.id) {
+            throw new ApiError(403, 'Forbidden: Cannot trigger evaluation for another candidate');
+        }
+    } else if (req.user?.role === 'COMPANY') {
+        if (session.assessment?.company?.toString() !== req.user.id) {
+            throw new ApiError(403, 'Forbidden: Cannot trigger evaluation outside your company');
+        }
+    }
+
+    // Check if evaluation already exists and is completed to prevent duplicate Gemini API calls
+    const existing = await Evaluation.findOne({ session: sessionId });
+    if (existing && existing.status === 'COMPLETED') {
+        return res.status(200).json(new ApiResponse(200, existing, 'Evaluation report already completed'));
+    }
 
     const evaluation = await evaluateInterviewSession(sessionId);
 

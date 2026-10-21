@@ -38,6 +38,10 @@ const InterviewRoom = () => {
     const [stage, setStage] = useState('CONCEPTUAL'); // 'CONCEPTUAL' | 'CODING' | 'COMPLETED'
     const [transcript, setTranscript] = useState([]);
     const [latestAiMessage, setLatestAiMessage] = useState('');
+    const [currentTopic, setCurrentTopic] = useState('');
+    const [currentTopicIndex, setCurrentTopicIndex] = useState(0);
+    const [totalTopics, setTotalTopics] = useState(3);
+    const [latestEvaluation, setLatestEvaluation] = useState(null);
 
     // Timer state
     const [timeLeftSeconds, setTimeLeftSeconds] = useState(1800); // default 30m
@@ -50,6 +54,7 @@ const InterviewRoom = () => {
     const [isMuted, setIsMuted] = useState(false);
     const [isSending, setIsSending] = useState(false);
     const [showTextInput, setShowTextInput] = useState(false);
+    const [micError, setMicError] = useState('');
 
     // Coding state
     const [codingChallenge, setCodingChallenge] = useState(null);
@@ -145,6 +150,14 @@ const InterviewRoom = () => {
                     if (data.session.codingChallenge) {
                         setCodingChallenge(data.session.codingChallenge);
                         setEditorCode(data.session.codingChallenge.starterCode || '// Write your code here');
+                    }
+
+                    // Adaptive Curriculum State
+                    if (data.session.topics && data.session.topics.length > 0) {
+                        setTotalTopics(data.session.topics.length);
+                        const currIdx = data.session.currentTopicIndex || 0;
+                        setCurrentTopicIndex(currIdx);
+                        setCurrentTopic(data.session.topics[currIdx] || data.session.topics[0]);
                     }
                 }
             } catch (err) {
@@ -243,10 +256,12 @@ const InterviewRoom = () => {
 
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SpeechRecognition) {
+            setMicError('Speech recognition is not natively supported by this browser. Text input mode enabled.');
             setShowTextInput(true);
             return;
         }
 
+        setMicError('');
         const recognition = new SpeechRecognition();
         recognition.continuous = true;
         recognition.interimResults = true;
@@ -258,7 +273,7 @@ const InterviewRoom = () => {
         };
 
         recognition.onresult = (event) => {
-            // Barge-in: cut off AI immediately
+            // Barge-in: cut off AI audio immediately when candidate begins speaking
             if (window.speechSynthesis && window.speechSynthesis.speaking) {
                 window.speechSynthesis.cancel();
                 setIsAiSpeaking(false);
@@ -282,8 +297,16 @@ const InterviewRoom = () => {
         };
 
         recognition.onerror = (e) => {
-            console.error('Speech recognition error', e);
+            console.warn('Speech recognition error:', e.error);
             setIsListening(false);
+            if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+                setMicError('Microphone permission was denied. Please allow microphone in browser or switch to text mode.');
+                setShowTextInput(true);
+            } else if (e.error === 'no-speech') {
+                // Ignore benign timeout
+            } else {
+                setMicError(`Voice recognition notice: ${e.error}. Feel free to review/edit text below.`);
+            }
         };
 
         recognition.onend = () => {
@@ -292,16 +315,23 @@ const InterviewRoom = () => {
         };
 
         recognitionRef.current = recognition;
-        recognition.start();
+        try {
+            recognition.start();
+        } catch (err) {
+            console.warn('Failed to start recognition:', err);
+            setMicError('Microphone could not be started. Text mode enabled.');
+            setShowTextInput(true);
+        }
     };
 
     // 5. Send Candidate Answer to Backend + Gemini
     const handleSendMessage = async (customText) => {
-        const textToSend = (customText || candidateText || interimSpeech).trim();
+        // Only submit finalized text or explicit customText (never send stray unreviewed interim fragments alone)
+        const textToSend = (customText || candidateText || (isListening ? interimSpeech : '')).trim();
         if (!textToSend || isSending) return;
 
         if (recognitionRef.current && isListening) {
-            recognitionRef.current.stop();
+            try { recognitionRef.current.stop(); } catch {}
             setIsListening(false);
         }
         if (window.speechSynthesis) window.speechSynthesis.cancel();
@@ -324,9 +354,23 @@ const InterviewRoom = () => {
             });
 
             if (res.data.success) {
-                const { aiMessage, stage: newStage, codingChallenge: newChallenge, transcript: updatedTranscript } = res.data.data;
+                const {
+                    aiMessage,
+                    stage: newStage,
+                    codingChallenge: newChallenge,
+                    transcript: updatedTranscript,
+                    currentTopic: newTopic,
+                    currentTopicIndex: newTopicIndex,
+                    totalTopics: newTotalTopics,
+                    answerEvaluation
+                } = res.data.data;
+
                 setLatestAiMessage(aiMessage);
                 if (updatedTranscript) setTranscript(updatedTranscript);
+                if (newTopic) setCurrentTopic(newTopic);
+                if (newTopicIndex !== undefined) setCurrentTopicIndex(newTopicIndex);
+                if (newTotalTopics !== undefined) setTotalTopics(newTotalTopics);
+                if (answerEvaluation) setLatestEvaluation(answerEvaluation);
 
                 if (newStage === 'CODING' && stage !== 'CODING') {
                     setTransitionBanner(true);
@@ -550,7 +594,12 @@ const InterviewRoom = () => {
                 </div>
 
                 {/* Center: Phase Badge */}
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                    {code === 'PRACTICE-MOCK-SESSION' && (
+                        <span className="studio-badge bg-[#10B981]/15 text-[#10B981] border-[#10B981]/30">
+                            [PRACTICE LAB // UNGRADED]
+                        </span>
+                    )}
                     <span className={`studio-badge ${
                         stage === 'CONCEPTUAL'
                             ? 'bg-[#18181C] text-[#FAFAFA] border-[#3F3F46]'
@@ -649,10 +698,17 @@ const InterviewRoom = () => {
 
                     {/* Question Card */}
                     <div className="w-full bg-[#111114] border border-[#222228] rounded-md p-6 space-y-4">
-                        <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-mono uppercase tracking-wider text-[#71717A] flex items-center gap-1.5">
-                                <span className="w-1.5 h-1.5 rounded-full bg-[#FAFAFA]"></span> Current Interrogation
-                            </span>
+                        <div className="flex items-center justify-between flex-wrap gap-2">
+                            <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-mono uppercase tracking-wider text-[#71717A] flex items-center gap-1.5">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]"></span> Technical Discussion
+                                </span>
+                                {currentTopic && (
+                                    <span className="studio-badge bg-[#3B82F6]/10 text-[#60A5FA] border-[#3B82F6]/30 font-mono text-[10px] py-0.5">
+                                        Topic {currentTopicIndex + 1}/{totalTopics}: {currentTopic}
+                                    </span>
+                                )}
+                            </div>
                             <button
                                 onClick={() => speakAiMessage(latestAiMessage)}
                                 className="studio-btn-secondary text-[11px] py-1"
@@ -664,18 +720,83 @@ const InterviewRoom = () => {
                         <p className="text-base sm:text-lg font-medium text-[#FAFAFA] leading-relaxed">
                             "{latestAiMessage || 'Initializing introductory questions...'}"
                         </p>
+                        {latestEvaluation && (
+                            <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-[#222228] text-xs font-mono">
+                                <span className="text-[#71717A] text-[11px]">Previous Answer:</span>
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${latestEvaluation.correctness >= 70 ? 'bg-[#10B981]/15 text-[#10B981] border border-[#10B981]/30' : 'bg-[#F59E0B]/15 text-[#F59E0B] border border-[#F59E0B]/30'}`}>
+                                    Correctness: {latestEvaluation.correctness}%
+                                </span>
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${latestEvaluation.depth >= 70 ? 'bg-[#3B82F6]/15 text-[#60A5FA] border border-[#3B82F6]/30' : 'bg-[#27272A] text-[#A1A1AA] border border-[#3F3F46]'}`}>
+                                    Depth: {latestEvaluation.depth}%
+                                </span>
+                                {latestEvaluation.critique && (
+                                    <span className="text-[#A1A1AA] text-[11px] italic truncate max-w-sm sm:max-w-md">
+                                        "{latestEvaluation.critique}"
+                                    </span>
+                                )}
+                            </div>
+                        )}
                     </div>
 
-                    {/* Live Speech Recognition Transcript Box */}
-                    {(candidateText || interimSpeech || isListening) && (
-                        <div className="w-full bg-[#09090B] border border-[#222228] rounded-md p-4 space-y-1 font-mono text-xs">
-                            <div className="flex justify-between text-[10px] text-[#71717A] uppercase">
-                                <span>Candidate Spoken Buffer:</span>
-                                {isListening && <span className="text-[#F43F5E]">RECORDING...</span>}
+                    {/* Mic Error Banner */}
+                    {micError && (
+                        <div className="w-full p-3 bg-[#F43F5E]/10 border border-[#F43F5E]/30 rounded-md text-xs text-[#F43F5E] flex items-center justify-between font-mono gap-2">
+                            <div className="flex items-center gap-2">
+                                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                                <span>{micError}</span>
                             </div>
-                            <p className="text-[#FAFAFA] leading-relaxed">
-                                {candidateText} <span className="text-[#71717A] italic">{interimSpeech}</span>
-                            </p>
+                            <button
+                                onClick={() => { setShowTextInput(true); setMicError(''); }}
+                                className="studio-btn-secondary text-[11px] py-0.5 px-2 text-[#FAFAFA]"
+                            >
+                                Switch to Text Mode
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Live Speech Recognition Transcript Box with Editing Review */}
+                    {(candidateText || interimSpeech || isListening) && (
+                        <div className="w-full bg-[#09090B] border border-[#222228] rounded-md p-4 space-y-2 font-mono text-xs">
+                            <div className="flex justify-between items-center text-[10px] text-[#71717A] uppercase">
+                                <span className="flex items-center gap-1.5">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]"></span>
+                                    Candidate Speech Buffer:
+                                </span>
+                                {isListening ? (
+                                    <span className="text-[#F43F5E] animate-pulse">● RECORDING AUDIO...</span>
+                                ) : (
+                                    <span className="text-[#10B981]">[REVIEW & EDIT BEFORE TRANSMIT]</span>
+                                )}
+                            </div>
+                            <textarea
+                                value={candidateText}
+                                onChange={(e) => setCandidateText(e.target.value)}
+                                placeholder={isListening ? "Transcribing speech from microphone..." : "Transcribed response. You can refine or edit your answer before sending..."}
+                                rows={3}
+                                className="w-full bg-[#111114] border border-[#222228] rounded p-2.5 text-xs text-[#FAFAFA] font-mono focus:outline-none focus:border-[#3F3F46] resize-none leading-relaxed"
+                            />
+                            {interimSpeech && (
+                                <p className="text-[11px] text-[#71717A] italic">
+                                    Live stream: {interimSpeech}
+                                </p>
+                            )}
+                            <div className="flex justify-end gap-2 pt-1">
+                                <button
+                                    type="button"
+                                    onClick={() => { setCandidateText(''); setInterimSpeech(''); }}
+                                    className="studio-btn-secondary text-[11px] py-1 px-2.5"
+                                >
+                                    Clear Buffer
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => handleSendMessage()}
+                                    disabled={isSending || (!candidateText.trim() && !interimSpeech.trim())}
+                                    className="studio-btn-primary text-xs py-1 px-3.5 font-semibold"
+                                >
+                                    {isSending ? 'Transmitting...' : 'Transmit Answer'}
+                                </button>
+                            </div>
                         </div>
                     )}
 

@@ -11,6 +11,10 @@ const interviewSessionSchema = new Schema({
         ref: 'Assessment', 
         required: true 
     },
+    isPractice: {
+        type: Boolean,
+        default: false
+    },
     stage: { 
         type: String, 
         enum: ['CONCEPTUAL', 'CODING', 'COMPLETED'], 
@@ -20,6 +24,21 @@ const interviewSessionSchema = new Schema({
         type: String, 
         enum: ['IN_PROGRESS', 'COMPLETED', 'TIMED_OUT'], 
         default: 'IN_PROGRESS' 
+    },
+    topics: [{ 
+        type: String 
+    }],
+    currentTopicIndex: { 
+        type: Number, 
+        default: 0 
+    },
+    questionsInCurrentTopic: { 
+        type: Number, 
+        default: 0 
+    },
+    stateMachine: {
+        type: Schema.Types.Mixed,
+        default: null
     },
     transcript: [{
         role: { 
@@ -34,6 +53,14 @@ const interviewSessionSchema = new Schema({
         timestamp: { 
             type: Date, 
             default: Date.now 
+        },
+        evaluation: {
+            correctness: { type: Number },
+            depth: { type: Number },
+            critique: { type: String }
+        },
+        topic: { 
+            type: String 
         }
     }],
     codingChallenge: {

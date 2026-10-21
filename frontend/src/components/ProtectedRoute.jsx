@@ -18,8 +18,9 @@ const ProtectedRoute = ({ children, allowedRole }) => {
     }
 
     // Enforce role-based access: redirect to their own dashboard if they try to access another role's page
-    if (allowedRole && user.role !== allowedRole) {
-        const redirectPath = user.role === 'COMPANY' ? '/company/dashboard' : '/candidate/dashboard';
+    const activeRole = user.role || localStorage.getItem('userRole');
+    if (allowedRole && activeRole && activeRole !== allowedRole) {
+        const redirectPath = activeRole === 'COMPANY' ? '/company/dashboard' : '/candidate/dashboard';
         return <Navigate to={redirectPath} replace />;
     }
 

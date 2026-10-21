@@ -32,7 +32,7 @@ const AssessmentLobby = () => {
                     setAssessment(res.data.data);
                 }
             } catch (err) {
-                setError(err.response?.data?.message || 'Could not locate assessment manifest for this code.');
+                setError(err.response?.data?.message || 'Could not find an assessment for this code.');
             } finally {
                 setLoading(false);
             }
@@ -45,7 +45,7 @@ const AssessmentLobby = () => {
             <div className="flex-1 flex items-center justify-center p-12 bg-[#09090B]">
                 <div className="flex items-center gap-3 font-mono text-xs text-[#71717A]">
                     <span className="w-4 h-4 border-2 border-[#FAFAFA] border-t-transparent rounded-full animate-spin"></span>
-                    <span>VERIFYING ASSESSMENT MANIFEST // {code}...</span>
+                    <span>Checking code {code}...</span>
                 </div>
             </div>
         );
@@ -66,7 +66,7 @@ const AssessmentLobby = () => {
                         onClick={() => navigate('/candidate/dashboard')}
                         className="studio-btn-secondary w-full py-2 text-xs"
                     >
-                        Return to Command Center
+                        Back to dashboard
                     </button>
                 </div>
             </div>
@@ -224,6 +224,23 @@ const AssessmentLobby = () => {
                             </div>
                         </div>
 
+                        {/* Time Window Specification */}
+                        {(assessment.openingTime || assessment.closingTime) && (
+                            <div className="p-3 bg-[#111114] border border-[#222228] rounded text-[11px] font-mono space-y-1">
+                                <span className="text-[#A1A1AA] font-semibold uppercase block">Assessment Window</span>
+                                {assessment.openingTime && (
+                                    <p className="text-[#71717A]">
+                                        Opens: <span className="text-[#FAFAFA]">{new Date(assessment.openingTime).toLocaleString()}</span>
+                                    </p>
+                                )}
+                                {assessment.closingTime && (
+                                    <p className="text-[#71717A]">
+                                        Expires: <span className="text-[#F59E0B]">{new Date(assessment.closingTime).toLocaleString()}</span>
+                                    </p>
+                                )}
+                            </div>
+                        )}
+
                         <div className="p-3 bg-[#111114] border border-[#222228] rounded text-[11px] font-mono text-[#71717A] space-y-1">
                             <span className="text-[#A1A1AA] font-semibold uppercase block">Integrity Notice</span>
                             <p>
@@ -238,7 +255,7 @@ const AssessmentLobby = () => {
                             onClick={() => navigate(`/candidate/interview/${code}`)}
                             className="studio-btn-primary w-full py-3 text-xs font-mono font-semibold"
                         >
-                            <span>Initialize Interview Session</span>
+                            <span>{assessment.hasInProgressSession ? 'Continue interview' : 'Start interview'}</span>
                             <ArrowRight className="w-3.5 h-3.5" />
                         </button>
                         <span className="text-[10px] font-mono text-[#52525B] text-center block">

@@ -1,26 +1,50 @@
+import crypto from 'crypto';
 import { Assessment } from '../models/assessment.model.js';
 import { Role } from '../models/role.model.js';
+import { Candidate } from '../models/candidate.model.js';
+import { InterviewSession } from '../models/interviewSession.model.js';
 import { ApiError } from '../utils/ApiError.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { sendAssessmentInvite } from '../services/email.service.js';
 
-// helper to generate a unique assessment code like "ASMT-7821-9043"
+// Cryptographically secure, unguessable assessment code e.g. "ASMT-A7F2B9-8E1C4D"
 const generateCode = () => {
-    const random4 = () => Math.floor(1000 + Math.random() * 9000); // 4 digit random
-    return `ASMT-${random4()}-${random4()}`;
+    const part1 = crypto.randomBytes(3).toString('hex').toUpperCase();
+    const part2 = crypto.randomBytes(3).toString('hex').toUpperCase();
+    return `ASMT-${part1}-${part2}`;
 };
 
 // Company creates a new assessment
 export const createAssessment = asyncHandler(async (req, res) => {
-    const { roleId, title, skills, experienceLevel, durationMinutes, blueprint } = req.body;
+    const { 
+        roleId, 
+        role: bodyRole,
+        title, 
+        skills, 
+        experienceLevel, 
+        durationMinutes, 
+        blueprint,
+        openingTime,
+        closingTime,
+        accessType,
+        eligibleEmails,
+        codingRoundEnabled,
+        voiceRoundEnabled
+    } = req.body;
 
-    if (!roleId || !title) {
+    const targetRoleId = roleId || bodyRole;
+
+    if (!targetRoleId || !title) {
         throw new ApiError(400, 'Role and title are required');
     }
 
+    if (openingTime && closingTime && new Date(openingTime) >= new Date(closingTime)) {
+        throw new ApiError(400, 'Assessment closing time must be strictly after opening time');
+    }
+
     // make sure the role actually belongs to this company
-    const role = await Role.findOne({ _id: roleId, company: req.user.id });
+    const role = await Role.findOne({ _id: targetRoleId, company: req.user.id });
     if (!role) {
         throw new ApiError(404, 'Role not found or does not belong to your company');
     }
@@ -33,15 +57,29 @@ export const createAssessment = asyncHandler(async (req, res) => {
         codeExists = await Assessment.findOne({ assessmentCode });
     }
 
+    // Process eligible emails if provided
+    let cleanEmails = [];
+    if (eligibleEmails) {
+        cleanEmails = Array.isArray(eligibleEmails)
+            ? eligibleEmails.map(e => e.trim().toLowerCase()).filter(Boolean)
+            : String(eligibleEmails).split(/[\n,;]+/).map(e => e.trim().toLowerCase()).filter(Boolean);
+    }
+
     const assessment = await Assessment.create({
         company: req.user.id,
-        role: roleId,
-        title,
+        role: targetRoleId,
+        title: title.trim(),
         skills: skills || [],
         experienceLevel: experienceLevel || 'Entry',
-        durationMinutes: durationMinutes || 30,
+        durationMinutes: Number(durationMinutes) || 30,
         blueprint: blueprint || '',
-        assessmentCode
+        assessmentCode,
+        openingTime: openingTime ? new Date(openingTime) : null,
+        closingTime: closingTime ? new Date(closingTime) : null,
+        accessType: accessType === 'INVITE_ONLY' ? 'INVITE_ONLY' : 'PUBLIC',
+        eligibleEmails: cleanEmails,
+        codingRoundEnabled: codingRoundEnabled !== false,
+        voiceRoundEnabled: voiceRoundEnabled !== false
     });
 
     res.status(201).json(new ApiResponse(201, assessment, 'Assessment created successfully'));
@@ -91,8 +129,9 @@ export const toggleAssessmentStatus = asyncHandler(async (req, res) => {
 // Candidate verifies an assessment code and gets the lobby info
 export const verifyAssessmentCode = asyncHandler(async (req, res) => {
     const { code } = req.params;
+    const candidateId = req.user?.id || req.user?._id;
 
-    const assessment = await Assessment.findOne({ assessmentCode: code })
+    const assessment = await Assessment.findOne({ assessmentCode: code.trim().toUpperCase() })
         .populate('role', 'title description')
         .populate('company', 'name');
 
@@ -101,22 +140,68 @@ export const verifyAssessmentCode = asyncHandler(async (req, res) => {
     }
 
     if (assessment.status === 'CLOSED') {
-        throw new ApiError(400, 'This assessment is no longer accepting candidates.');
+        throw new ApiError(403, 'This assessment has been closed by the recruiter.');
     }
 
-    // send back only what the candidate needs to see (no blueprint — that's for the AI later)
+    // 1. Time Window Validation
+    const now = new Date();
+    if (assessment.openingTime && now < new Date(assessment.openingTime)) {
+        throw new ApiError(403, `Assessment is not open yet. Scheduled opening time is: ${new Date(assessment.openingTime).toLocaleString()}`);
+    }
+
+    if (assessment.closingTime && now > new Date(assessment.closingTime)) {
+        throw new ApiError(403, `Assessment has expired. The access window closed on: ${new Date(assessment.closingTime).toLocaleString()}`);
+    }
+
+    // 2. Candidate Eligibility Validation (Invite-Only Assessments)
+    if (assessment.accessType === 'INVITE_ONLY' && candidateId) {
+        const candidate = await Candidate.findById(candidateId);
+        const candidateEmail = candidate?.email?.toLowerCase();
+        if (!candidateEmail || !assessment.eligibleEmails.map(e => e.toLowerCase()).includes(candidateEmail)) {
+            throw new ApiError(403, 'Access Restricted: You are not authorized for this private assessment. Please contact the company recruiter.');
+        }
+    }
+
+    // 3. Duplicate participation: block if any completed session exists for this assessment
+    let inProgressSession = null;
+    if (candidateId) {
+        const completedSession = await InterviewSession.findOne({
+            candidate: candidateId,
+            assessment: assessment._id,
+            status: 'COMPLETED'
+        });
+
+        if (completedSession) {
+            throw new ApiError(403, 'Assessment already completed. Duplicate assessment attempts are not permitted.');
+        }
+
+        inProgressSession = await InterviewSession.findOne({
+            candidate: candidateId,
+            assessment: assessment._id,
+            status: 'IN_PROGRESS'
+        });
+    }
+
+    // send back safe lobby data (no prompt blueprints or internal secrets)
     const lobbyData = {
         _id: assessment._id,
         title: assessment.title,
-        companyName: assessment.company.name,
-        roleTitle: assessment.role.title,
+        companyName: assessment.company?.name || 'Recruiting Company',
+        roleTitle: assessment.role?.title || 'Software Engineer',
+        roleDescription: assessment.role?.description || '',
         skills: assessment.skills,
         experienceLevel: assessment.experienceLevel,
         durationMinutes: assessment.durationMinutes,
-        assessmentCode: assessment.assessmentCode
+        assessmentCode: assessment.assessmentCode,
+        openingTime: assessment.openingTime,
+        closingTime: assessment.closingTime,
+        accessType: assessment.accessType,
+        codingRoundEnabled: assessment.codingRoundEnabled,
+        voiceRoundEnabled: assessment.voiceRoundEnabled,
+        hasInProgressSession: !!inProgressSession
     };
 
-    res.json(new ApiResponse(200, lobbyData, 'Assessment found'));
+    res.json(new ApiResponse(200, lobbyData, 'Assessment verified successfully'));
 });
 
 // Company invites candidates via email with automated magic links
@@ -167,6 +252,11 @@ export const inviteCandidates = asyncHandler(async (req, res) => {
             });
         }
     }
+
+    // Automatically authorize invited emails in assessment eligibleEmails list
+    const newEligible = new Set([...(assessment.eligibleEmails || []), ...emailList.map(e => e.toLowerCase())]);
+    assessment.eligibleEmails = Array.from(newEligible);
+    await assessment.save();
 
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
     res.status(200).json(new ApiResponse(200, {

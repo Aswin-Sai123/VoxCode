@@ -82,18 +82,30 @@ export const generateNextInterviewStep = async ({
     currentStage = 'CONCEPTUAL',
     currentChallenge = null,
     currentCode = '',
-    executionOutput = ''
+    executionOutput = '',
+    topics = [],
+    currentTopicIndex = 0,
+    questionsInCurrentTopic = 0
 }) => {
     const apiKey = process.env.GEMINI_API_KEY;
 
+    // Resolve active topics curriculum
+    const activeTopics = (topics && topics.length > 0) ? topics : [
+        `${skills[0] || 'Software'} Architecture & Core Runtime Mechanics`,
+        `${skills[1] || 'System'} Design, Concurrency & Data Flow`,
+        'Scalability Trade-offs, Edge Cases & Performance Bottlenecks'
+    ];
+    const safeTopicIndex = Math.min(Math.max(currentTopicIndex, 0), activeTopics.length - 1);
+    const activeTopic = activeTopics[safeTopicIndex];
+
     // Check if candidate explicitly requested coding
-    const candidateWantsCoding = /ready for code|ready to code|start coding|coding challenge|let('?s)? code|coding question|dsa/i.test(candidateMessage);
+    const candidateWantsCoding = /ready for code|ready to code|start coding|coding challenge|let('?s)? code|coding question|dsa|switch to code/i.test(candidateMessage);
     
     // Count conceptual questions asked so far
     const conceptualCount = transcript.filter(t => t.role === 'ai').length;
 
-    // Dynamic decision: transition if candidate asks OR after 2-3 genuine conceptual exchanges
-    const shouldConsiderCoding = currentStage === 'CONCEPTUAL' && (candidateWantsCoding || conceptualCount >= 3);
+    // State machine transition rule: transition if candidate requests OR after 2-3 genuine conceptual exchanges
+    const shouldConsiderCoding = currentStage === 'CONCEPTUAL' && (candidateWantsCoding || conceptualCount >= 3 || (safeTopicIndex >= activeTopics.length - 1 && questionsInCurrentTopic >= 1));
 
     const fallbackCodingChallenge = {
         title: 'Two Sum & Optimization',
@@ -124,15 +136,37 @@ export const generateNextInterviewStep = async ({
         language: 'javascript'
     };
 
+    // Heuristic evaluation for offline / fallback execution
+    const wordCount = candidateMessage.trim().split(/\s+/).length;
+    const hasTechnicalKeywords = /complexity|thread|memory|async|event loop|index|cache|hash|pointer|latency|scale|partition|transaction|closure|prototype|stack|heap|cpu|io/i.test(candidateMessage);
+    const fallbackCorrectness = hasTechnicalKeywords ? Math.min(88, 72 + Math.min(16, wordCount)) : 72;
+    const fallbackDepth = hasTechnicalKeywords ? Math.min(84, 66 + Math.min(18, wordCount)) : 65;
+
+    const fallbackEvaluation = {
+        correctness: fallbackCorrectness,
+        depth: fallbackDepth,
+        critique: hasTechnicalKeywords 
+            ? `Candidate addressed core concepts with reasonable technical accuracy. Good awareness of performance/architecture terminology.`
+            : `Candidate provided a high-level explanation. Could provide deeper insight into memory overhead and concurrency edge-cases.`
+    };
+
     const fallbackResponse = shouldConsiderCoding
         ? {
             message: `Awesome, that gives me a clear sense of your background. Let's move into the hands-on coding part now. I've loaded a challenge in your workspace on the right. Take a look, tell me your initial thoughts, and we can discuss the approach before you implement.`,
             nextStage: 'CODING',
+            stateAction: 'TRANSITION_CODING',
+            targetTopicIndex: safeTopicIndex,
+            answerEvaluation: fallbackEvaluation,
             codingChallenge: fallbackCodingChallenge
         }
         : {
-            message: `Makes sense. Building on that, how would you approach error handling and performance bottlenecks in that kind of architecture?`,
+            message: (questionsInCurrentTopic >= 1 && safeTopicIndex < activeTopics.length - 1)
+                ? `Makes sense. Let's shift gears to our next topic: ${activeTopics[safeTopicIndex + 1]}. How do you reason about concurrency bottlenecks and state management in high-throughput environments?`
+                : `Got it. But let's dig one level deeper into ${activeTopic}: what happens at the memory or I/O level if that component receives sudden 10x traffic spikes?`,
             nextStage: currentStage || 'CONCEPTUAL',
+            stateAction: (questionsInCurrentTopic >= 1 && safeTopicIndex < activeTopics.length - 1) ? 'ADVANCE_TOPIC' : 'DRILL_DEEPER',
+            targetTopicIndex: (questionsInCurrentTopic >= 1 && safeTopicIndex < activeTopics.length - 1) ? safeTopicIndex + 1 : safeTopicIndex,
+            answerEvaluation: fallbackEvaluation,
             codingChallenge: null
         };
 
@@ -140,97 +174,82 @@ export const generateNextInterviewStep = async ({
 
     const formattedTranscript = transcript.map(t => `${t.role.toUpperCase()}: ${t.text}`).join('\n');
 
-    const prompt = `You are Rohan, a seasoned, sharp, and encouraging Senior Engineering Lead at ${companyName} conducting a live technical interview for a ${experienceLevel} level ${roleTitle} candidate.
+    const prompt = `You are Rohan, Principal Engineering Director and Senior Technical Bar Raiser at ${companyName} conducting a live technical interview for a ${experienceLevel}-level ${roleTitle}.
 
-REQUIRED TECH STACK / SKILLS:
-${skills && skills.length ? skills.join(', ') : 'Full Stack Engineering'}
+=== TECHNICAL ASSESSMENT CURRICULUM (ORDERED TOPICS) ===
+Total Topics: ${activeTopics.length}
+${activeTopics.map((t, i) => `${i + 1}. ${t}${i === safeTopicIndex ? ' <-- [CURRENTLY EVALUATING]' : ''}`).join('\n')}
 
-COMPANY INTERVIEW BLUEPRINT:
-${blueprint || 'Assess core problem solving, system fundamentals, and coding capability.'}
+ACTIVE TOPIC: "${activeTopic}" (Topic ${safeTopicIndex + 1} of ${activeTopics.length})
+Questions Asked So Far On This Topic: ${questionsInCurrentTopic}
+Total Conceptual Questions in Session: ${conceptualCount}
+Candidate's Latest Message: "${candidateMessage}"
 
-CURRENT INTERVIEW STATUS:
-- Current Stage: ${currentStage} (either 'CONCEPTUAL' or 'CODING')
-- Conceptual Exchanges So Far: ${conceptualCount}
-- Candidate Message Just Now: "${candidateMessage}"
-- Candidate's Current Code in Editor:
+=== CANDIDATE LIVE WORKSPACE ===
+Current Stage: ${currentStage}
+Editor Code:
 """
-${currentCode || '(Editor has starter code / no code written yet)'}
+${currentCode || '(Starter code / no code written)'}
 """
-- Candidate's Latest Code Execution Output / Terminal Error:
+Execution Output / Terminal:
 """
-${executionOutput || '(No code execution output yet)'}
+${executionOutput || '(No terminal output)'}
 """
 
-FULL CONVERSATION TRANSCRIPT:
+=== CONVERSATION TRANSCRIPT ===
 ${formattedTranscript}
 
-YOUR CORE BEHAVIORS & RULES:
-1. TALK LIKE A REAL HUMAN TECH INTERVIEWER ON A LIVE VIDEO CALL:
-   - Use natural spoken language with authentic conversational cadence and micro-reactions ("Ah, gotcha.", "Yeah, makes sense.", "Right, right.", "Hmm, wait a sec...", "Fair point, but tell me...", "Interesting—why that trade-off?").
-   - NEVER say "I am Vox AI", "As an AI language model", or act like a chatbot. You are Rohan, Senior Tech Lead.
-   - NEVER follow a rigid script or repeat canned lines. Listen to what the candidate ACTUALLY said and react dynamically.
-   - Keep your spoken replies concise and punchy (2-3 short sentences max): Sentence 1 reacts naturally to what they said, Sentence 2 probes a sharp, specific technical detail.
+=== STATE-MACHINE & ADAPTIVE EVALUATION INSTRUCTIONS ===
+1. EVALUATE THE CANDIDATE'S LATEST ANSWER:
+   - "correctness" (0-100): Is their technical logic accurate? Does it have conceptual bugs or misconceptions?
+   - "depth" (0-100): Is it high-level buzzwords/superficial (depth < 60) or do they understand the under-the-hood engine mechanics, I/O bottlenecks, memory footprint, and algorithmic trade-offs (depth >= 75)?
+   - "critique": 1-2 sentence blunt, honest appraisal of what was strong vs what was missing or incorrect.
 
-2. SENIOR TECH LEAD PROBING (THE "GRILL-ME" REALISM):
-   - Act like an experienced lead engineer who has seen production bugs and scale challenges:
-     * If candidate gives a solid answer or mentions a tool/architecture (e.g. Redis, Kafka, React useEffect, microservices, indexing):
-       Acknowledge it naturally and probe one level deeper into real-world trade-offs:
-       "Gotcha. With Redis there, how would you handle cache stampedes or key expiration under high concurrency?", or "Right, makes sense. But what's the memory overhead if that payload grows to 10MB?"
-     * If candidate's answer is vague, shallow, or wrong:
-       Don't let it slide! Interject like a real engineer:
-       "Wait, hang on a second—how would that work if the network partition drops half the packets?", or "Hmm, not quite. Let's think about that again—what does that look like at the memory level?"
-     * If candidate asks a question or says hello:
-       Answer them directly, warmly, and authentically.
-     * If candidate asks to code or says they are ready:
-       Transition to the CODING stage immediately in your own spontaneous words!
+2. STATE MACHINE DECISION ("stateAction"):
+   - "DRILL_DEEPER": If their answer was shallow, vague, or had misconceptions on "${activeTopic}" AND questionsInCurrentTopic < 2:
+     -> In your spoken message, interject naturally like a real Principal Engineer ("Wait, hang on a second...", "Fair, but what happens when...", "Let's unpack that...") and probe the specific technical blind spot!
+   - "ADVANCE_TOPIC": If they gave a strong, deep answer (depth >= 70, correctness >= 70) OR if questionsInCurrentTopic >= 1:
+     -> Acknowledge their strong point in 1 sentence, and segue directly into the next topic in order!
+   - "TRANSITION_CODING": If all topics have been tested, or conceptualCount >= 3, or the candidate explicitly asks to code:
+     -> Set "nextStage": "CODING".
+     -> Set "stateAction": "TRANSITION_CODING".
+     -> Invite them naturally to the coding round and generate the structured coding challenge!
 
-3. STAGE MANAGEMENT & TRANSITIONS:
-   - When in 'CONCEPTUAL' stage:
-     * When you feel you've gotten enough signal about their core fundamentals (usually after 2-3 genuine technical exchanges), OR if the candidate asked to code:
-       -> Decide to move to CODING!
-       -> In your "message", invite them to the coding round in your OWN spontaneous words (e.g. tell them you'd love to see how they translate their logic into actual code, point them to the problem statement loaded on the left, and ask them to explain their initial thoughts before coding). NEVER repeat a fixed scripted line.
-       -> Set "nextStage": "CODING".
-       -> Generate a structured coding challenge tailored to ${experienceLevel} level and ${skills.join(', ')} with clear description, input/output formats, constraints, sample test cases with explanations, and clean starter code.
-     * Otherwise:
-       -> Continue the conceptual discussion naturally. Set "nextStage": "CONCEPTUAL" and "codingChallenge": null.
-   
-   - When in 'CODING' stage:
-     * YOU CAN ACTIVELY SEE THEIR CODE!
-     * If they ask "can you see my code?" or ask for feedback:
-       Inspect "Candidate's Current Code in Editor". Reference their actual variable names, functions, or loops.
-     * If they ran code with errors in "Candidate's Latest Code Execution Output":
-       Give a sharp, friendly nudge: "Take a look at line X—looks like you're accessing an index out of bounds when the loop terminates."
-     * If they finished writing code and ask to discuss:
-       Ask about Big-O Time & Space Complexity or an edge case (e.g., negative numbers, empty input, huge dataset).
-     * Set "nextStage": "CODING" and "codingChallenge": null.
+3. IN 'CODING' STAGE:
+   - Actively observe their code in the editor and terminal outputs.
+   - If they ran code with errors, guide them toward the bug.
+   - If they wrote working code, probe Big-O Time & Space complexity and edge cases.
+   - Set "nextStage": "CODING", "stateAction": "IN_CODING", "codingChallenge": null.
 
 Return ONLY a JSON object with this exact shape:
 {
-  "message": "Your natural spoken response (2-3 sentences max)",
-  "nextStage": "CONCEPTUAL" or "CODING",
+  "message": "spoken interviewer response (2-3 sentences max, natural conversational cadence)",
+  "answerEvaluation": {
+    "correctness": 85,
+    "depth": 78,
+    "critique": "Candidate correctly explained the mechanism, but omitted concurrent mutation edge cases."
+  },
+  "stateAction": "ADVANCE_TOPIC" | "DRILL_DEEPER" | "TRANSITION_CODING",
+  "targetTopicIndex": ${safeTopicIndex},
+  "nextStage": "CONCEPTUAL" | "CODING",
   "codingChallenge": {
-    "title": "Title of problem",
-    "difficulty": "Easy" or "Medium" or "Hard",
-    "description": "Clear problem statement paragraph",
-    "functionDescription": "Detailed function signature and parameter expectations",
-    "inputFormat": "Description of input format",
-    "constraints": ["Constraint 1", "Constraint 2", "Constraint 3"],
-    "outputFormat": "Description of return value format",
+    "title": "Problem Title",
+    "difficulty": "Easy" | "Medium" | "Hard",
+    "description": "Problem description",
+    "functionDescription": "Detailed function signature and expectations",
+    "inputFormat": "Input format",
+    "constraints": ["Constraint 1", "Constraint 2"],
+    "outputFormat": "Return value description",
     "sampleTestCases": [
       {
         "input": "e.g. nums = [2, 7, 11, 15], target = 9",
         "expectedOutput": "e.g. [0, 1]",
-        "explanation": "Brief explanation of why this output matches"
-      },
-      {
-        "input": "e.g. nums = [3, 2, 4], target = 6",
-        "expectedOutput": "e.g. [1, 2]",
         "explanation": "Brief explanation"
       }
     ],
-    "starterCode": "function solution() {\\n    // Write your code here\\n}",
+    "starterCode": "function solution() {\\n    // Write code here\\n}",
     "language": "javascript"
-  } // or null if staying in CONCEPTUAL or already in CODING
+  }
 }`;
 
     try {
@@ -254,6 +273,9 @@ Return ONLY a JSON object with this exact shape:
             return {
                 message: parsed.message || fallbackResponse.message,
                 nextStage: parsed.nextStage || (shouldConsiderCoding ? 'CODING' : currentStage),
+                stateAction: parsed.stateAction || fallbackResponse.stateAction,
+                targetTopicIndex: typeof parsed.targetTopicIndex === 'number' ? parsed.targetTopicIndex : safeTopicIndex,
+                answerEvaluation: parsed.answerEvaluation || fallbackEvaluation,
                 codingChallenge: parsed.codingChallenge || (parsed.nextStage === 'CODING' ? fallbackCodingChallenge : null)
             };
         }

@@ -14,9 +14,9 @@ export const AuthProvider = ({ children }) => {
             try {
                 const res = await api.get('/auth/me');
                 if (res.data.success) {
-                    // Merge the stored role into the user object since the DB model
-                    // (Company / Candidate) doesn't have a `role` field itself.
-                    setUser({ ...res.data.data, role: storedRole });
+                    const resolvedRole = res.data.data.role || storedRole || 'CANDIDATE';
+                    localStorage.setItem('userRole', resolvedRole);
+                    setUser({ ...res.data.data, role: resolvedRole });
                 }
             } catch (error) {
                 console.error("Auth check failed", error);
@@ -25,6 +25,8 @@ export const AuthProvider = ({ children }) => {
                 localStorage.removeItem('userRole');
                 setUser(null);
             }
+        } else {
+            setUser(null);
         }
         setLoading(false);
     };
@@ -71,7 +73,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+        <AuthContext.Provider value={{ user, loading, login, register, logout, checkAuth }}>
             {children}
         </AuthContext.Provider>
     );

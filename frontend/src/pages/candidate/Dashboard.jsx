@@ -42,6 +42,23 @@ const Dashboard = () => {
         fetchDashboardData();
     }, []);
 
+    const [startingPractice, setStartingPractice] = useState(false);
+
+    const handleStartPractice = async () => {
+        setStartingPractice(true);
+        setJoinError('');
+        try {
+            const res = await api.post('/interview/practice/start');
+            if (res.data.success) {
+                navigate('/candidate/interview/PRACTICE-MOCK-SESSION');
+            }
+        } catch (err) {
+            setJoinError(err.response?.data?.message || 'Failed to start practice mock session');
+        } finally {
+            setStartingPractice(false);
+        }
+    };
+
     const handleJoin = (e) => {
         if (e) e.preventDefault();
         const code = assessmentCode.trim().toUpperCase();
@@ -93,7 +110,7 @@ const Dashboard = () => {
                     <div className="flex items-center gap-2">
                         <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]"></span>
                         <span className="font-mono text-[11px] text-[#A1A1AA] uppercase tracking-wider">
-                            Candidate Workspace // Command Center
+                            Candidate dashboard
                         </span>
                     </div>
                     <h1 className="text-lg font-semibold text-[#FAFAFA] tracking-tight">
@@ -102,9 +119,17 @@ const Dashboard = () => {
                 </div>
 
                 <div className="flex items-center gap-2">
+                    <button
+                        onClick={handleStartPractice}
+                        disabled={startingPractice}
+                        className="studio-btn-primary bg-[#10B981] hover:bg-[#059669] text-[#09090B] font-semibold text-xs flex items-center gap-1.5"
+                    >
+                        <Play className="w-3.5 h-3.5 fill-current" />
+                        <span>{startingPractice ? 'Starting...' : 'Practice interview'}</span>
+                    </button>
                     <Link to="/candidate/reports" className="studio-btn-secondary">
                         <FileText className="w-3.5 h-3.5" />
-                        <span>Past Evaluations</span>
+                        <span>My reports</span>
                     </Link>
                 </div>
             </div>
@@ -115,11 +140,18 @@ const Dashboard = () => {
                     <div className="flex items-center gap-2.5">
                         <span className="w-2 h-2 rounded-full bg-[#F59E0B] animate-ping flex-shrink-0"></span>
                         <div>
-                            <p className="text-xs font-mono font-medium text-[#FAFAFA]">
-                                Active Session Detected: {inProgressSessions[0].assessmentTitle || 'Technical Interview'}
-                            </p>
+                            <div className="flex items-center gap-2">
+                                <p className="text-xs font-mono font-medium text-[#FAFAFA]">
+                                    Interview in progress: {inProgressSessions[0].assessmentTitle || 'Interview'}
+                                </p>
+                                {inProgressSessions[0].isPractice && (
+                                    <span className="studio-badge bg-[#10B981]/15 text-[#10B981] border-[#10B981]/30 text-[10px]">
+                                        Practice
+                                    </span>
+                                )}
+                            </div>
                             <p className="text-[11px] font-mono text-[#71717A]">
-                                Code: {inProgressSessions[0].assessmentCode} • State: {inProgressSessions[0].stage}
+                                Code: {inProgressSessions[0].assessmentCode} • Step: {inProgressSessions[0].stage}
                             </p>
                         </div>
                     </div>
@@ -127,7 +159,7 @@ const Dashboard = () => {
                         onClick={() => navigate(`/candidate/interview/${inProgressSessions[0].assessmentCode}`)}
                         className="studio-btn-primary bg-[#F59E0B] text-[#09090B] hover:bg-[#D97706] text-xs font-semibold"
                     >
-                        <span>Resume Live Session</span>
+                        <span>Continue interview</span>
                         <ArrowRight className="w-3.5 h-3.5" />
                     </button>
                 </div>
@@ -137,7 +169,7 @@ const Dashboard = () => {
             <div className="border border-[#222228] bg-[#111114] rounded-md grid grid-cols-2 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x divide-[#222228] overflow-hidden">
                 <div className="p-4 space-y-1">
                     <span className="text-[10px] font-mono uppercase tracking-wider text-[#71717A] block">
-                        Completed Dossiers
+                        Interviews done
                     </span>
                     <div className="flex items-baseline gap-2">
                         <span className="text-2xl font-mono font-semibold text-[#FAFAFA] tabular-nums">
@@ -149,19 +181,19 @@ const Dashboard = () => {
 
                 <div className="p-4 space-y-1">
                     <span className="text-[10px] font-mono uppercase tracking-wider text-[#71717A] block">
-                        Mean Technical Score
+                        Average score
                     </span>
                     <div className="flex items-baseline gap-2">
                         <span className="text-2xl font-mono font-semibold text-[#FAFAFA] tabular-nums">
                             {stats.avgScore}%
                         </span>
-                        <span className="text-[11px] font-mono text-[#10B981]">composite</span>
+                        <span className="text-[11px] font-mono text-[#10B981]">overall</span>
                     </div>
                 </div>
 
                 <div className="p-4 space-y-1">
                     <span className="text-[10px] font-mono uppercase tracking-wider text-[#71717A] block">
-                        Peak Performance
+                        Best score
                     </span>
                     <div className="flex items-baseline gap-2">
                         <span className="text-2xl font-mono font-semibold text-[#FAFAFA] tabular-nums">
@@ -173,11 +205,11 @@ const Dashboard = () => {
 
                 <div className="p-4 space-y-1">
                     <span className="text-[10px] font-mono uppercase tracking-wider text-[#71717A] block">
-                        Sandbox Status
+                        Code runners
                     </span>
                     <div className="flex items-baseline gap-2">
                         <span className="text-sm font-mono font-medium text-[#10B981]">
-                            4 RUNNERS READY
+                            Ready
                         </span>
                         <span className="text-[10px] font-mono text-[#52525B]">0.18s</span>
                     </div>
@@ -190,10 +222,10 @@ const Dashboard = () => {
                     <div className="flex items-center gap-2">
                         <Terminal className="w-4 h-4 text-[#FAFAFA]" />
                         <span className="text-xs font-mono font-semibold uppercase text-[#FAFAFA]">
-                            Quick Access Launchpad
+                            Join with code
                         </span>
                     </div>
-                    <span className="text-[11px] font-mono text-[#52525B]">AUTONOMOUS DISPATCH</span>
+                    <span className="text-[11px] font-mono text-[#52525B]">Enter code from recruiter</span>
                 </div>
 
                 <form onSubmit={handleJoin} className="flex flex-col sm:flex-row items-center gap-2.5">
@@ -213,7 +245,7 @@ const Dashboard = () => {
                         type="submit"
                         className="studio-btn-primary w-full sm:w-auto px-5 py-2 font-mono text-xs whitespace-nowrap"
                     >
-                        <span>Initialize Lobby</span>
+                        <span>Continue</span>
                         <ArrowRight className="w-3.5 h-3.5" />
                     </button>
                 </form>
@@ -232,7 +264,7 @@ const Dashboard = () => {
                     <div className="flex items-center gap-2">
                         <Layers className="w-4 h-4 text-[#71717A]" />
                         <h2 className="text-xs font-mono font-semibold uppercase text-[#A1A1AA] tracking-wider">
-                            Active Assessment Invitations
+                            Open assessments
                         </h2>
                     </div>
                     <span className="text-[11px] font-mono text-[#52525B]">
@@ -280,7 +312,7 @@ const Dashboard = () => {
                                             onClick={() => handleQuickFill(asmt.assessmentCode)}
                                             className="studio-btn-primary font-mono text-xs"
                                         >
-                                            <span>Enter Lobby</span>
+                                            <span>Start</span>
                                             <ChevronRight className="w-3.5 h-3.5" />
                                         </button>
                                     </div>
@@ -302,11 +334,11 @@ const Dashboard = () => {
                     <div className="flex items-center gap-2">
                         <Activity className="w-4 h-4 text-[#71717A]" />
                         <h2 className="text-xs font-mono font-semibold uppercase text-[#A1A1AA] tracking-wider">
-                            Recent Technical Dossiers
+                            Recent reports
                         </h2>
                     </div>
                     <Link to="/candidate/reports" className="text-[11px] font-mono text-[#A1A1AA] hover:text-[#FAFAFA] flex items-center gap-1">
-                        <span>View all dossiers</span>
+                        <span>View all</span>
                         <ChevronRight className="w-3 h-3" />
                     </Link>
                 </div>
@@ -321,7 +353,7 @@ const Dashboard = () => {
                                         <th className="py-2.5 px-4 font-medium">Date</th>
                                         <th className="py-2.5 px-4 font-medium">Composite Score</th>
                                         <th className="py-2.5 px-4 font-medium">Verdict</th>
-                                        <th className="py-2.5 px-4 font-medium text-right">Dossier</th>
+                                        <th className="py-2.5 px-4 font-medium text-right">Report</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-[#222228] text-xs">
@@ -353,7 +385,7 @@ const Dashboard = () => {
                                                     to={`/candidate/report/${report.session?._id || report.session}`}
                                                     className="studio-btn-secondary text-[11px] py-1"
                                                 >
-                                                    <span>View Dossier</span>
+                                                    <span>View report</span>
                                                     <ExternalLink className="w-3 h-3" />
                                                 </Link>
                                             </td>

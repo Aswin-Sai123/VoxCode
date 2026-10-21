@@ -17,7 +17,17 @@ const assessmentSchema = new Schema({
         type: String, 
         enum: ['ACTIVE', 'CLOSED'], 
         default: 'ACTIVE' 
-    }
+    },
+    openingTime: { type: Date, default: null },
+    closingTime: { type: Date, default: null },
+    accessType: { 
+        type: String, 
+        enum: ['PUBLIC', 'INVITE_ONLY'], 
+        default: 'PUBLIC' 
+    },
+    eligibleEmails: [{ type: String, lowercase: true, trim: true }],
+    codingRoundEnabled: { type: Boolean, default: true },
+    voiceRoundEnabled: { type: Boolean, default: true }
 }, { timestamps: true });
 
 export const Assessment = mongoose.model('Assessment', assessmentSchema);

@@ -33,7 +33,11 @@ const runProcess = (cmd, args, options = {}, input = '', timeoutMs = 8000) => {
         const timer = setTimeout(() => {
             killed = true;
             try {
-                proc.kill('SIGKILL');
+                if (process.platform === 'win32' && proc.pid) {
+                    spawn('taskkill', ['/pid', proc.pid.toString(), '/f', '/t']);
+                } else {
+                    proc.kill('SIGKILL');
+                }
             } catch {
                 // Ignore kill errors
             }
