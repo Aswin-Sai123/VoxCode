@@ -2,17 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../../services/api';
 import { 
-    Terminal, 
     ArrowRight, 
     Copy, 
     Check, 
     ChevronLeft, 
     AlertCircle, 
     CheckCircle2, 
-    Code2, 
-    Layers,
-    FileCode,
-    Sliders
+    Clock, 
+    Layers, 
+    Loader2
 } from 'lucide-react';
 
 const CreateAssessment = () => {
@@ -73,11 +71,11 @@ const CreateAssessment = () => {
         setError('');
 
         if (!title.trim()) {
-            setError('Please specify an assessment specification title');
+            setError('Please enter an assessment title');
             return;
         }
         if (!roleId) {
-            setError('Please select an active role profile');
+            setError('Please select a job role');
             return;
         }
 
@@ -97,7 +95,7 @@ const CreateAssessment = () => {
                 setCreatedId(res.data.data._id);
             }
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to initialize assessment specification');
+            setError(err.response?.data?.message || 'Failed to create assessment');
         } finally {
             setLoading(false);
         }
@@ -114,58 +112,58 @@ const CreateAssessment = () => {
     // SUCCESS Screen
     if (createdCode) {
         return (
-            <div className="flex-1 flex items-center justify-center p-6 bg-[#09090B]">
-                <div className="max-w-md w-full bg-[#111114] border border-[#222228] rounded-md p-8 text-center space-y-6 font-mono">
-                    <div className="w-10 h-10 rounded bg-[#10B981]/10 border border-[#10B981]/30 flex items-center justify-center mx-auto text-[#10B981]">
-                        <CheckCircle2 className="w-5 h-5" />
+            <div className="flex-1 flex items-center justify-center p-6">
+                <div className="max-w-md w-full bg-[#141419] border border-[#232330] rounded-xl p-8 text-center space-y-6 shadow-2xl">
+                    <div className="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto text-emerald-400">
+                        <CheckCircle2 className="w-6 h-6" />
                     </div>
 
-                    <div className="space-y-1">
-                        <span className="studio-badge bg-[#10B981]/10 text-[#10B981] border-[#10B981]/30">
-                            SPEC GENERATED // LIVE
+                    <div className="space-y-1.5">
+                        <span className="px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 inline-block">
+                            Assessment Ready
                         </span>
-                        <h2 className="text-xl font-semibold text-[#FAFAFA] font-sans tracking-tight">
-                            Assessment Successfully Deployed
+                        <h2 className="text-xl font-semibold text-[#EDEDF0] tracking-tight">
+                            Assessment Created Successfully
                         </h2>
-                        <p className="text-xs text-[#71717A]">
-                            Share the unique access code or direct magic invite link with your candidates.
+                        <p className="text-xs text-[#8B8B9E]">
+                            Share this invitation code with your candidates to begin evaluations.
                         </p>
                     </div>
 
                     {/* Access Code Box */}
-                    <div className="p-4 bg-[#09090B] border border-[#222228] rounded space-y-2">
-                        <span className="text-[10px] uppercase text-[#52525B] tracking-wider block">
-                            Candidate Assessment Access Code:
+                    <div className="p-4 bg-[#0A0A0B] border border-[#232330] rounded-lg space-y-2">
+                        <span className="text-xs text-[#8B8B9E] block">
+                            Candidate Invitation Code:
                         </span>
-                        <div className="flex items-center justify-center gap-2">
-                            <span className="text-xl sm:text-2xl font-bold tracking-widest text-[#FAFAFA]">
+                        <div className="flex items-center justify-center gap-3">
+                            <span className="text-2xl font-bold font-mono tracking-wider text-[#EDEDF0]">
                                 {createdCode}
                             </span>
                             <button
                                 onClick={copyCode}
-                                className="studio-btn-secondary p-1.5"
-                                title="Copy Access Code"
+                                className="studio-btn-secondary p-2"
+                                title="Copy invitation code"
                             >
-                                {copied ? <Check className="w-3.5 h-3.5 text-[#10B981]" /> : <Copy className="w-3.5 h-3.5" />}
+                                {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4 text-[#8B8B9E]" />}
                             </button>
                         </div>
                     </div>
 
-                    <div className="space-y-2 pt-2">
+                    <div className="space-y-2.5 pt-2">
                         {createdId && (
                             <Link
                                 to={`/company/assessment/${createdId}/results`}
-                                className="studio-btn-primary w-full py-2.5 text-xs font-semibold"
+                                className="btn-primary w-full py-2.5 text-xs font-medium"
                             >
-                                <span>Open Assessment Leaderboard</span>
-                                <ArrowRight className="w-3.5 h-3.5" />
+                                <span>View Assessment Results</span>
+                                <ArrowRight className="w-4 h-4" />
                             </Link>
                         )}
                         <Link
                             to="/company/dashboard"
-                            className="studio-btn-secondary w-full py-2 text-xs"
+                            className="studio-btn-secondary w-full py-2 text-xs font-medium"
                         >
-                            Return to Recruiter Pipeline
+                            Return to Dashboard
                         </Link>
                     </div>
                 </div>
@@ -174,27 +172,21 @@ const CreateAssessment = () => {
     }
 
     return (
-        <div className="flex-1 bg-[#09090B] text-[#FAFAFA] p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full space-y-6">
+        <div className="flex-1 p-6 sm:p-8 max-w-6xl mx-auto w-full space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between pb-4 border-b border-[#222228]">
+            <div className="flex items-center justify-between pb-4 border-b border-[#232330]">
                 <Link
                     to="/company/dashboard"
-                    className="inline-flex items-center gap-1.5 text-xs font-mono text-[#71717A] hover:text-[#FAFAFA] transition-colors"
+                    className="inline-flex items-center gap-1.5 text-xs text-[#8B8B9E] hover:text-[#EDEDF0] transition-colors"
                 >
-                    <ChevronLeft className="w-3.5 h-3.5" />
-                    <span>Back to Pipeline</span>
+                    <ChevronLeft className="w-4 h-4" />
+                    <span>Back to dashboard</span>
                 </Link>
-
-                <div className="flex items-center gap-2">
-                    <span className="studio-badge bg-[#111114] text-[#A1A1AA] border-[#222228]">
-                        SPEC-BUILDER v2.4
-                    </span>
-                </div>
             </div>
 
             {/* Error Message */}
             {error && (
-                <div className="p-3 bg-[#F43F5E]/10 border border-[#F43F5E]/30 rounded-md text-xs font-mono text-[#F43F5E] flex items-center gap-2">
+                <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-xs text-red-400 flex items-center gap-2">
                     <AlertCircle className="w-4 h-4 flex-shrink-0" />
                     <span>{error}</span>
                 </div>
@@ -203,38 +195,40 @@ const CreateAssessment = () => {
             {/* Two-Column Specification Studio */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 {/* Left Column: Configuration Form (7 Cols) */}
-                <div className="lg:col-span-7 bg-[#111114] border border-[#222228] rounded-md p-6 space-y-6 font-mono text-xs">
-                    <div className="flex items-center justify-between border-b border-[#222228] pb-3">
-                        <span className="font-semibold uppercase text-[#FAFAFA] tracking-wider">
-                            Assessment Specification Parameters
-                        </span>
-                        <span className="text-[10px] text-[#52525B]">FORM // SPEC.CONF</span>
+                <div className="lg:col-span-7 bg-[#141419] border border-[#232330] rounded-xl p-6 sm:p-7 space-y-5">
+                    <div className="border-b border-[#232330] pb-3">
+                        <h1 className="text-lg font-semibold text-[#EDEDF0]">
+                            Create Assessment
+                        </h1>
+                        <p className="text-xs text-[#8B8B9E] mt-0.5">
+                            Configure assessment parameters, duration, and target competencies.
+                        </p>
                     </div>
 
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div className="space-y-1.5">
-                            <label className="text-[11px] uppercase text-[#A1A1AA] block">
-                                Assessment Title:
+                            <label className="text-xs font-medium text-[#8B8B9E] block">
+                                Assessment Title
                             </label>
                             <input
                                 type="text"
                                 required
                                 value={title}
                                 onChange={(e) => setTitle(e.target.value)}
-                                placeholder="e.g. Senior Frontend Polyglot & AI Specialist"
+                                placeholder="e.g. Senior Frontend Engineer Technical Interview"
                                 className="studio-input"
                             />
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div className="space-y-1.5">
-                                <label className="text-[11px] uppercase text-[#A1A1AA] block">
-                                    Target Role Archetype:
+                                <label className="text-xs font-medium text-[#8B8B9E] block">
+                                    Target Role
                                 </label>
                                 <select
                                     value={roleId}
                                     onChange={(e) => setRoleId(e.target.value)}
-                                    className="studio-input font-mono"
+                                    className="studio-input"
                                 >
                                     {roles.length === 0 ? (
                                         <option value="">No roles defined yet</option>
@@ -247,13 +241,13 @@ const CreateAssessment = () => {
                             </div>
 
                             <div className="space-y-1.5">
-                                <label className="text-[11px] uppercase text-[#A1A1AA] block">
-                                    Seniority Expectation:
+                                <label className="text-xs font-medium text-[#8B8B9E] block">
+                                    Seniority Level
                                 </label>
                                 <select
                                     value={experienceLevel}
                                     onChange={(e) => setExperienceLevel(e.target.value)}
-                                    className="studio-input font-mono"
+                                    className="studio-input"
                                 >
                                     <option value="Entry">Entry / Junior Level</option>
                                     <option value="Mid">Mid Level (2-4 yrs)</option>
@@ -263,12 +257,12 @@ const CreateAssessment = () => {
                             </div>
                         </div>
 
-                        <div className="space-y-1.5">
+                        <div className="space-y-2">
                             <div className="flex items-center justify-between">
-                                <label className="text-[11px] uppercase text-[#A1A1AA]">
-                                    Allocated Duration:
+                                <label className="text-xs font-medium text-[#8B8B9E]">
+                                    Allocated Duration
                                 </label>
-                                <span className="text-[11px] text-[#FAFAFA] tabular-nums">{durationMinutes} Minutes</span>
+                                <span className="text-xs font-medium text-[#EDEDF0] tabular-nums">{durationMinutes} Minutes</span>
                             </div>
                             <input
                                 type="range"
@@ -277,39 +271,39 @@ const CreateAssessment = () => {
                                 step="5"
                                 value={durationMinutes}
                                 onChange={(e) => setDurationMinutes(Number(e.target.value))}
-                                className="w-full accent-[#FAFAFA] bg-[#09090B]"
+                                className="w-full accent-blue-500 bg-[#0A0A0B]"
                             />
-                            <div className="flex justify-between text-[10px] text-[#52525B]">
-                                <span>15m (Rapid)</span>
-                                <span>30m (Standard)</span>
-                                <span>60m (Deep Dive)</span>
+                            <div className="flex justify-between text-[11px] text-[#555568]">
+                                <span>15 mins (Rapid)</span>
+                                <span>30 mins (Standard)</span>
+                                <span>60 mins (In-depth)</span>
                             </div>
                         </div>
 
                         {/* Competency Skills Input */}
                         <div className="space-y-1.5">
-                            <label className="text-[11px] uppercase text-[#A1A1AA] block">
-                                Evaluated Competencies & Languages:
+                            <label className="text-xs font-medium text-[#8B8B9E] block">
+                                Required Skills & Technologies
                             </label>
                             <input
                                 type="text"
                                 value={skillInput}
                                 onChange={(e) => setSkillInput(e.target.value)}
                                 onKeyDown={handleSkillKeyDown}
-                                placeholder="Type skill or language and press Enter (e.g. Python, React, C++)"
+                                placeholder="Type a skill and press Enter (e.g. React, Python, DSA)"
                                 className="studio-input"
                             />
                             <div className="flex flex-wrap gap-1.5 pt-1.5">
                                 {skills.map((skill, index) => (
                                     <span
                                         key={index}
-                                        className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-[#18181C] border border-[#222228] text-[11px] text-[#FAFAFA]"
+                                        className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#1C1C24] border border-[#232330] text-xs font-medium text-[#EDEDF0]"
                                     >
                                         <span>{skill}</span>
                                         <button
                                             type="button"
                                             onClick={() => removeSkill(skill)}
-                                            className="text-[#71717A] hover:text-[#F43F5E]"
+                                            className="text-[#8B8B9E] hover:text-red-400 font-bold"
                                         >
                                             ×
                                         </button>
@@ -320,14 +314,14 @@ const CreateAssessment = () => {
 
                         {/* Interviewer Blueprint Guidance */}
                         <div className="space-y-1.5">
-                            <label className="text-[11px] uppercase text-[#A1A1AA] block">
-                                Autonomous Interviewer Blueprint & Prompt:
+                            <label className="text-xs font-medium text-[#8B8B9E] block">
+                                Custom Prompt / Interview Instructions (Optional)
                             </label>
                             <textarea
                                 rows={3}
                                 value={blueprint}
                                 onChange={(e) => setBlueprint(e.target.value)}
-                                placeholder="Focus deeply on distributed systems architecture, state management trade-offs, and Big-O efficiency."
+                                placeholder="Focus on system scalability, code modularity, edge cases, and asynchronous programming."
                                 className="studio-input resize-none"
                             />
                         </div>
@@ -335,60 +329,82 @@ const CreateAssessment = () => {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="studio-btn-primary w-full py-2.5 text-xs font-semibold"
+                            className="btn-primary w-full py-2.5 mt-2"
                         >
                             {loading ? (
                                 <span className="flex items-center gap-2">
-                                    <span className="w-3.5 h-3.5 border-2 border-[#09090B] border-t-transparent rounded-full animate-spin"></span>
-                                    <span>Deploying Assessment Manifest...</span>
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    <span>Creating assessment...</span>
                                 </span>
                             ) : (
                                 <span className="flex items-center gap-1.5">
-                                    <span>Deploy Assessment Specification</span>
-                                    <ArrowRight className="w-3.5 h-3.5" />
+                                    <span>Create Assessment</span>
+                                    <ArrowRight className="w-4 h-4" />
                                 </span>
                             )}
                         </button>
                     </form>
                 </div>
 
-                {/* Right Column: Sticky Live Specification Manifest Preview (5 Cols) */}
+                {/* Right Column: Live Summary Card (5 Cols) */}
                 <div className="lg:col-span-5 space-y-4">
-                    <div className="bg-[#111114] border border-[#222228] rounded-md p-5 space-y-3 font-mono text-xs sticky top-16">
-                        <div className="flex items-center justify-between border-b border-[#222228] pb-3">
-                            <div className="flex items-center gap-2">
-                                <FileCode className="w-3.5 h-3.5 text-[#10B981]" />
-                                <span className="font-semibold uppercase text-[#FAFAFA]">
-                                    Live Specification Manifest
-                                </span>
-                            </div>
-                            <span className="text-[10px] text-[#10B981]">AUTONOMOUS-SYNC</span>
+                    <div className="bg-[#141419] border border-[#232330] rounded-xl p-6 space-y-5 sticky top-20">
+                        <div className="border-b border-[#232330] pb-3">
+                            <h2 className="text-sm font-semibold text-[#EDEDF0]">
+                                Assessment Summary
+                            </h2>
+                            <p className="text-xs text-[#8B8B9E] mt-0.5">
+                                Preview of the assessment configuration.
+                            </p>
                         </div>
 
-                        <pre className="p-3 bg-[#09090B] border border-[#222228] rounded text-[11px] text-[#A1A1AA] overflow-x-auto leading-relaxed">
-{`# VoxCode Autonomous Assessment Manifest
-spec_version: "2.4.0"
-title: "${title || 'Untitled Assessment'}"
-role_archetype: "${selectedRoleObj?.title || 'General Engineering'}"
-seniority: "${experienceLevel}"
-time_limit_seconds: ${durationMinutes * 60}
-evaluation_engine: "gemini-2.5-flash"
-compilers:
-  - "javascript (node 24)"
-  - "python 3 (3.14)"
-  - "c++ (gcc 6.3)"
-  - "java (openjdk 24)"
-skills:
-${skills.map(s => `  - "${s}"`).join('\n')}
-blueprint_directive: >
-  ${blueprint ? blueprint.replace(/\n/g, ' ') : 'Assess foundational problem solving, code clarity, and edge cases.'}
-`}
-                        </pre>
+                        <div className="space-y-3.5 text-xs">
+                            <div>
+                                <span className="text-[#8B8B9E] block">Title</span>
+                                <span className="text-sm font-medium text-[#EDEDF0] mt-0.5 block">
+                                    {title || 'Untitled Assessment'}
+                                </span>
+                            </div>
 
-                        <div className="text-[10px] text-[#52525B] space-y-1 pt-1">
-                            <span className="text-[#71717A] uppercase block">Security & Policy:</span>
-                            <p>• Code is executed in native sub-second process isolation.</p>
-                            <p>• Audio transcriptions scored across 4 dimensional rubrics.</p>
+                            <div className="grid grid-cols-2 gap-3 pt-1">
+                                <div>
+                                    <span className="text-[#8B8B9E] block">Role</span>
+                                    <span className="text-xs font-medium text-[#EDEDF0] mt-0.5 block">
+                                        {selectedRoleObj?.title || 'General Engineering'}
+                                    </span>
+                                </div>
+                                <div>
+                                    <span className="text-[#8B8B9E] block">Level</span>
+                                    <span className="text-xs font-medium text-[#EDEDF0] mt-0.5 block">
+                                        {experienceLevel} Level
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div className="pt-1">
+                                <span className="text-[#8B8B9E] block">Duration</span>
+                                <span className="text-xs font-medium text-[#EDEDF0] mt-0.5 block">
+                                    {durationMinutes} minutes
+                                </span>
+                            </div>
+
+                            <div className="pt-1">
+                                <span className="text-[#8B8B9E] block mb-1.5">Skills ({skills.length})</span>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {skills.map((s, idx) => (
+                                        <span key={idx} className="px-2 py-0.5 rounded-md bg-[#0A0A0B] border border-[#232330] text-xs text-[#8B8B9E]">
+                                            {s}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="p-3 bg-[#0A0A0B] border border-[#232330] rounded-lg text-xs text-[#8B8B9E] space-y-1">
+                            <span className="text-[#EDEDF0] font-medium block">Evaluation runtime</span>
+                            <p>
+                                Candidates will be tested with conversational voice reasoning followed by live polyglot coding (JS, Python, C++, Java).
+                            </p>
                         </div>
                     </div>
                 </div>

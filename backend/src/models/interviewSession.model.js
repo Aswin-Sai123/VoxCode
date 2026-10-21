@@ -61,6 +61,15 @@ const interviewSessionSchema = new Schema({
         type: Number, 
         default: 30 
     },
+    candidateResume: {
+        type: String,
+        default: ''
+    },
+    interviewFormat: {
+        type: String,
+        enum: ['FULL_INTERVIEW', 'PROJECT_AND_TECHNICAL_ONLY'],
+        default: 'FULL_INTERVIEW'
+    },
     startedAt: { 
         type: Date, 
         default: Date.now 
@@ -73,5 +82,6 @@ const interviewSessionSchema = new Schema({
         ref: 'Evaluation'
     }
 }, { timestamps: true });
+
 
 export const InterviewSession = mongoose.model('InterviewSession', interviewSessionSchema);

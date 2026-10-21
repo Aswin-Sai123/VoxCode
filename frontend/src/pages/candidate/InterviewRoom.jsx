@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import api from '../../services/api';
 import { 
@@ -29,6 +29,7 @@ import {
 const InterviewRoom = () => {
     const { code } = useParams();
     const navigate = useNavigate();
+    const location = useLocation();
 
     // Session state
     const [loading, setLoading] = useState(true);
@@ -125,7 +126,14 @@ const InterviewRoom = () => {
     useEffect(() => {
         const initInterview = async () => {
             try {
-                const res = await api.post(`/interview/start/${code}`);
+                const state = location.state || {};
+                const resumeText = state.resumeText || sessionStorage.getItem(`voxcode_resume_${code}`) || sessionStorage.getItem('voxcode_resume') || '';
+                const interviewFormat = state.interviewFormat || sessionStorage.getItem(`voxcode_format_${code}`) || 'FULL_INTERVIEW';
+
+                const res = await api.post(`/interview/start/${code}`, {
+                    resumeText,
+                    interviewFormat
+                });
                 if (res.data.success) {
                     const data = res.data.data;
                     setSession(data.session);
@@ -187,6 +195,12 @@ const InterviewRoom = () => {
     const speakAiMessage = (text) => {
         if (!text || isMutedRef.current || !window.speechSynthesis) return;
 
+        // Auto-pause mic while AI speaks so the mic never catches the speakers
+        if (recognitionRef.current && isListening) {
+            recognitionRef.current.stop();
+            setIsListening(false);
+        }
+
         window.speechSynthesis.cancel();
 
         const cleanText = text.replace(/[*_#`]/g, '').trim();
@@ -231,13 +245,18 @@ const InterviewRoom = () => {
         }
     };
 
-    // 4. Speech Recognition with Barge-In Capability
+    // 4. Clean Turn-by-Turn Speech Recognition (No live streaming jitter)
     const toggleSpeechRecognition = () => {
         if (isListening) {
             if (recognitionRef.current) {
                 recognitionRef.current.stop();
                 setIsListening(false);
             }
+            return;
+        }
+
+        // If AI is currently speaking, do not open mic
+        if (isAiSpeaking) {
             return;
         }
 
@@ -248,8 +267,8 @@ const InterviewRoom = () => {
         }
 
         const recognition = new SpeechRecognition();
-        recognition.continuous = true;
-        recognition.interimResults = true;
+        recognition.continuous = false; // Clean turn-based utterance capture
+        recognition.interimResults = false; // No streaming partial chunks
         recognition.lang = 'en-US';
 
         recognition.onstart = () => {
@@ -258,27 +277,15 @@ const InterviewRoom = () => {
         };
 
         recognition.onresult = (event) => {
-            // Barge-in: cut off AI immediately
-            if (window.speechSynthesis && window.speechSynthesis.speaking) {
-                window.speechSynthesis.cancel();
-                setIsAiSpeaking(false);
-                if (utteranceRef.current) utteranceRef.current = null;
-            }
-
             let finalStr = '';
-            let interimStr = '';
             for (let i = 0; i < event.results.length; i++) {
-                const transcriptPiece = event.results[i][0].transcript;
                 if (event.results[i].isFinal) {
-                    finalStr += transcriptPiece + ' ';
-                } else {
-                    interimStr += transcriptPiece;
+                    finalStr += event.results[i][0].transcript + ' ';
                 }
             }
-            if (finalStr) {
-                setCandidateText(prev => (prev ? prev + ' ' + finalStr : finalStr));
+            if (finalStr.trim()) {
+                setCandidateText(prev => (prev ? prev + ' ' + finalStr.trim() : finalStr.trim()));
             }
-            setInterimSpeech(interimStr);
         };
 
         recognition.onerror = (e) => {
@@ -337,6 +344,10 @@ const InterviewRoom = () => {
                         setSelectedLanguage(newChallenge.language || 'javascript');
                     }
                     setTimeout(() => setTransitionBanner(false), 5000);
+                } else if (newStage === 'COMPLETED' && stage !== 'COMPLETED') {
+                    setTimeout(() => {
+                        setStage('COMPLETED');
+                    }, 4000);
                 }
 
                 speakAiMessage(aiMessage);
@@ -436,25 +447,25 @@ const InterviewRoom = () => {
 
     if (loading) {
         return (
-            <div className="h-screen bg-[#09090B] flex flex-col items-center justify-center font-mono text-xs text-[#71717A] space-y-3">
-                <div className="w-5 h-5 border-2 border-[#FAFAFA] border-t-transparent rounded-full animate-spin"></div>
-                <span>INITIALIZING AUTONOMOUS INTERVIEW STUDIO // {code}...</span>
+            <div className="h-screen bg-[#0A0A0B] flex flex-col items-center justify-center text-xs text-[#8B8B9E] space-y-3">
+                <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                <span>Loading interview session...</span>
             </div>
         );
     }
 
     if (error) {
         return (
-            <div className="h-screen bg-[#09090B] flex items-center justify-center p-6">
-                <div className="bg-[#111114] border border-[#F43F5E]/30 rounded-md p-6 max-w-sm w-full text-center space-y-4 font-mono">
-                    <AlertCircle className="w-6 h-6 text-[#F43F5E] mx-auto" />
+            <div className="h-screen bg-[#0A0A0B] flex items-center justify-center p-6">
+                <div className="bg-[#141419] border border-red-500/20 rounded-xl p-8 max-w-sm w-full text-center space-y-4">
+                    <AlertCircle className="w-8 h-8 text-red-400 mx-auto" />
                     <div>
-                        <p className="text-xs font-semibold text-[#FAFAFA]">Interview Room Exception</p>
-                        <p className="text-[11px] text-[#71717A] mt-1">{error}</p>
+                        <p className="text-sm font-semibold text-[#EDEDF0]">Interview error</p>
+                        <p className="text-xs text-[#8B8B9E] mt-1">{error}</p>
                     </div>
                     <button
                         onClick={() => navigate('/candidate/dashboard')}
-                        className="studio-btn-secondary w-full py-2 text-xs"
+                        className="studio-btn-secondary w-full py-2.5 text-xs font-medium"
                     >
                         Return to Dashboard
                     </button>
@@ -466,109 +477,161 @@ const InterviewRoom = () => {
     // 8. Stage 3: Completed Evaluation Screen
     if (stage === 'COMPLETED') {
         return (
-            <div className="h-screen bg-[#09090B] flex items-center justify-center p-6">
-                <div className="bg-[#111114] border border-[#222228] rounded-md p-8 max-w-lg w-full text-center space-y-6">
-                    <div className="w-10 h-10 rounded bg-[#10B981]/10 border border-[#10B981]/30 flex items-center justify-center mx-auto text-[#10B981]">
-                        <CheckCircle2 className="w-5 h-5" />
+            <div className="h-screen bg-[#0A0A0B] flex items-center justify-center p-6">
+                <div className="bg-[#141419] border border-[#232330] rounded-xl p-8 max-w-lg w-full text-center space-y-6 shadow-2xl">
+                    <div className="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto text-emerald-400">
+                        <CheckCircle2 className="w-6 h-6" />
                     </div>
 
-                    <div className="space-y-1">
-                        <span className="studio-badge bg-[#10B981]/10 text-[#10B981] border-[#10B981]/25">
-                            EVALUATION COMPLETED
-                        </span>
-                        <h2 className="text-xl font-semibold text-[#FAFAFA] tracking-tight">
-                            Assessment Successfully Recorded
-                        </h2>
-                        <p className="text-xs text-[#71717A] font-mono">
-                            Your dialogue exchanges and multi-language code submission have been autonomously graded by Gemini 2.5 Flash.
-                        </p>
-                    </div>
+                    {assessment?.assessmentType === 'MOCK' ? (
+                        <>
+                            <div className="space-y-1.5">
+                                <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20 inline-block">
+                                    Mock Interview Completed
+                                </span>
+                                <h2 className="text-xl font-semibold text-[#EDEDF0] tracking-tight">
+                                    Practice Session Finished
+                                </h2>
+                                <p className="text-xs text-[#8B8B9E]">
+                                    Your mock session for {assessment?.companyName} is complete. Your technical scorecard, rubric breakdown, Big-O complexity, and improvement vectors are ready.
+                                </p>
+                            </div>
 
-                    <div className="bg-[#09090B] border border-[#222228] rounded p-4 text-left font-mono text-xs space-y-2">
-                        <div className="flex justify-between">
-                            <span className="text-[#52525B]">ROLE SPECIFICATION:</span>
-                            <span className="text-[#FAFAFA] font-medium">{assessment?.roleTitle || assessment?.title}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-[#52525B]">EVALUATION ENTITY:</span>
-                            <span className="text-[#A1A1AA]">{assessment?.companyName}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-[#52525B]">CONVERSATION TURNS:</span>
-                            <span className="text-[#10B981] font-semibold tabular-nums">{transcript.length} messages</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-[#52525B]">RUNTIME ENVIRONMENT:</span>
-                            <span className="text-[#FAFAFA] font-medium uppercase">{selectedLanguage}</span>
-                        </div>
-                    </div>
+                            <div className="bg-[#0A0A0B] border border-[#232330] rounded-lg p-4 text-left text-xs space-y-2.5">
+                                <div className="flex justify-between">
+                                    <span className="text-[#8B8B9E]">Role:</span>
+                                    <span className="text-[#EDEDF0] font-medium">{assessment?.roleTitle || assessment?.title}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-[#8B8B9E]">Target Company:</span>
+                                    <span className="text-[#EDEDF0] font-medium">{assessment?.companyName}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-[#8B8B9E]">Exchanges:</span>
+                                    <span className="text-[#EDEDF0] font-medium tabular-nums">{transcript.length} turns</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-[#8B8B9E]">Language:</span>
+                                    <span className="text-[#EDEDF0] font-medium capitalize">{selectedLanguage}</span>
+                                </div>
+                            </div>
 
-                    <div className="space-y-2 pt-2">
-                        <button
-                            onClick={() => navigate(`/candidate/report/${session?._id}`)}
-                            className="studio-btn-primary w-full py-2.5 text-xs font-mono font-semibold"
-                        >
-                            <span>Open Performance Evaluation Dossier</span>
-                            <ArrowRight className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                            onClick={() => navigate('/candidate/dashboard')}
-                            className="studio-btn-secondary w-full py-2 text-xs font-mono"
-                        >
-                            Return to Command Center
-                        </button>
-                    </div>
+                            <div className="space-y-2 pt-2">
+                                <button
+                                    onClick={() => navigate(`/candidate/report/${session?._id}`)}
+                                    className="btn-primary w-full py-2.5 text-xs font-medium"
+                                >
+                                    <span>View Assessment Report</span>
+                                    <ArrowRight className="w-4 h-4" />
+                                </button>
+                                <button
+                                    onClick={() => navigate('/candidate/dashboard')}
+                                    className="studio-btn-secondary w-full py-2 text-xs font-medium"
+                                >
+                                    Return to Dashboard
+                                </button>
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <div className="space-y-1.5">
+                                <span className="px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 inline-block">
+                                    Assessment Submitted
+                                </span>
+                                <h2 className="text-xl font-semibold text-[#EDEDF0] tracking-tight">
+                                    Submitted to {assessment?.companyName || 'Hiring Team'}
+                                </h2>
+                                <p className="text-xs text-[#8B8B9E]">
+                                    Your interview transcript and code submission have been submitted directly to the {assessment?.companyName || 'company'} hiring team.
+                                </p>
+                            </div>
+
+                            <div className="bg-[#0A0A0B] border border-[#232330] rounded-lg p-4 text-left text-xs space-y-2.5">
+                                <div className="flex justify-between">
+                                    <span className="text-[#8B8B9E]">Role:</span>
+                                    <span className="text-[#EDEDF0] font-medium">{assessment?.roleTitle || assessment?.title}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-[#8B8B9E]">Company:</span>
+                                    <span className="text-[#EDEDF0] font-medium">{assessment?.companyName}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-[#8B8B9E]">Assessment Code:</span>
+                                    <span className="text-[#EDEDF0] font-mono text-[11px]">{code}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-[#8B8B9E]">Policy Notice:</span>
+                                    <span className="text-amber-400/90 font-medium">Confidential to Recruiting Team</span>
+                                </div>
+                            </div>
+
+                            <p className="text-[11px] text-[#8B8B9E] leading-relaxed">
+                                As per standard hiring procedures, assessment evaluation scores and grading rubrics are confidential to the recruiter. The recruiting team will contact you regarding next steps.
+                            </p>
+
+                            <div className="pt-2">
+                                <button
+                                    onClick={() => navigate('/candidate/dashboard')}
+                                    className="btn-primary w-full py-2.5 text-xs font-medium"
+                                >
+                                    <span>Return to Dashboard</span>
+                                    <ArrowRight className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </>
+                    )}
+
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="h-screen overflow-hidden flex flex-col bg-[#09090B] text-[#FAFAFA] font-sans select-none">
+        <div className="h-screen overflow-hidden flex flex-col bg-[#0A0A0B] text-[#EDEDF0] font-sans select-none">
             {/* Transition Alert Strip */}
             {transitionBanner && (
-                <div className="h-8 bg-[#18181C] border-b border-[#F59E0B]/40 px-4 flex items-center justify-between font-mono text-xs text-[#F59E0B]">
+                <div className="h-9 bg-amber-500/10 border-b border-amber-500/30 px-4 flex items-center justify-between text-xs text-amber-400">
                     <span className="flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B] animate-ping"></span>
-                        <span>[TRANSITION] Practical Coding Round Initialized — Code Workspace Unlocked.</span>
+                        <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                        <span>Coding challenge started — editor workspace is now unlocked.</span>
                     </span>
-                    <span className="text-[10px] text-[#71717A]">STAGE 02 // CODING</span>
+                    <span className="text-xs text-[#8B8B9E]">Phase 2: Coding</span>
                 </div>
             )}
 
-            {/* Top Studio Bar (h-11) */}
-            <header className="h-11 border-b border-[#222228] bg-[#09090B] px-4 sm:px-6 flex items-center justify-between flex-shrink-0 z-40">
-                {/* Left: Studio Identity & Role */}
-                <div className="flex items-center gap-2.5">
-                    <span className="font-mono text-xs font-semibold tracking-wider text-[#FAFAFA] uppercase">
-                        VoxCode // Studio
+            {/* Top Bar (h-14) */}
+            <header className="h-14 border-b border-[#232330] bg-[#0A0A0B]/95 backdrop-blur-md px-4 sm:px-6 flex items-center justify-between flex-shrink-0 z-40">
+                {/* Left: Identity & Role */}
+                <div className="flex items-center gap-3">
+                    <span className="font-semibold text-sm text-[#EDEDF0]">
+                        VoxCode
                     </span>
-                    <span className="text-[#3F3F46] font-mono text-xs">/</span>
-                    <span className="font-mono text-[11px] text-[#A1A1AA] truncate max-w-[200px] sm:max-w-xs">
+                    <span className="text-[#363645] text-xs">/</span>
+                    <span className="text-xs text-[#8B8B9E] truncate max-w-[180px] sm:max-w-xs">
                         {assessment?.title || assessment?.roleTitle}
                     </span>
                 </div>
 
                 {/* Center: Phase Badge */}
                 <div className="flex items-center gap-3">
-                    <span className={`studio-badge ${
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${
                         stage === 'CONCEPTUAL'
-                            ? 'bg-[#18181C] text-[#FAFAFA] border-[#3F3F46]'
-                            : 'bg-[#10B981]/10 text-[#10B981] border-[#10B981]/25'
+                            ? 'bg-[#141419] text-[#EDEDF0] border-[#363645]'
+                            : 'bg-blue-500/10 text-blue-400 border-blue-500/20'
                     }`}>
-                        {stage === 'CONCEPTUAL' ? 'PHASE 01 // VOICE SCREENING' : 'PHASE 02 // POLYGLOT CODING'}
+                        {stage === 'CONCEPTUAL' ? 'Phase 1: Discussion' : 'Phase 2: Live Coding'}
                     </span>
                 </div>
 
                 {/* Right: Timer, Audio Controls & Submit */}
-                <div className="flex items-center gap-2.5">
-                    {/* Monospace Countdown Timer */}
-                    <div className={`px-2.5 py-1 rounded bg-[#111114] border font-mono text-xs font-medium tabular-nums flex items-center gap-1.5 ${
+                <div className="flex items-center gap-3">
+                    {/* Countdown Timer */}
+                    <div className={`px-3 py-1.5 rounded-lg bg-[#141419] border text-xs font-mono font-medium tabular-nums flex items-center gap-2 ${
                         timeLeftSeconds < 300
-                            ? 'border-[#F59E0B]/40 text-[#F59E0B]'
-                            : 'border-[#222228] text-[#FAFAFA]'
+                            ? 'border-amber-500/40 text-amber-400'
+                            : 'border-[#232330] text-[#EDEDF0]'
                     }`}>
-                        <Clock className="w-3.5 h-3.5 text-[#71717A]" />
+                        <Clock className="w-3.5 h-3.5 text-[#8B8B9E]" />
                         <span>{formatTime(timeLeftSeconds)}</span>
                     </div>
 
@@ -580,10 +643,10 @@ const InterviewRoom = () => {
                             if (newMuted && window.speechSynthesis) window.speechSynthesis.cancel();
                             setIsMuted(newMuted);
                         }}
-                        className="studio-btn-secondary p-1.5"
+                        className="studio-btn-secondary p-2"
                         title={isMuted ? 'Unmute AI Voice' : 'Mute AI Voice'}
                     >
-                        {isMuted ? <VolumeX className="w-3.5 h-3.5 text-[#F43F5E]" /> : <Volume2 className="w-3.5 h-3.5 text-[#A1A1AA]" />}
+                        {isMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4 text-[#8B8B9E]" />}
                     </button>
 
                     {/* End & Submit Button */}
@@ -591,33 +654,34 @@ const InterviewRoom = () => {
                         id="submit-interview-btn"
                         onClick={() => handleSubmitInterview()}
                         disabled={isSubmitting}
-                        className={`studio-btn-primary text-xs font-mono ${
+                        className={`px-3.5 py-1.5 text-xs font-medium rounded-lg transition-all ${
                             confirmSubmit 
-                                ? 'bg-[#F43F5E] text-white hover:bg-[#E11D48] border border-[#F43F5E]' 
-                                : 'bg-[#FAFAFA] text-[#09090B]'
+                                ? 'bg-red-600 text-white hover:bg-red-700 shadow-sm' 
+                                : 'studio-btn-secondary hover:border-red-500/30 hover:text-red-400'
                         }`}
-                        title="Submit interview assessment for AI evaluation"
+                        title="Submit interview assessment for evaluation"
                     >
-                        {isSubmitting ? 'Evaluating...' : confirmSubmit ? 'Confirm Submit [!]' : 'End Session'}
+                        {isSubmitting ? 'Submitting...' : confirmSubmit ? 'Confirm submit?' : 'End session'}
                     </button>
                 </div>
             </header>
 
             {/* MAIN CONTENT AREA */}
             {stage === 'CONCEPTUAL' ? (
-                /* ================= STAGE 1: IMMERSIVE HARDWARE AUDIO STUDIO ================= */
+                /* ================= STAGE 1: VOICE DISCUSSION STUDIO ================= */
                 <main className="flex-1 flex flex-col items-center justify-center p-6 max-w-3xl mx-auto w-full space-y-6">
                     {/* Visualizer Module */}
-                    <div className="w-full bg-[#111114] border border-[#222228] rounded-md p-6 flex flex-col items-center space-y-4">
-                        <div className="flex items-center justify-between w-full border-b border-[#222228] pb-3 text-xs font-mono">
-                            <span className="text-[#71717A] flex items-center gap-2">
+                    <div className="w-full bg-[#141419] border border-[#232330] rounded-xl p-6 flex flex-col items-center space-y-4">
+                        <div className="flex items-center justify-between w-full border-b border-[#232330] pb-3 text-xs">
+                            <span className="text-[#8B8B9E] flex items-center gap-2">
                                 <span className={`w-2 h-2 rounded-full ${
-                                    isAiSpeaking ? 'bg-[#10B981] animate-pulse' : isSending ? 'bg-[#F59E0B] animate-pulse' : 'bg-[#52525B]'
+                                    isAiSpeaking ? 'bg-emerald-400 animate-pulse' : isSending ? 'bg-amber-400 animate-pulse' : 'bg-[#555568]'
                                 }`}></span>
-                                ROHAN // AI LEAD INTERVIEWER
+                                <span className="font-medium text-[#EDEDF0]">Rohan</span>
+                                <span className="text-[#555568]">• Lead Interviewer</span>
                             </span>
-                            <span className="studio-badge bg-[#09090B] text-[#A1A1AA] border-[#222228]">
-                                {isAiSpeaking ? 'TRANSMITTING AUDIO' : isSending ? 'EVALUATING REASONING' : isListening ? 'RECEIVING STREAM' : 'LISTENING'}
+                            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-[#0A0A0B] text-[#8B8B9E] border border-[#232330]">
+                                {isAiSpeaking ? 'Speaking' : isSending ? 'Thinking...' : isListening ? 'Listening' : 'Ready'}
                             </span>
                         </div>
 
@@ -629,120 +693,108 @@ const InterviewRoom = () => {
                                     style={{
                                         height: isAiSpeaking ? `${h}px` : isListening ? `${(h * 0.8)}px` : '4px',
                                     }}
-                                    className={`w-1 rounded-sm transition-all duration-200 ${
+                                    className={`w-1 rounded-full transition-all duration-200 ${
                                         isAiSpeaking 
-                                            ? 'bg-[#10B981]' 
+                                            ? 'bg-emerald-400' 
                                             : isListening 
-                                                ? 'bg-[#F43F5E]' 
+                                                ? 'bg-red-400' 
                                                 : isSending 
-                                                    ? 'bg-[#F59E0B] animate-pulse' 
-                                                    : 'bg-[#222228]'
+                                                    ? 'bg-amber-400 animate-pulse' 
+                                                    : 'bg-[#232330]'
                                     }`}
                                 />
                             ))}
                         </div>
 
-                        <span className="text-[11px] font-mono text-[#52525B]">
-                            Acoustic Transceiver • 48kHz Voice Synthesis Active
+                        <span className="text-xs text-[#555568]">
+                            Interactive voice response active
                         </span>
                     </div>
 
                     {/* Question Card */}
-                    <div className="w-full bg-[#111114] border border-[#222228] rounded-md p-6 space-y-4">
+                    <div className="w-full bg-[#141419] border border-[#232330] rounded-xl p-6 sm:p-7 space-y-4">
                         <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-mono uppercase tracking-wider text-[#71717A] flex items-center gap-1.5">
-                                <span className="w-1.5 h-1.5 rounded-full bg-[#FAFAFA]"></span> Current Interrogation
+                            <span className="text-xs font-medium text-[#8B8B9E] flex items-center gap-2">
+                                <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span> Question
                             </span>
                             <button
                                 onClick={() => speakAiMessage(latestAiMessage)}
-                                className="studio-btn-secondary text-[11px] py-1"
+                                className="studio-btn-secondary text-xs py-1 px-2.5"
                             >
-                                <RotateCcw className="w-3 h-3" />
-                                <span>Repeat Audio</span>
+                                <RotateCcw className="w-3 h-3 text-[#8B8B9E]" />
+                                <span>Repeat question</span>
                             </button>
                         </div>
-                        <p className="text-base sm:text-lg font-medium text-[#FAFAFA] leading-relaxed">
-                            "{latestAiMessage || 'Initializing introductory questions...'}"
+                        <p className="text-base sm:text-lg font-medium text-[#EDEDF0] leading-relaxed">
+                            "{latestAiMessage || 'Initializing interview questions...'}"
                         </p>
                     </div>
 
-                    {/* Live Speech Recognition Transcript Box */}
-                    {(candidateText || interimSpeech || isListening) && (
-                        <div className="w-full bg-[#09090B] border border-[#222228] rounded-md p-4 space-y-1 font-mono text-xs">
-                            <div className="flex justify-between text-[10px] text-[#71717A] uppercase">
-                                <span>Candidate Spoken Buffer:</span>
-                                {isListening && <span className="text-[#F43F5E]">RECORDING...</span>}
+                    {/* Speech Recognition Transcript Box */}
+                    {(candidateText || isListening) && (
+                        <div className="w-full bg-[#0A0A0B] border border-[#232330] rounded-xl p-4 space-y-1 text-xs">
+                            <div className="flex justify-between text-xs text-[#8B8B9E]">
+                                <span>Your speech:</span>
+                                {isListening && <span className="text-red-400 font-medium animate-pulse">Listening... Click 'Stop speaking' when finished</span>}
                             </div>
-                            <p className="text-[#FAFAFA] leading-relaxed">
-                                {candidateText} <span className="text-[#71717A] italic">{interimSpeech}</span>
+                            <p className="text-[#EDEDF0] leading-relaxed">
+                                {candidateText || <span className="text-[#555568] italic">Listening for your speech...</span>}
                             </p>
                         </div>
                     )}
 
                     {/* Control Action Deck */}
                     <div className="w-full flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
-                        <div className="flex items-center gap-2 w-full sm:w-auto">
+                        <div className="flex items-center gap-3 w-full sm:w-auto">
                             <button
                                 onClick={toggleSpeechRecognition}
-                                className={`px-5 py-2.5 rounded-md font-mono text-xs font-semibold flex items-center justify-center gap-2 transition-all flex-1 sm:flex-initial ${
+                                className={`px-5 py-2.5 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-all flex-1 sm:flex-initial ${
                                     isListening
-                                        ? 'bg-[#F43F5E] text-white animate-pulse'
-                                        : 'studio-btn-primary'
+                                        ? 'bg-red-600 text-white animate-pulse'
+                                        : 'btn-primary'
                                 }`}
                             >
-                                {isListening ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
-                                <span>{isListening ? 'Halt Recording' : 'Press to Speak'}</span>
+                                {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                                <span>{isListening ? 'Stop speaking' : 'Click to speak'}</span>
                             </button>
 
                             {(candidateText || interimSpeech) && (
                                 <button
                                     onClick={() => handleSendMessage()}
                                     disabled={isSending}
-                                    className="studio-btn-secondary px-4 py-2.5 font-mono text-xs font-semibold"
+                                    className="studio-btn-secondary px-4 py-2.5 text-xs font-medium"
                                 >
-                                    <span>Transmit</span>
-                                    <Send className="w-3 h-3" />
+                                    <span>Send answer</span>
+                                    <Send className="w-3.5 h-3.5" />
                                 </button>
                             )}
                         </div>
 
-                        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-                            <button
-                                id="jump-to-coding-btn"
-                                onClick={() => handleSendMessage("I am ready for the coding challenge now! Let's start coding.")}
-                                disabled={isSending}
-                                className="studio-btn-secondary text-xs font-mono py-2.5"
-                                title="Transition to Stage 2: Coding & DSA Workspace"
-                            >
-                                <Code2 className="w-3.5 h-3.5 text-[#10B981]" />
-                                <span>Proceed to Coding Round</span>
-                                <ArrowRight className="w-3 h-3" />
-                            </button>
-
+                        <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
                             <button
                                 onClick={() => setShowTextInput(!showTextInput)}
-                                className="text-[11px] font-mono text-[#71717A] hover:text-[#FAFAFA] px-2 py-1"
+                                className="text-xs text-[#8B8B9E] hover:text-[#EDEDF0] px-2 py-1"
                             >
-                                {showTextInput ? '[Hide Text Input]' : '[Text Mode]'}
+                                {showTextInput ? 'Hide text input' : 'Type instead'}
                             </button>
                         </div>
                     </div>
 
                     {/* Text Input Drawer */}
                     {showTextInput && (
-                        <div className="w-full bg-[#111114] border border-[#222228] rounded-md p-3 flex gap-2">
+                        <div className="w-full bg-[#141419] border border-[#232330] rounded-xl p-3 flex gap-2">
                             <input
                                 type="text"
                                 value={candidateText}
                                 onChange={(e) => setCandidateText(e.target.value)}
                                 onKeyDown={(e) => { if (e.key === 'Enter') handleSendMessage(); }}
-                                placeholder="Type candidate explanation or answer..."
-                                className="studio-input font-mono text-xs"
+                                placeholder="Type your answer here..."
+                                className="studio-input text-sm"
                             />
                             <button
                                 onClick={() => handleSendMessage()}
                                 disabled={isSending || !candidateText.trim()}
-                                className="studio-btn-primary px-4 font-mono text-xs"
+                                className="btn-primary px-5 text-xs font-medium"
                             >
                                 Send
                             </button>
@@ -750,7 +802,7 @@ const InterviewRoom = () => {
                     )}
                 </main>
             ) : (
-                /* ================= STAGE 2: PRECISION HACKERRANK CODING WORKSPACE ================= */
+                /* ================= STAGE 2: CODING WORKSPACE ================= */
                 <main className="flex-1 flex overflow-hidden bg-[#09090B] relative">
                     {/* LEFT PANEL: Problem Specification & Live Interviewer Guidance */}
                     <div
@@ -758,67 +810,66 @@ const InterviewRoom = () => {
                         className="flex flex-col bg-[#111114] overflow-hidden flex-shrink-0"
                     >
                         {/* Tab Bar */}
-                        <div className="h-10 border-b border-[#222228] bg-[#09090B] px-3 flex items-center justify-between flex-shrink-0">
-                            <div className="flex items-center gap-1 font-mono text-xs">
+                        <div className="h-10 border-b border-[#232330] bg-[#0A0A0B] px-3 flex items-center justify-between flex-shrink-0">
+                            <div className="flex items-center gap-1 text-xs">
                                 <button
                                     onClick={() => setLeftTab('problem')}
-                                    className={`px-3 py-1.5 rounded-t text-xs font-medium transition-colors flex items-center gap-1.5 ${
+                                    className={`px-3 py-1.5 rounded-t-md text-xs font-medium transition-colors flex items-center gap-1.5 ${
                                         leftTab === 'problem'
-                                            ? 'bg-[#111114] text-[#FAFAFA] border-t border-x border-[#222228]'
-                                            : 'text-[#71717A] hover:text-[#FAFAFA]'
+                                            ? 'bg-[#141419] text-[#EDEDF0] border-t border-x border-[#232330]'
+                                            : 'text-[#8B8B9E] hover:text-[#EDEDF0]'
                                     }`}
                                 >
                                     <FileText className="w-3.5 h-3.5" />
-                                    <span>Problem Specification</span>
+                                    <span>Problem</span>
                                 </button>
                                 <button
                                     onClick={() => setLeftTab('guidance')}
-                                    className={`px-3 py-1.5 rounded-t text-xs font-medium transition-colors flex items-center gap-1.5 ${
+                                    className={`px-3 py-1.5 rounded-t-md text-xs font-medium transition-colors flex items-center gap-1.5 ${
                                         leftTab === 'guidance'
-                                            ? 'bg-[#111114] text-[#FAFAFA] border-t border-x border-[#222228]'
-                                            : 'text-[#71717A] hover:text-[#FAFAFA]'
+                                            ? 'bg-[#141419] text-[#EDEDF0] border-t border-x border-[#232330]'
+                                            : 'text-[#8B8B9E] hover:text-[#EDEDF0]'
                                     }`}
                                 >
-                                    <MessageSquare className="w-3.5 h-3.5 text-[#10B981]" />
-                                    <span>Tech Lead (Rohan)</span>
-                                    <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]"></span>
+                                    <MessageSquare className="w-3.5 h-3.5 text-blue-400" />
+                                    <span>Discussion</span>
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
                                 </button>
                             </div>
-                            <span className="font-mono text-[10px] text-[#52525B]">ACTIVE ROUND</span>
                         </div>
 
                         {/* Problem Tab Content */}
                         {leftTab === 'problem' && (
-                            <div className="flex-1 overflow-y-auto p-5 space-y-5 text-[#A1A1AA] font-mono text-xs">
-                                <div className="space-y-1.5 border-b border-[#222228] pb-4">
+                            <div className="flex-1 overflow-y-auto p-5 space-y-5 text-[#8B8B9E] text-xs">
+                                <div className="space-y-1.5 border-b border-[#232330] pb-4">
                                     <div className="flex items-center gap-2">
-                                        <h2 className="text-base font-semibold text-[#FAFAFA] font-sans">
+                                        <h2 className="text-base font-semibold text-[#EDEDF0]">
                                             {codingChallenge?.title || 'Algorithmic Challenge'}
                                         </h2>
-                                        <span className="studio-badge bg-[#18181C] text-[#F59E0B] border-[#F59E0B]/30">
+                                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
                                             {codingChallenge?.difficulty || 'Medium'}
                                         </span>
                                     </div>
-                                    <p className="text-[11px] text-[#52525B]">
-                                        Estimated Target: 20 minutes • Native isolated sandbox execution
+                                    <p className="text-xs text-[#555568]">
+                                        Estimated time: 20 minutes • Isolated sandbox execution
                                     </p>
                                 </div>
 
                                 <div className="space-y-2">
-                                    <span className="text-[10px] uppercase text-[#71717A] tracking-wider block">
+                                    <span className="text-xs font-medium text-[#EDEDF0] block">
                                         Problem Description
                                     </span>
-                                    <p className="text-[#FAFAFA] leading-relaxed whitespace-pre-line font-sans text-xs">
+                                    <p className="text-[#EDEDF0] leading-relaxed whitespace-pre-line text-xs">
                                         {codingChallenge?.description || 'Write an efficient algorithm solving the specified technical requirements.'}
                                     </p>
                                 </div>
 
                                 {codingChallenge?.functionDescription && (
                                     <div className="space-y-1.5">
-                                        <span className="text-[10px] uppercase text-[#71717A] tracking-wider block">
+                                        <span className="text-xs font-medium text-[#EDEDF0] block">
                                             Function Signature
                                         </span>
-                                        <pre className="p-3 bg-[#09090B] border border-[#222228] rounded text-xs text-[#FAFAFA] font-mono overflow-x-auto">
+                                        <pre className="p-3 bg-[#0A0A0B] border border-[#232330] rounded-lg text-xs text-[#EDEDF0] font-mono overflow-x-auto">
                                             {codingChallenge.functionDescription}
                                         </pre>
                                     </div>
@@ -826,14 +877,14 @@ const InterviewRoom = () => {
 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     <div className="space-y-1">
-                                        <span className="text-[10px] uppercase text-[#71717A] block">Input Format</span>
-                                        <div className="p-2.5 bg-[#09090B] border border-[#222228] rounded text-[11px] text-[#A1A1AA]">
+                                        <span className="text-xs font-medium text-[#8B8B9E] block">Input Format</span>
+                                        <div className="p-2.5 bg-[#0A0A0B] border border-[#232330] rounded-lg text-xs text-[#8B8B9E]">
                                             {codingChallenge?.inputFormat || 'Passed via standard function parameters.'}
                                         </div>
                                     </div>
                                     <div className="space-y-1">
-                                        <span className="text-[10px] uppercase text-[#71717A] block">Output Format</span>
-                                        <div className="p-2.5 bg-[#09090B] border border-[#222228] rounded text-[11px] text-[#A1A1AA]">
+                                        <span className="text-xs font-medium text-[#8B8B9E] block">Output Format</span>
+                                        <div className="p-2.5 bg-[#0A0A0B] border border-[#232330] rounded-lg text-xs text-[#8B8B9E]">
                                             {codingChallenge?.outputFormat || 'Return the computed result matching return type.'}
                                         </div>
                                     </div>
@@ -841,12 +892,12 @@ const InterviewRoom = () => {
 
                                 {codingChallenge?.constraints && codingChallenge.constraints.length > 0 && (
                                     <div className="space-y-1.5">
-                                        <span className="text-[10px] uppercase text-[#71717A] tracking-wider block">
+                                        <span className="text-xs font-medium text-[#EDEDF0] block">
                                             Constraints
                                         </span>
                                         <div className="flex flex-wrap gap-1.5">
                                             {codingChallenge.constraints.map((c, i) => (
-                                                <span key={i} className="px-2 py-0.5 rounded bg-[#09090B] border border-[#222228] text-[11px] text-[#A1A1AA]">
+                                                <span key={i} className="px-2 py-0.5 rounded-md bg-[#0A0A0B] border border-[#232330] text-xs text-[#8B8B9E]">
                                                     {c}
                                                 </span>
                                             ))}
@@ -858,47 +909,47 @@ const InterviewRoom = () => {
 
                         {/* Interviewer Tab Content */}
                         {leftTab === 'guidance' && (
-                            <div className="flex-1 overflow-y-auto p-4 flex flex-col justify-between font-mono text-xs">
+                            <div className="flex-1 overflow-y-auto p-4 flex flex-col justify-between text-xs">
                                 <div className="space-y-3 overflow-y-auto mb-4">
-                                    <div className="p-2.5 bg-[#09090B] border border-[#222228] rounded flex items-center justify-between">
+                                    <div className="p-2.5 bg-[#0A0A0B] border border-[#232330] rounded-lg flex items-center justify-between">
                                         <div className="flex items-center gap-2">
-                                            <span className="w-2 h-2 rounded-full bg-[#10B981]"></span>
-                                            <span className="font-semibold text-[#FAFAFA]">Rohan (Tech Lead)</span>
+                                            <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                                            <span className="font-medium text-[#EDEDF0]">Rohan (Tech Lead)</span>
                                         </div>
-                                        <span className="text-[10px] text-[#52525B]">MONITORING SOLUTION</span>
+                                        <span className="text-xs text-[#555568]">Online</span>
                                     </div>
 
                                     {transcript.map((msg, i) => (
                                         <div
                                             key={i}
-                                            className={`p-3 rounded text-xs space-y-1 ${
+                                            className={`p-3 rounded-lg text-xs space-y-1 ${
                                                 msg.role === 'ai'
-                                                    ? 'bg-[#09090B] border border-[#222228] text-[#FAFAFA]'
-                                                    : 'bg-[#18181C] border border-[#3F3F46] text-[#A1A1AA] ml-4'
+                                                    ? 'bg-[#0A0A0B] border border-[#232330] text-[#EDEDF0]'
+                                                    : 'bg-[#1C1C24] border border-[#363645] text-[#EDEDF0] ml-4'
                                             }`}
                                         >
-                                            <span className="text-[10px] text-[#52525B] uppercase block">
-                                                {msg.role === 'ai' ? 'ROHAN // TECH LEAD' : 'CANDIDATE // SOLUTION'}
+                                            <span className="text-[11px] font-medium text-[#8B8B9E] block">
+                                                {msg.role === 'ai' ? 'Rohan' : 'You'}
                                             </span>
-                                            <p className="whitespace-pre-line leading-relaxed font-sans">{msg.text}</p>
+                                            <p className="whitespace-pre-line leading-relaxed">{msg.text}</p>
                                         </div>
                                     ))}
                                 </div>
 
-                                <div className="border-t border-[#222228] pt-3 space-y-2">
+                                <div className="border-t border-[#232330] pt-3 space-y-2">
                                     <div className="flex gap-2">
                                         <input
                                             type="text"
                                             value={candidateText}
                                             onChange={(e) => setCandidateText(e.target.value)}
                                             onKeyDown={(e) => { if (e.key === 'Enter') handleSendMessage(); }}
-                                            placeholder="Ask Rohan a technical question or explain logic..."
+                                            placeholder="Ask a question or explain your approach..."
                                             className="studio-input text-xs"
                                         />
                                         <button
                                             onClick={() => handleSendMessage()}
                                             disabled={isSending || !candidateText.trim()}
-                                            className="studio-btn-primary px-3 text-xs"
+                                            className="btn-primary px-3 text-xs"
                                         >
                                             Send
                                         </button>
@@ -908,12 +959,12 @@ const InterviewRoom = () => {
                         )}
                     </div>
 
-                    {/* Horizontal Hairline Resizer */}
+                    {/* Horizontal Resizer */}
                     <div
                         onMouseDown={() => setIsDraggingHorizontal(true)}
                         className={`w-1 ${
-                            isDraggingHorizontal ? 'bg-[#FAFAFA]' : 'bg-[#222228]'
-                        } hover:bg-[#3F3F46] cursor-col-resize transition-colors flex items-center justify-center flex-shrink-0 z-30 select-none`}
+                            isDraggingHorizontal ? 'bg-blue-500' : 'bg-[#232330]'
+                        } hover:bg-blue-500 cursor-col-resize transition-colors flex items-center justify-center flex-shrink-0 z-30 select-none`}
                         title="Resize problem description and editor"
                     />
 
@@ -921,12 +972,12 @@ const InterviewRoom = () => {
                     <div
                         ref={rightPanelRef}
                         style={{ width: `${100 - leftPanelWidth}%` }}
-                        className="flex flex-col bg-[#09090B] overflow-hidden flex-1 min-w-0"
+                        className="flex flex-col bg-[#0A0A0B] overflow-hidden flex-1 min-w-0"
                     >
                         {/* Editor Top Bar (h-10) */}
-                        <div className="h-10 border-b border-[#222228] bg-[#111114] px-3 flex items-center justify-between flex-shrink-0 font-mono text-xs">
+                        <div className="h-10 border-b border-[#232330] bg-[#141419] px-3 flex items-center justify-between flex-shrink-0 text-xs">
                             <div className="flex items-center gap-2.5">
-                                <span className="text-[11px] text-[#71717A] uppercase">Language:</span>
+                                <span className="text-xs text-[#8B8B9E]">Language:</span>
                                 <select
                                     value={selectedLanguage}
                                     onChange={(e) => {
@@ -944,7 +995,7 @@ const InterviewRoom = () => {
                                             }
                                         }
                                     }}
-                                    className="bg-[#09090B] border border-[#222228] text-xs font-mono text-[#FAFAFA] px-2 py-1 rounded focus:outline-none focus:border-[#3F3F46]"
+                                    className="bg-[#0A0A0B] border border-[#232330] text-xs text-[#EDEDF0] px-2.5 py-1 rounded-md focus:outline-none focus:border-blue-500"
                                 >
                                     <option value="javascript">JavaScript (Node.js 24)</option>
                                     <option value="python">Python 3 (3.14)</option>
@@ -956,10 +1007,10 @@ const InterviewRoom = () => {
                             <div className="flex items-center gap-2">
                                 <button
                                     onClick={() => setEditorCode(codingChallenge?.starterCode || '')}
-                                    className="studio-btn-secondary text-[11px] py-1"
-                                    title="Reset code to default challenge starter"
+                                    className="studio-btn-secondary text-xs py-1 px-2.5"
+                                    title="Reset code to default starter template"
                                 >
-                                    <RotateCcw className="w-3 h-3" />
+                                    <RotateCcw className="w-3 h-3 text-[#8B8B9E]" />
                                     <span>Reset</span>
                                 </button>
                                 <button
@@ -967,17 +1018,17 @@ const InterviewRoom = () => {
                                         setLeftTab('guidance');
                                         handleSendMessage("I've finished writing and testing my solution. Rohan, please review it and walk through the implementation with me!");
                                     }}
-                                    className="studio-btn-secondary text-[11px] py-1 text-[#10B981] hover:text-[#10B981]"
-                                    title="Discuss solution with AI tech lead"
+                                    className="studio-btn-secondary text-xs py-1 px-2.5 text-blue-400 hover:text-blue-300"
+                                    title="Discuss solution with AI interviewer"
                                 >
                                     <Sparkles className="w-3 h-3" />
-                                    <span>Discuss with Rohan</span>
+                                    <span>Discuss solution</span>
                                 </button>
                             </div>
                         </div>
 
                         {/* Monaco Editor Canvas */}
-                        <div className="flex-1 min-h-0 bg-[#09090B] overflow-hidden">
+                        <div className="flex-1 min-h-0 bg-[#0A0A0B] overflow-hidden">
                             <Editor
                                 height="100%"
                                 language={selectedLanguage}
@@ -993,86 +1044,86 @@ const InterviewRoom = () => {
                                     tabSize: 4,
                                     lineNumbers: 'on',
                                     renderLineHighlight: 'all',
-                                    backgroundColor: '#09090B'
+                                    backgroundColor: '#0A0A0B'
                                 }}
                             />
                         </div>
 
-                        {/* Vertical Hairline Resizer */}
+                        {/* Vertical Resizer */}
                         <div
                             onMouseDown={() => setIsDraggingVertical(true)}
                             className={`h-1 ${
-                                isDraggingVertical ? 'bg-[#FAFAFA]' : 'bg-[#222228]'
-                            } hover:bg-[#3F3F46] cursor-row-resize transition-colors flex items-center justify-center flex-shrink-0 z-30 select-none`}
+                                isDraggingVertical ? 'bg-blue-500' : 'bg-[#232330]'
+                            } hover:bg-blue-500 cursor-row-resize transition-colors flex items-center justify-center flex-shrink-0 z-30 select-none`}
                             title="Resize console drawer"
                         />
 
                         {/* Bottom Execution Terminal Drawer */}
                         <div
                             style={{ height: `${consoleHeight}px` }}
-                            className="bg-[#09090B] flex flex-col flex-shrink-0 border-t border-[#222228] overflow-hidden font-mono"
+                            className="bg-[#0A0A0B] flex flex-col flex-shrink-0 border-t border-[#232330] overflow-hidden"
                         >
                             {/* Console Header Bar */}
-                            <div className="h-9 border-b border-[#222228] bg-[#111114] px-3 flex items-center justify-between flex-shrink-0 text-xs">
+                            <div className="h-9 border-b border-[#232330] bg-[#141419] px-3 flex items-center justify-between flex-shrink-0 text-xs">
                                 <div className="flex items-center gap-1.5">
                                     <button
                                         onClick={() => setConsoleTab('testcases')}
-                                        className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+                                        className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
                                             consoleTab === 'testcases'
-                                                ? 'bg-[#18181C] text-[#FAFAFA] border border-[#222228]'
-                                                : 'text-[#71717A] hover:text-[#FAFAFA]'
+                                                ? 'bg-[#1C1C24] text-[#EDEDF0] border border-[#232330]'
+                                                : 'text-[#8B8B9E] hover:text-[#EDEDF0]'
                                         }`}
                                     >
                                         Test Cases
                                     </button>
                                     <button
                                         onClick={() => setConsoleTab('results')}
-                                        className={`px-2.5 py-1 rounded text-xs font-medium transition-colors flex items-center gap-1.5 ${
+                                        className={`px-3 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 ${
                                             consoleTab === 'results'
-                                                ? 'bg-[#18181C] text-[#FAFAFA] border border-[#222228]'
-                                                : 'text-[#71717A] hover:text-[#FAFAFA]'
+                                                ? 'bg-[#1C1C24] text-[#EDEDF0] border border-[#232330]'
+                                                : 'text-[#8B8B9E] hover:text-[#EDEDF0]'
                                         }`}
                                     >
                                         Execution Output
                                         {executionDetails.output && (
-                                            <span className={`w-1.5 h-1.5 rounded-full ${executionDetails.hasError ? 'bg-[#F43F5E]' : 'bg-[#10B981]'}`}></span>
+                                            <span className={`w-1.5 h-1.5 rounded-full ${executionDetails.hasError ? 'bg-red-400' : 'bg-emerald-400'}`}></span>
                                         )}
                                     </button>
                                 </div>
 
                                 <div className="flex items-center gap-3 text-xs">
-                                    <label className="flex items-center gap-1.5 text-[11px] text-[#71717A] hover:text-[#FAFAFA] cursor-pointer">
+                                    <label className="flex items-center gap-1.5 text-xs text-[#8B8B9E] hover:text-[#EDEDF0] cursor-pointer">
                                         <input
                                             type="checkbox"
                                             checked={useCustomInput}
                                             onChange={(e) => setUseCustomInput(e.target.checked)}
-                                            className="rounded border-[#222228] bg-[#09090B] text-[#FAFAFA] focus:ring-0 w-3 h-3"
+                                            className="rounded border-[#232330] bg-[#0A0A0B] text-blue-500 focus:ring-0 w-3.5 h-3.5"
                                         />
-                                        <span>Custom stdin</span>
+                                        <span>Custom input</span>
                                     </label>
                                     <button
                                         onClick={() => setConsoleHeight(consoleHeight <= 90 ? 250 : 80)}
-                                        className="text-[11px] text-[#71717A] hover:text-[#FAFAFA]"
+                                        className="text-xs text-[#8B8B9E] hover:text-[#EDEDF0]"
                                     >
-                                        {consoleHeight <= 90 ? '[Expand]' : '[Collapse]'}
+                                        {consoleHeight <= 90 ? 'Expand' : 'Collapse'}
                                     </button>
                                 </div>
                             </div>
 
                             {/* Console Body Area */}
-                            <div className="flex-1 min-h-0 p-3 overflow-y-auto text-xs text-[#FAFAFA] bg-[#09090B]">
+                            <div className="flex-1 min-h-0 p-3 overflow-y-auto text-xs text-[#EDEDF0] bg-[#0A0A0B]">
                                 {useCustomInput ? (
                                     <div className="h-full flex flex-col space-y-1">
-                                        <span className="text-[10px] text-[#52525B] uppercase">Custom stdin input stream:</span>
+                                        <span className="text-xs text-[#8B8B9E]">Custom stdin input:</span>
                                         <textarea
                                             value={customInputText}
                                             onChange={(e) => setCustomInputText(e.target.value)}
-                                            placeholder="Enter custom stdin test values..."
-                                            className="flex-1 bg-[#111114] border border-[#222228] rounded p-2 text-xs font-mono text-[#FAFAFA] resize-none focus:outline-none"
+                                            placeholder="Enter input values..."
+                                            className="flex-1 bg-[#141419] border border-[#232330] rounded-lg p-2.5 text-xs font-mono text-[#EDEDF0] resize-none focus:outline-none focus:border-blue-500"
                                         />
                                     </div>
                                 ) : consoleTab === 'testcases' ? (
-                                    <div className="space-y-2">
+                                    <div className="space-y-2.5">
                                         <div className="flex items-center gap-1.5">
                                             {((codingChallenge?.sampleTestCases && codingChallenge.sampleTestCases.length > 0)
                                                 ? codingChallenge.sampleTestCases
@@ -1084,13 +1135,13 @@ const InterviewRoom = () => {
                                                 <button
                                                     key={idx}
                                                     onClick={() => setActiveTestCase(idx)}
-                                                    className={`px-2.5 py-0.5 rounded text-[11px] font-mono transition-colors ${
+                                                    className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
                                                         activeTestCase === idx
-                                                            ? 'bg-[#18181C] text-[#FAFAFA] border border-[#3F3F46]'
-                                                            : 'text-[#71717A] hover:text-[#FAFAFA]'
+                                                            ? 'bg-[#1C1C24] text-[#EDEDF0] border border-[#363645]'
+                                                            : 'text-[#8B8B9E] hover:text-[#EDEDF0]'
                                                     }`}
                                                 >
-                                                    Case {idx}
+                                                    Case {idx + 1}
                                                 </button>
                                             ))}
                                         </div>
@@ -1102,10 +1153,10 @@ const InterviewRoom = () => {
                                                 { input: 'nums = [3, 2, 4], target = 6', expectedOutput: '[1, 2]' }
                                             ]
                                         )[activeTestCase] && (
-                                            <div className="grid grid-cols-2 gap-2 text-xs">
+                                            <div className="grid grid-cols-2 gap-3 text-xs">
                                                 <div className="space-y-1">
-                                                    <span className="text-[10px] text-[#52525B] uppercase block">Compiler Input</span>
-                                                    <pre className="p-2 bg-[#111114] border border-[#222228] rounded text-[11px] text-[#FAFAFA] overflow-x-auto">
+                                                    <span className="text-xs text-[#8B8B9E] block">Input</span>
+                                                    <pre className="p-2.5 bg-[#141419] border border-[#232330] rounded-lg text-xs text-[#EDEDF0] font-mono overflow-x-auto">
                                                         {((codingChallenge?.sampleTestCases && codingChallenge.sampleTestCases.length > 0)
                                                             ? codingChallenge.sampleTestCases
                                                             : [
@@ -1115,8 +1166,8 @@ const InterviewRoom = () => {
                                                     </pre>
                                                 </div>
                                                 <div className="space-y-1">
-                                                    <span className="text-[10px] text-[#52525B] uppercase block">Expected Output</span>
-                                                    <pre className="p-2 bg-[#111114] border border-[#222228] rounded text-[11px] text-[#10B981] overflow-x-auto">
+                                                    <span className="text-xs text-[#8B8B9E] block">Expected Output</span>
+                                                    <pre className="p-2.5 bg-[#141419] border border-[#232330] rounded-lg text-xs text-emerald-400 font-mono overflow-x-auto">
                                                         {((codingChallenge?.sampleTestCases && codingChallenge.sampleTestCases.length > 0)
                                                             ? codingChallenge.sampleTestCases
                                                             : [
@@ -1132,31 +1183,32 @@ const InterviewRoom = () => {
                                     /* Execution Results */
                                     <div>
                                         {isRunningCode ? (
-                                            <div className="flex items-center gap-2 text-[#71717A] py-3">
-                                                <div className="w-3.5 h-3.5 border-2 border-[#FAFAFA] border-t-transparent rounded-full animate-spin"></div>
-                                                <span>Compiling with native {selectedLanguage} runtime...</span>
+                                            <div className="flex items-center gap-2 text-[#8B8B9E] py-3 text-xs">
+                                                <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                                                <span>Compiling and running tests...</span>
                                             </div>
                                         ) : executionDetails.output ? (
-                                            <div className="space-y-1.5">
-                                                <div className="flex items-center justify-between text-[11px]">
-                                                    <span className={`studio-badge ${
+                                            <div className="space-y-2">
+                                                <div className="flex items-center justify-between text-xs">
+                                                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${
                                                         executionDetails.hasError
-                                                            ? 'text-[#F43F5E] bg-[#F43F5E]/10 border-[#F43F5E]/30'
-                                                            : 'text-[#10B981] bg-[#10B981]/10 border-[#10B981]/30'
+                                                            ? 'text-red-400 bg-red-500/10 border-red-500/20'
+                                                            : 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
                                                     }`}>
-                                                        {executionDetails.hasError ? 'ERROR // NON-ZERO EXIT' : 'OK // EXECUTION COMPLETED'}
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
+                                                        <span>{executionDetails.hasError ? 'Execution error' : 'Output verified'}</span>
                                                     </span>
-                                                    <span className="text-[#52525B]">
-                                                        Latency: {executionDetails.executionTime || '0.20s'}
+                                                    <span className="text-xs text-[#555568]">
+                                                        Time: {executionDetails.executionTime || '0.20s'}
                                                     </span>
                                                 </div>
-                                                <pre className="p-2.5 bg-[#111114] border border-[#222228] rounded text-xs whitespace-pre-wrap text-[#FAFAFA] overflow-x-auto">
+                                                <pre className="p-3 bg-[#141419] border border-[#232330] rounded-lg text-xs font-mono whitespace-pre-wrap text-[#EDEDF0] overflow-x-auto">
                                                     {executionDetails.output}
                                                 </pre>
                                             </div>
                                         ) : (
-                                            <p className="text-[#52525B] py-3">
-                                                Click "Run Code" below to compile against the test runner.
+                                            <p className="text-xs text-[#555568] py-3">
+                                                Click "Run Code" below to execute against test cases.
                                             </p>
                                         )}
                                     </div>
@@ -1164,25 +1216,19 @@ const InterviewRoom = () => {
                             </div>
 
                             {/* Live Interview Action Dock (h-12) */}
-                            <div className="h-12 border-t border-[#222228] bg-[#111114] px-4 flex items-center justify-between flex-shrink-0">
-                                <div className="flex items-center gap-2">
+                            <div className="h-12 border-t border-[#232330] bg-[#141419] px-4 flex items-center justify-between flex-shrink-0">
+                                <div className="flex items-center gap-3">
                                     <button
                                         onClick={handleRunCode}
                                         disabled={isRunningCode}
-                                        className="studio-btn-primary text-xs font-mono"
-                                        title="Run code with sample or custom test inputs"
+                                        className="btn-primary text-xs py-1.5 px-3.5"
+                                        title="Run code with test inputs"
                                     >
-                                        <Play className="w-3 h-3 fill-current" />
-                                        <span>{isRunningCode ? 'Compiling...' : 'Run Code'}</span>
+                                        <Play className="w-3.5 h-3.5 fill-current" />
+                                        <span>{isRunningCode ? 'Running...' : 'Run Code'}</span>
                                     </button>
-                                    <span className="text-[11px] text-[#52525B] font-mono hidden sm:inline">
-                                        {isRunningCode ? 'Sub-second compilation active' : 'Native compiler ready'}
-                                    </span>
-                                </div>
-
-                                <div className="flex items-center gap-2">
-                                    <span className="text-[10px] text-[#52525B] font-mono hidden md:inline">
-                                        SUBMISSION WILL TRIGGER GEMINI 2.5 FLASH EVALUATION
+                                    <span className="text-xs text-[#8B8B9E] hidden sm:inline">
+                                        {isRunningCode ? 'Executing...' : 'Runner ready'}
                                     </span>
                                 </div>
                             </div>

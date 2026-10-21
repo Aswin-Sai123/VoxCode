@@ -5,8 +5,15 @@ const candidateSchema = new Schema({
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
     password: { type: String }, // Optional for Google OAuth
-    googleId: { type: String }
+    googleId: { type: String },
+    resumeText: { type: String, default: '' },
+    parsedProjects: [{
+        title: { type: String, default: '' },
+        techStack: [{ type: String }],
+        description: { type: String, default: '' }
+    }]
 }, { timestamps: true });
+
 
 candidateSchema.pre('save', async function() {
     if (!this.isModified('password') || !this.password) return;

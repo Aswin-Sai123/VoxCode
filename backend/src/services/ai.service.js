@@ -1,31 +1,80 @@
-// AI service powered by Google Gemini 2.5 Flash
-// Configured to act as a realistic, unscripted Indian Senior Engineering Lead / Tech Interviewer
+// AI service powered by Google Gemini
+// Configured to act as a realistic, unscripted Senior Engineering Lead / Tech Interviewer
 
-const GEMINI_MODEL = 'gemini-2.5-flash';
+const GEMINI_MODELS = ['gemini-flash-lite-latest', 'gemini-3.5-flash-lite', 'gemini-2.5-flash'];
+
+/**
+ * Resilient multi-model Gemini caller with automatic fallback across high-quota models
+ */
+const callGemini = async (body) => {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) return null;
+
+    for (const model of GEMINI_MODELS) {
+        try {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+
+            const data = await response.json();
+            if (data.error) {
+                console.warn(`[Gemini] Model ${model} error ${data.error.code}: ${data.error.message?.slice(0, 90)}. Trying next candidate...`);
+                continue;
+            }
+
+            const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (text) {
+                return text;
+            }
+        } catch (err) {
+            console.warn(`[Gemini] Model ${model} exception:`, err.message);
+        }
+    }
+    return null;
+};
 
 /**
  * Generate a natural, human opening greeting and ask the candidate for an introduction
  */
-export const generateOpeningGreeting = async ({ companyName = 'our engineering team', candidateName = '', roleTitle = 'Software Engineer', skills = [], experienceLevel = 'Mid', blueprint = '' }) => {
+export const generateOpeningGreeting = async ({ 
+    companyName = 'our engineering team', 
+    candidateName = '', 
+    roleTitle = 'Software Engineer', 
+    skills = [], 
+    experienceLevel = 'Mid', 
+    blueprint = '',
+    candidateResume = '',
+    interviewFormat = 'FULL_INTERVIEW'
+}) => {
     const apiKey = process.env.GEMINI_API_KEY;
 
     const fallbackGreeting = {
-        message: `Hey${candidateName ? ' ' + candidateName : ''}! Thanks for taking the time to join today. I'm Rohan, one of the engineering leads here at ${companyName}. We're looking for a ${roleTitle} to join the team. Before we dive into technicals and coding, I'd love to know a bit about you—could you briefly introduce yourself, walk me through your journey, and share what kind of projects you've been working on recently?`,
+        message: `Hey${candidateName ? ' ' + candidateName : ''}! Thanks for taking the time to join today. I'm Rohan, one of the engineering leads here at ${companyName}. We're looking for a ${roleTitle} to join the team. ${candidateResume ? "I was just reviewing your resume and projects." : ""} Before we dive into deep technicals, I'd love to know a bit about you—could you briefly introduce yourself, walk me through your journey, and share what kind of projects you've been building recently?`,
         nextStage: 'CONCEPTUAL'
     };
 
     if (!apiKey) return fallbackGreeting;
 
-    const prompt = `You are Rohan, a seasoned, sharp, and encouraging Senior Engineering Lead at ${companyName} conducting a live technical interview for a ${experienceLevel} level ${roleTitle} candidate${candidateName ? ' named ' + candidateName : ''}.
+    const prompt = `You are a seasoned, sharp, and encouraging Senior Engineering Lead at ${companyName} conducting a live technical interview for a ${experienceLevel} level ${roleTitle} candidate${candidateName ? ' named ' + candidateName : ''}.
 Required Tech Stack / Skills: ${skills && skills.length ? skills.join(', ') : 'Software Engineering'}
 Company Blueprint: ${blueprint || 'Standard technical interview evaluating fundamentals, architecture, and coding.'}
 
+CANDIDATE RESUME & PROJECTS CONTEXT:
+${candidateResume ? candidateResume : '(No resume provided yet — ask candidate to introduce themselves and highlight recent projects)'}
+
+INTERVIEW ROUND FORMAT:
+${interviewFormat === 'PROJECT_AND_TECHNICAL_ONLY' ? 'Project Discussion & Technical Architecture Round (No live coding). Focus on in-depth project discussion, system architecture, and past technical decisions.' : 'Full Technical Loop (Technical & Project Discussion, followed later by hands-on coding).'}
+
 INSTRUCTIONS FOR OPENING THE INTERVIEW:
-1. Greet the candidate warmly and naturally like a real human tech lead from Bangalore / Hyderabad (e.g., "Hey, good morning/afternoon! Thanks for jumping on the call.").
-2. Introduce yourself naturally by your first name (Rohan) and your role at ${companyName}.
-3. NEVER say "I am Vox AI", "I am an AI interviewer", or mention automated platforms. You are the interviewer.
-4. Ask the candidate to introduce themselves, their background, and what they've been building or working with recently.
-5. Keep it conversational, spoken-friendly, and concise (under 3-4 sentences max). Do NOT jump into tricky technical questions or coding yet.
+1. Greet the candidate warmly and naturally like a real human tech lead (e.g., "Hey, good morning/afternoon! Thanks for jumping on the call.").
+2. Introduce yourself naturally by your first name (e.g. Rohan or Alex) and your role at ${companyName}.
+3. If the candidate has resume/projects listed above:
+   - Enthusiastically reference one of their specific projects or technologies! (e.g. "I was just checking out your resume and noticed your work on [ProjectName] using [Tech]—before we get into deep architecture, tell me a bit about your journey and what you built there.")
+   - If no resume is provided, ask them to introduce themselves and share what kind of projects they've been working on recently.
+4. NEVER say "I am Vox AI", "I am an AI interviewer", or mention automated platforms. You are the interviewer.
+5. Keep it conversational, spoken-friendly, and concise (under 3-4 sentences max). Do NOT jump into tricky algorithmic questions or coding yet.
 
 Return ONLY a JSON object with this exact shape:
 {
@@ -34,21 +83,15 @@ Return ONLY a JSON object with this exact shape:
 }`;
 
     try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{ parts: [{ text: prompt }] }],
-                generationConfig: {
-                    responseMimeType: 'application/json',
-                    temperature: 0.85,
-                    topP: 0.95
-                }
-            })
+        const text = await callGemini({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+                responseMimeType: 'application/json',
+                temperature: 0.85,
+                topP: 0.95
+            }
         });
 
-        const data = await response.json();
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
         if (text) {
             const parsed = JSON.parse(text);
             return {
@@ -64,11 +107,11 @@ Return ONLY a JSON object with this exact shape:
 };
 
 /**
- * Handle subsequent candidate responses adaptively, like a real human interviewer:
+ * Handle subsequent candidate responses adaptively:
  * - Listens and evaluates candidate answer dynamically
- * - Probes deeper on mistakes or weak answers
- * - Escalates to architectural / advanced questions on strong answers
- * - Dynamically transitions to coding when ready or requested
+ * - Probes deep into candidate's real resume projects, architectural choices, and failure handling
+ * - Supports Project Discussion & Technical Architecture only rounds (stops at technicals without coding)
+ * - Decides when (and if) to transition to coding
  * - Sees candidate editor code in real time
  */
 export const generateNextInterviewStep = async ({
@@ -77,6 +120,8 @@ export const generateNextInterviewStep = async ({
     skills = [],
     experienceLevel = 'Mid',
     blueprint = '',
+    candidateResume = '',
+    interviewFormat = 'FULL_INTERVIEW',
     transcript = [],
     candidateMessage = '',
     currentStage = 'CONCEPTUAL',
@@ -86,14 +131,16 @@ export const generateNextInterviewStep = async ({
 }) => {
     const apiKey = process.env.GEMINI_API_KEY;
 
-    // Check if candidate explicitly requested coding
-    const candidateWantsCoding = /ready for code|ready to code|start coding|coding challenge|let('?s)? code|coding question|dsa/i.test(candidateMessage);
+    const isProjectOnly = interviewFormat === 'PROJECT_AND_TECHNICAL_ONLY';
     
     // Count conceptual questions asked so far
     const conceptualCount = transcript.filter(t => t.role === 'ai').length;
 
-    // Dynamic decision: transition if candidate asks OR after 2-3 genuine conceptual exchanges
-    const shouldConsiderCoding = currentStage === 'CONCEPTUAL' && (candidateWantsCoding || conceptualCount >= 3);
+    // In full interview: interviewer decides to transition after 2-3 genuine exchanges
+    const shouldConsiderCoding = !isProjectOnly && currentStage === 'CONCEPTUAL' && conceptualCount >= 3;
+
+    // In project-only round: wrap up after 4-5 thorough exchanges
+    const shouldConsiderConcluding = isProjectOnly && currentStage === 'CONCEPTUAL' && conceptualCount >= 4;
 
     const fallbackCodingChallenge = {
         title: 'Two Sum & Optimization',
@@ -124,23 +171,32 @@ export const generateNextInterviewStep = async ({
         language: 'javascript'
     };
 
-    const fallbackResponse = shouldConsiderCoding
-        ? {
-            message: `Awesome, that gives me a clear sense of your background. Let's move into the hands-on coding part now. I've loaded a challenge in your workspace on the right. Take a look, tell me your initial thoughts, and we can discuss the approach before you implement.`,
+    let fallbackResponse;
+    if (shouldConsiderConcluding) {
+        fallbackResponse = {
+            message: `That wraps up our project and architectural discussion for today! You gave very thorough explanations of your design tradeoffs and ownership. We'll review your notes with the hiring team. Thanks for your time!`,
+            nextStage: 'COMPLETED',
+            codingChallenge: null
+        };
+    } else if (shouldConsiderCoding) {
+        fallbackResponse = {
+            message: `Awesome, that gives me a clear sense of your background and project ownership. Let's move into the hands-on coding part now. I've unlocked the challenge in your workspace on the right. Take a look, tell me your initial thoughts, and we can discuss the approach before you implement.`,
             nextStage: 'CODING',
             codingChallenge: fallbackCodingChallenge
-        }
-        : {
-            message: `Makes sense. Building on that, how would you approach error handling and performance bottlenecks in that kind of architecture?`,
+        };
+    } else {
+        fallbackResponse = {
+            message: `Makes sense. Building on that project, how did you handle data consistency and failure recovery under peak traffic?`,
             nextStage: currentStage || 'CONCEPTUAL',
             codingChallenge: null
         };
+    }
 
     if (!apiKey) return fallbackResponse;
 
     const formattedTranscript = transcript.map(t => `${t.role.toUpperCase()}: ${t.text}`).join('\n');
 
-    const prompt = `You are Rohan, a seasoned, sharp, and encouraging Senior Engineering Lead at ${companyName} conducting a live technical interview for a ${experienceLevel} level ${roleTitle} candidate.
+    const prompt = `You are a seasoned, sharp, and encouraging Senior Engineering Lead at ${companyName} conducting a live technical interview for a ${experienceLevel} level ${roleTitle} candidate.
 
 REQUIRED TECH STACK / SKILLS:
 ${skills && skills.length ? skills.join(', ') : 'Full Stack Engineering'}
@@ -148,8 +204,14 @@ ${skills && skills.length ? skills.join(', ') : 'Full Stack Engineering'}
 COMPANY INTERVIEW BLUEPRINT:
 ${blueprint || 'Assess core problem solving, system fundamentals, and coding capability.'}
 
+CANDIDATE RESUME & PROJECTS CONTEXT:
+${candidateResume ? candidateResume : '(No resume attached — evaluate based on candidate answers in transcript)'}
+
+INTERVIEW ROUND FORMAT:
+${isProjectOnly ? 'PROJECT & TECHNICAL ARCHITECTURE ONLY (No live coding round). Probe deeply into the candidate resume projects, architecture decisions, trade-offs, and scalability. Conclude the interview when sufficient signal is gathered.' : 'FULL TECHNICAL LOOP (Project / Conceptual Discussion, followed later by hands-on Monaco coding challenge).'}
+
 CURRENT INTERVIEW STATUS:
-- Current Stage: ${currentStage} (either 'CONCEPTUAL' or 'CODING')
+- Current Stage: ${currentStage} (either 'CONCEPTUAL', 'CODING', or 'COMPLETED')
 - Conceptual Exchanges So Far: ${conceptualCount}
 - Candidate Message Just Now: "${candidateMessage}"
 - Candidate's Current Code in Editor:
@@ -167,32 +229,36 @@ ${formattedTranscript}
 YOUR CORE BEHAVIORS & RULES:
 1. TALK LIKE A REAL HUMAN TECH INTERVIEWER ON A LIVE VIDEO CALL:
    - Use natural spoken language with authentic conversational cadence and micro-reactions ("Ah, gotcha.", "Yeah, makes sense.", "Right, right.", "Hmm, wait a sec...", "Fair point, but tell me...", "Interesting—why that trade-off?").
-   - NEVER say "I am Vox AI", "As an AI language model", or act like a chatbot. You are Rohan, Senior Tech Lead.
-   - NEVER follow a rigid script or repeat canned lines. Listen to what the candidate ACTUALLY said and react dynamically.
+   - NEVER say "I am Vox AI", "As an AI language model", or act like a chatbot.
+   - Listen to what the candidate ACTUALLY said and react dynamically.
    - Keep your spoken replies concise and punchy (2-3 short sentences max): Sentence 1 reacts naturally to what they said, Sentence 2 probes a sharp, specific technical detail.
 
-2. SENIOR TECH LEAD PROBING (THE "GRILL-ME" REALISM):
-   - Act like an experienced lead engineer who has seen production bugs and scale challenges:
-     * If candidate gives a solid answer or mentions a tool/architecture (e.g. Redis, Kafka, React useEffect, microservices, indexing):
-       Acknowledge it naturally and probe one level deeper into real-world trade-offs:
-       "Gotcha. With Redis there, how would you handle cache stampedes or key expiration under high concurrency?", or "Right, makes sense. But what's the memory overhead if that payload grows to 10MB?"
-     * If candidate's answer is vague, shallow, or wrong:
-       Don't let it slide! Interject like a real engineer:
-       "Wait, hang on a second—how would that work if the network partition drops half the packets?", or "Hmm, not quite. Let's think about that again—what does that look like at the memory level?"
-     * If candidate asks a question or says hello:
-       Answer them directly, warmly, and authentically.
-     * If candidate asks to code or says they are ready:
-       Transition to the CODING stage immediately in your own spontaneous words!
+2. RESUME & PROJECT DEEP DIVE:
+   - If candidate's resume/projects are provided above, actively probe their real architectural decisions:
+     * "In your project [X], why did you choose that particular database/queue over alternatives?"
+     * "How did you measure latency percentiles (P99) or handle race conditions in that service?"
+     * "What was the most difficult production outage or bug you faced on that system, and how did you resolve it?"
 
-3. STAGE MANAGEMENT & TRANSITIONS:
+3. INTERVIEWER DECIDES STAGE TRANSITIONS (CANDIDATE NEVER FORCES CODING):
    - When in 'CONCEPTUAL' stage:
-     * When you feel you've gotten enough signal about their core fundamentals (usually after 2-3 genuine technical exchanges), OR if the candidate asked to code:
-       -> Decide to move to CODING!
-       -> In your "message", invite them to the coding round in your OWN spontaneous words (e.g. tell them you'd love to see how they translate their logic into actual code, point them to the problem statement loaded on the left, and ask them to explain their initial thoughts before coding). NEVER repeat a fixed scripted line.
-       -> Set "nextStage": "CODING".
-       -> Generate a structured coding challenge tailored to ${experienceLevel} level and ${skills.join(', ')} with clear description, input/output formats, constraints, sample test cases with explanations, and clean starter code.
+     * If this is a PROJECT & TECHNICAL ONLY round (isProjectOnly = true):
+       - Do NOT give a coding challenge!
+       - After 4-5 thorough project exchanges, conclude the interview politely:
+         -> Set "nextStage": "COMPLETED"
+         -> Give a warm wrap-up message thanking them for walking through their architecture.
+     * If this is a FULL INTERVIEW round:
+       - You (the interviewer) decide when you have enough signal on their project background (usually after 3-4 solid exchanges).
+       - When YOU are ready, introduce the coding challenge in your own spontaneous words:
+         -> Set "nextStage": "CODING"
+         -> Generate a structured coding challenge tailored to ${experienceLevel} level and ${skills.join(', ')}.
      * Otherwise:
-       -> Continue the conceptual discussion naturally. Set "nextStage": "CONCEPTUAL" and "codingChallenge": null.
+       - Continue the conceptual/project dialogue naturally. Set "nextStage": "CONCEPTUAL" and "codingChallenge": null.
+
+4. WHEN IN 'CODING' STAGE:
+   - Inspect "Candidate's Current Code in Editor" and execution outputs.
+   - Offer nudges, discuss Big-O complexities, and evaluate edge cases.
+   - Set "nextStage": "CODING" and "codingChallenge": null.
+
    
    - When in 'CODING' stage:
      * YOU CAN ACTIVELY SEE THEIR CODE!
@@ -234,21 +300,15 @@ Return ONLY a JSON object with this exact shape:
 }`;
 
     try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{ parts: [{ text: prompt }] }],
-                generationConfig: {
-                    responseMimeType: 'application/json',
-                    temperature: 0.85,
-                    topP: 0.95
-                }
-            })
+        const text = await callGemini({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+                responseMimeType: 'application/json',
+                temperature: 0.85,
+                topP: 0.95
+            }
         });
 
-        const data = await response.json();
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
         if (text) {
             const parsed = JSON.parse(text);
             return {
@@ -263,3 +323,61 @@ Return ONLY a JSON object with this exact shape:
 
     return fallbackResponse;
 };
+
+/**
+ * Parse resume text using Gemini to extract structured projects, tech stack, and summary
+ */
+export const parseResumeProjects = async (resumeText) => {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey || !resumeText || !resumeText.trim()) {
+        return {
+            summary: resumeText ? resumeText.slice(0, 300) : '',
+            skills: [],
+            projects: []
+        };
+    }
+
+    const prompt = `You are an expert technical recruiter and resume parser.
+Extract the key technical projects, core skills, and a brief technical profile summary from the following resume text:
+
+RESUME TEXT:
+"""
+${resumeText}
+"""
+
+Return ONLY a JSON object with this exact shape:
+{
+  "summary": "2-3 sentence overview of candidate's technical specialization and years of experience",
+  "skills": ["Language1", "Framework1", "Database1"],
+  "projects": [
+    {
+      "title": "Project Name",
+      "techStack": ["React", "Node.js", "Redis"],
+      "description": "1-2 sentence description of what the candidate built and the key engineering challenges addressed."
+    }
+  ]
+}`;
+
+    try {
+        const text = await callGemini({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+                responseMimeType: 'application/json',
+                temperature: 0.2
+            }
+        });
+
+        if (text) {
+            return JSON.parse(text);
+        }
+    } catch (err) {
+        console.error('Error parsing resume with Gemini:', err);
+    }
+
+    return {
+        summary: resumeText.slice(0, 300),
+        skills: [],
+        projects: []
+    };
+};
+

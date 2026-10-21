@@ -3,9 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
 import api from '../../services/api';
 import { 
-    Terminal, 
     Plus, 
-    ExternalLink, 
     Copy, 
     Check, 
     Trash2, 
@@ -13,10 +11,9 @@ import {
     Play, 
     Layers, 
     Clock, 
-    Users, 
     ChevronRight,
     AlertCircle,
-    Activity
+    Loader2
 } from 'lucide-react';
 
 const Dashboard = () => {
@@ -91,7 +88,7 @@ const Dashboard = () => {
 
     // delete role
     const handleDeleteRole = async (roleId) => {
-        if (!window.confirm('Delete this role specification?')) return;
+        if (!window.confirm('Delete this role?')) return;
         try {
             await api.delete(`/company/roles/${roleId}`);
             setRoles(roles.filter(r => r._id !== roleId));
@@ -123,124 +120,111 @@ const Dashboard = () => {
     const activeCount = assessments.filter(a => a.status === 'ACTIVE').length;
 
     return (
-        <div className="flex-1 bg-[#09090B] text-[#FAFAFA] p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full space-y-6">
-            {/* Header Telemetry */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-[#222228] gap-3">
-                <div className="space-y-0.5">
-                    <div className="flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]"></span>
-                        <span className="font-mono text-[11px] text-[#A1A1AA] uppercase tracking-wider">
-                            Recruiter Command // Pipeline Studio
-                        </span>
-                    </div>
-                    <h1 className="text-lg font-semibold text-[#FAFAFA] tracking-tight">
-                        {user?.name || 'Acme Engineering'}
+        <div className="flex-1 p-6 sm:p-8 max-w-7xl mx-auto w-full space-y-8">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-[#232330] gap-4">
+                <div>
+                    <h1 className="text-2xl font-semibold text-[#EDEDF0] tracking-tight">
+                        Recruiter Dashboard
                     </h1>
+                    <p className="text-sm text-[#8B8B9E] mt-1">
+                        Manage assessments and candidate evaluations for {user?.name || 'your company'}.
+                    </p>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
                     <button
                         onClick={() => setShowRoleForm(!showRoleForm)}
-                        className="studio-btn-secondary text-xs"
+                        className="studio-btn-secondary"
                     >
-                        <span>{showRoleForm ? 'Close Role Config' : '+ New Role Profile'}</span>
+                        <span>{showRoleForm ? 'Cancel' : '+ New Job Role'}</span>
                     </button>
                     <Link
                         to="/company/create-assessment"
-                        className="studio-btn-primary text-xs font-mono"
+                        className="btn-primary"
                     >
-                        <Plus className="w-3.5 h-3.5" />
+                        <Plus className="w-4 h-4" />
                         <span>Create Assessment</span>
                     </Link>
                 </div>
             </div>
 
-            {/* Top 4-Column Connected Metric Bar */}
-            <div className="border border-[#222228] bg-[#111114] rounded-md grid grid-cols-2 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x divide-[#222228] overflow-hidden">
-                <div className="p-4 space-y-1">
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-[#71717A] block">
+            {/* Stat Cards - 3 Column */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="bg-[#141419] border border-[#232330] rounded-xl p-5">
+                    <span className="text-xs font-medium text-[#8B8B9E] block">
                         Active Assessments
                     </span>
-                    <div className="flex items-baseline gap-2">
-                        <span className="text-2xl font-mono font-semibold text-[#FAFAFA] tabular-nums">
+                    <div className="flex items-baseline gap-2 mt-2">
+                        <span className="text-3xl font-semibold text-[#EDEDF0] tabular-nums tracking-tight">
                             {activeCount}
                         </span>
-                        <span className="text-[11px] font-mono text-[#10B981]">online</span>
+                        <span className="text-xs text-emerald-400 font-medium">live</span>
                     </div>
                 </div>
 
-                <div className="p-4 space-y-1">
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-[#71717A] block">
-                        Total Created Specs
+                <div className="bg-[#141419] border border-[#232330] rounded-xl p-5">
+                    <span className="text-xs font-medium text-[#8B8B9E] block">
+                        Total Assessments
                     </span>
-                    <div className="flex items-baseline gap-2">
-                        <span className="text-2xl font-mono font-semibold text-[#FAFAFA] tabular-nums">
+                    <div className="flex items-baseline gap-2 mt-2">
+                        <span className="text-3xl font-semibold text-[#EDEDF0] tabular-nums tracking-tight">
                             {assessments.length}
                         </span>
-                        <span className="text-[11px] font-mono text-[#52525B]">specs</span>
+                        <span className="text-xs text-[#555568]">created</span>
                     </div>
                 </div>
 
-                <div className="p-4 space-y-1">
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-[#71717A] block">
+                <div className="bg-[#141419] border border-[#232330] rounded-xl p-5">
+                    <span className="text-xs font-medium text-[#8B8B9E] block">
                         Configured Roles
                     </span>
-                    <div className="flex items-baseline gap-2">
-                        <span className="text-2xl font-mono font-semibold text-[#FAFAFA] tabular-nums">
+                    <div className="flex items-baseline gap-2 mt-2">
+                        <span className="text-3xl font-semibold text-[#EDEDF0] tabular-nums tracking-tight">
                             {roles.length}
                         </span>
-                        <span className="text-[11px] font-mono text-[#71717A]">archetypes</span>
-                    </div>
-                </div>
-
-                <div className="p-4 space-y-1">
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-[#71717A] block">
-                        Evaluation Engine
-                    </span>
-                    <div className="flex items-baseline gap-2">
-                        <span className="text-sm font-mono font-medium text-[#10B981]">
-                            GEMINI 2.5 FLASH
-                        </span>
-                        <span className="text-[10px] font-mono text-[#52525B]">READY</span>
+                        <span className="text-xs text-[#555568]">job profiles</span>
                     </div>
                 </div>
             </div>
 
             {/* Quick Role Profile Form Drawer */}
             {showRoleForm && (
-                <div className="bg-[#111114] border border-[#222228] rounded-md p-5 space-y-4">
-                    <div className="flex items-center justify-between border-b border-[#222228] pb-3">
-                        <span className="text-xs font-mono font-semibold uppercase text-[#FAFAFA]">
-                            Configure New Job Role Profile
-                        </span>
-                        <span className="text-[10px] font-mono text-[#52525B]">SPECIFICATION ARTIFACT</span>
+                <div className="bg-[#141419] border border-[#232330] rounded-xl p-6 space-y-4">
+                    <div className="border-b border-[#232330] pb-3">
+                        <h2 className="text-sm font-semibold text-[#EDEDF0]">
+                            Create New Job Role Profile
+                        </h2>
+                        <p className="text-xs text-[#8B8B9E] mt-0.5">
+                            Roles can be reused across multiple assessments.
+                        </p>
                     </div>
 
                     {roleError && (
-                        <p className="text-xs font-mono text-[#F43F5E] flex items-center gap-1.5">
+                        <p className="text-xs text-red-400 flex items-center gap-1.5">
                             <AlertCircle className="w-3.5 h-3.5" />
                             <span>{roleError}</span>
                         </p>
                     )}
 
-                    <form onSubmit={handleCreateRole} className="space-y-3 font-mono">
+                    <form onSubmit={handleCreateRole} className="space-y-4">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <input
                                 type="text"
                                 value={roleTitle}
                                 onChange={(e) => setRoleTitle(e.target.value)}
-                                placeholder="Role Title (e.g. Senior Backend Engineer)"
+                                placeholder="Role title (e.g. Senior Frontend Engineer)"
                                 className="studio-input"
                             />
                             <input
                                 type="text"
                                 value={roleDesc}
                                 onChange={(e) => setRoleDesc(e.target.value)}
-                                placeholder="Optional description or department"
+                                placeholder="Department or description (optional)"
                                 className="studio-input"
                             />
                         </div>
-                        <div className="flex justify-end gap-2">
+                        <div className="flex justify-end gap-2.5">
                             <button
                                 type="button"
                                 onClick={() => setShowRoleForm(false)}
@@ -250,7 +234,7 @@ const Dashboard = () => {
                             </button>
                             <button
                                 type="submit"
-                                className="studio-btn-primary text-xs"
+                                className="btn-primary text-xs"
                             >
                                 Save Role Profile
                             </button>
@@ -259,86 +243,87 @@ const Dashboard = () => {
                 </div>
             )}
 
-            {/* Structured Assessment Pipeline Directory */}
-            <div className="space-y-2">
-                <div className="flex items-center justify-between px-1">
+            {/* Assessment Pipeline Directory */}
+            <div className="space-y-3">
+                <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                        <Layers className="w-4 h-4 text-[#71717A]" />
-                        <h2 className="text-xs font-mono font-semibold uppercase text-[#A1A1AA] tracking-wider">
-                            Assessment Pipeline Directory
+                        <Layers className="w-4 h-4 text-[#8B8B9E]" />
+                        <h2 className="text-sm font-semibold text-[#EDEDF0]">
+                            Assessments
                         </h2>
                     </div>
-                    <span className="text-[11px] font-mono text-[#52525B]">
-                        {assessments.length} total entries
+                    <span className="text-xs text-[#555568]">
+                        {assessments.length} total
                     </span>
                 </div>
 
-                <div className="border border-[#222228] bg-[#111114] rounded-md overflow-hidden">
+                <div className="bg-[#141419] border border-[#232330] rounded-xl overflow-hidden">
                     {loadingAssessments ? (
-                        <div className="p-12 flex items-center justify-center font-mono text-xs text-[#71717A] gap-2">
-                            <div className="w-4 h-4 border-2 border-[#FAFAFA] border-t-transparent rounded-full animate-spin"></div>
-                            <span>LOADING PIPELINE SPECIFICATIONS...</span>
+                        <div className="p-12 flex items-center justify-center text-sm text-[#8B8B9E] gap-3">
+                            <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
+                            <span>Loading assessments...</span>
                         </div>
                     ) : assessments.length > 0 ? (
-                        <div className="divide-y divide-[#222228]">
+                        <div className="divide-y divide-[#232330]">
                             {assessments.map((asmt) => (
                                 <div
                                     key={asmt._id}
-                                    className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-[#18181C] transition-colors"
+                                    className="p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-[#1C1C24]/60 transition-colors"
                                 >
-                                    <div className="space-y-1.5 flex-1 min-w-0 font-mono">
-                                        <div className="flex items-center gap-2 flex-wrap">
-                                            <span className="font-sans text-xs font-semibold text-[#FAFAFA]">
-                                                {asmt.title || asmt.role?.title || 'Assessment Specification'}
+                                    <div className="space-y-1.5 flex-1 min-w-0">
+                                        <div className="flex items-center gap-2.5 flex-wrap">
+                                            <span className="text-sm font-semibold text-[#EDEDF0]">
+                                                {asmt.title || asmt.role?.title || 'Assessment'}
                                             </span>
-                                            <span className="text-[11px] text-[#A1A1AA]">
-                                                [{asmt.role?.title || asmt.roleTitle || 'General Engineering'}]
+                                            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-[#0A0A0B] text-[#8B8B9E] border border-[#232330]">
+                                                {asmt.role?.title || asmt.roleTitle || 'General'}
                                             </span>
-                                            <span className={`studio-badge ${
+                                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${
                                                 asmt.status === 'ACTIVE'
-                                                    ? 'text-[#10B981] bg-[#10B981]/10 border-[#10B981]/30'
-                                                    : 'text-[#71717A] bg-[#18181C] border-[#222228]'
+                                                    ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
+                                                    : 'text-[#8B8B9E] bg-[#141419] border-[#232330]'
                                             }`}>
-                                                {asmt.status}
+                                                <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
+                                                <span className="capitalize">{asmt.status?.toLowerCase() || 'active'}</span>
                                             </span>
                                         </div>
 
-                                        <div className="flex items-center gap-3 text-[11px] text-[#71717A] flex-wrap">
+                                        <div className="flex items-center gap-3 text-xs text-[#8B8B9E] flex-wrap">
                                             <div className="flex items-center gap-1.5">
-                                                <span className="text-[#A1A1AA]">CODE: {asmt.assessmentCode}</span>
+                                                <span className="text-[#EDEDF0] font-mono text-[11px]">{asmt.assessmentCode}</span>
                                                 <button
                                                     onClick={() => handleCopyCode(asmt.assessmentCode)}
-                                                    className="p-0.5 hover:text-[#FAFAFA]"
-                                                    title="Copy Assessment Code"
+                                                    className="p-1 hover:text-[#EDEDF0] transition-colors"
+                                                    title="Copy code"
                                                 >
                                                     {copiedCode === asmt.assessmentCode ? (
-                                                        <Check className="w-3 h-3 text-[#10B981]" />
+                                                        <Check className="w-3.5 h-3.5 text-emerald-400" />
                                                     ) : (
-                                                        <Copy className="w-3 h-3" />
+                                                        <Copy className="w-3.5 h-3.5 text-[#8B8B9E]" />
                                                     )}
                                                 </button>
                                             </div>
                                             <span>•</span>
-                                            <span>Duration: {asmt.durationMinutes || 30}m</span>
+                                            <span>{asmt.durationMinutes || 30} mins</span>
                                             <span>•</span>
                                             <span>Skills: {(asmt.skills || ['JavaScript', 'DSA']).join(', ')}</span>
                                         </div>
                                     </div>
 
-                                    <div className="flex items-center gap-2 flex-shrink-0 font-mono">
+                                    <div className="flex items-center gap-2.5 flex-shrink-0">
                                         <button
                                             onClick={() => handleToggleStatus(asmt._id)}
-                                            className="studio-btn-secondary text-[11px] py-1"
+                                            className="studio-btn-secondary text-xs py-1.5 px-3"
                                             title="Toggle active status"
                                         >
-                                            {asmt.status === 'ACTIVE' ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
+                                            {asmt.status === 'ACTIVE' ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
                                             <span>{asmt.status === 'ACTIVE' ? 'Pause' : 'Activate'}</span>
                                         </button>
                                         <Link
                                             to={`/company/assessment/${asmt._id}/results`}
-                                            className="studio-btn-primary text-[11px] py-1"
+                                            className="btn-primary text-xs py-1.5 px-3.5"
                                         >
-                                            <span>Leaderboard & Results</span>
+                                            <span>View results</span>
                                             <ChevronRight className="w-3.5 h-3.5" />
                                         </Link>
                                     </div>
@@ -346,50 +331,50 @@ const Dashboard = () => {
                             ))}
                         </div>
                     ) : (
-                        <div className="p-10 text-center font-mono space-y-3">
-                            <p className="text-xs text-[#71717A]">No technical assessments configured yet.</p>
+                        <div className="p-10 text-center space-y-3">
+                            <p className="text-sm text-[#8B8B9E]">No technical assessments configured yet.</p>
                             <Link
                                 to="/company/create-assessment"
-                                className="studio-btn-primary text-xs"
+                                className="btn-primary inline-flex text-xs py-2 px-4"
                             >
                                 <Plus className="w-3.5 h-3.5" />
-                                <span>Create First Assessment Specification</span>
+                                <span>Create your first assessment</span>
                             </Link>
                         </div>
                     )}
                 </div>
             </div>
 
-            {/* Configured Role Archetypes Matrix */}
-            <div className="space-y-2">
-                <div className="flex items-center justify-between px-1">
-                    <span className="text-xs font-mono font-semibold uppercase text-[#A1A1AA] tracking-wider">
-                        Configured Role Archetypes ({roles.length})
-                    </span>
+            {/* Configured Roles */}
+            <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                    <h2 className="text-sm font-semibold text-[#EDEDF0]">
+                        Job Roles ({roles.length})
+                    </h2>
                 </div>
 
-                <div className="border border-[#222228] bg-[#111114] rounded-md overflow-hidden">
+                <div className="bg-[#141419] border border-[#232330] rounded-xl overflow-hidden">
                     {roles.length > 0 ? (
-                        <div className="divide-y divide-[#222228]">
+                        <div className="divide-y divide-[#232330]">
                             {roles.map((r) => (
-                                <div key={r._id} className="p-3.5 flex items-center justify-between gap-3 text-xs font-mono hover:bg-[#18181C]">
+                                <div key={r._id} className="p-4 flex items-center justify-between gap-3 text-sm hover:bg-[#1C1C24]/60 transition-colors">
                                     <div className="space-y-0.5">
-                                        <span className="font-semibold text-[#FAFAFA] font-sans">{r.title}</span>
-                                        {r.description && <p className="text-[11px] text-[#71717A]">{r.description}</p>}
+                                        <span className="font-medium text-[#EDEDF0]">{r.title}</span>
+                                        {r.description && <p className="text-xs text-[#8B8B9E]">{r.description}</p>}
                                     </div>
                                     <button
                                         onClick={() => handleDeleteRole(r._id)}
-                                        className="studio-btn-secondary p-1 text-[#71717A] hover:text-[#F43F5E] hover:border-[#F43F5E]/30"
-                                        title="Delete role profile"
+                                        className="p-1.5 rounded-md text-[#8B8B9E] hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                                        title="Delete role"
                                     >
-                                        <Trash2 className="w-3.5 h-3.5" />
+                                        <Trash2 className="w-4 h-4" />
                                     </button>
                                 </div>
                             ))}
                         </div>
                     ) : (
-                        <div className="p-6 text-center text-xs font-mono text-[#52525B]">
-                            No custom role archetypes defined yet.
+                        <div className="p-6 text-center text-xs text-[#555568]">
+                            No custom job roles configured yet.
                         </div>
                     )}
                 </div>

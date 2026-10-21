@@ -7,143 +7,122 @@ const Navbar = () => {
     const { user, logout } = useContext(AuthContext);
     const location = useLocation();
 
-    // Compute dynamic engineering breadcrumb
-    const getBreadcrumb = () => {
-        const path = location.pathname;
-        if (path.includes('/candidate/dashboard')) return 'candidate // workspace';
-        if (path.includes('/candidate/reports') || path.includes('/candidate/report/')) return 'candidate // dossier';
-        if (path.includes('/candidate/assessment')) return 'candidate // pre-flight';
-        if (path.includes('/candidate/interview')) return 'candidate // live-session';
-        if (path.includes('/company/dashboard')) return 'recruiter // pipeline';
-        if (path.includes('/company/create-assessment')) return 'recruiter // spec-builder';
-        if (path.includes('/company/assessment/')) return 'recruiter // leaderboard';
-        if (path === '/login') return 'auth // sign-in';
-        if (path === '/register') return 'auth // register';
-        return 'studio // core';
-    };
-
     return (
-        <header className="fixed top-0 left-0 right-0 h-12 z-50 bg-[#09090B]/95 backdrop-blur-md border-b border-[#222228] select-none">
-            <div className="h-full px-4 sm:px-6 flex items-center justify-between">
-                {/* Left: Geometric Wordmark & Dynamic Breadcrumb */}
-                <div className="flex items-center gap-2.5">
-                    <Link to="/" className="flex items-center gap-2 group">
-                        <div className="w-6 h-6 rounded bg-[#18181C] border border-[#222228] group-hover:border-[#3F3F46] flex items-center justify-center transition-colors">
-                            <Terminal className="w-3.5 h-3.5 text-[#FAFAFA]" />
+        <header className="fixed top-0 left-0 right-0 h-14 z-50 bg-[#0A0A0B]/90 backdrop-blur-md border-b border-[#232330] select-none">
+            <div className="max-w-7xl mx-auto h-full px-4 sm:px-6 lg:px-8 flex items-center justify-between">
+                {/* Left: Brand */}
+                <div className="flex items-center gap-6">
+                    <Link to="/" className="flex items-center gap-2.5 group">
+                        <div className="w-7 h-7 rounded-lg bg-blue-600/10 border border-blue-500/20 flex items-center justify-center text-blue-500 group-hover:bg-blue-600 group-hover:text-white transition-all">
+                            <Terminal className="w-4 h-4" />
                         </div>
-                        <span className="font-mono text-xs font-semibold tracking-wider text-[#FAFAFA] group-hover:text-[#E4E4E7] uppercase">
+                        <span className="font-semibold text-sm tracking-tight text-[#EDEDF0] group-hover:text-white">
                             VoxCode
                         </span>
                     </Link>
 
-                    <span className="text-[#3F3F46] font-mono text-xs select-none">/</span>
+                    {/* Navigation Links for Authenticated Users */}
+                    {user && (
+                        <nav className="hidden sm:flex items-center gap-1 pl-2">
+                            {user.role === 'CANDIDATE' && (
+                                <>
+                                    <Link
+                                        to="/candidate/dashboard"
+                                        className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${
+                                            location.pathname === '/candidate/dashboard'
+                                                ? 'bg-[#1C1C24] text-white border border-[#232330]'
+                                                : 'text-[#8B8B9E] hover:text-[#EDEDF0] hover:bg-[#141419]'
+                                        }`}
+                                    >
+                                        <LayoutDashboard className="w-4 h-4" />
+                                        <span>Dashboard</span>
+                                    </Link>
+                                    <Link
+                                        to="/candidate/reports"
+                                        className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${
+                                            location.pathname.startsWith('/candidate/report')
+                                                ? 'bg-[#1C1C24] text-white border border-[#232330]'
+                                                : 'text-[#8B8B9E] hover:text-[#EDEDF0] hover:bg-[#141419]'
+                                        }`}
+                                    >
+                                        <FileText className="w-4 h-4" />
+                                        <span>Reports</span>
+                                    </Link>
+                                </>
+                            )}
 
-                    <span className="font-mono text-[11px] text-[#71717A] tracking-tight lowercase">
-                        {getBreadcrumb()}
-                    </span>
+                            {user.role === 'COMPANY' && (
+                                <>
+                                    <Link
+                                        to="/company/dashboard"
+                                        className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${
+                                            location.pathname === '/company/dashboard'
+                                                ? 'bg-[#1C1C24] text-white border border-[#232330]'
+                                                : 'text-[#8B8B9E] hover:text-[#EDEDF0] hover:bg-[#141419]'
+                                        }`}
+                                    >
+                                        <LayoutDashboard className="w-4 h-4" />
+                                        <span>Dashboard</span>
+                                    </Link>
+                                    <Link
+                                        to="/company/create-assessment"
+                                        className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${
+                                            location.pathname === '/company/create-assessment'
+                                                ? 'bg-[#1C1C24] text-white border border-[#232330]'
+                                                : 'text-[#8B8B9E] hover:text-[#EDEDF0] hover:bg-[#141419]'
+                                        }`}
+                                    >
+                                        <Plus className="w-4 h-4" />
+                                        <span>Create Assessment</span>
+                                    </Link>
+                                </>
+                            )}
+                        </nav>
+                    )}
                 </div>
 
-                {/* Right: Telemetry & Navigation Controls */}
+                {/* Right: User Profile & Actions */}
                 <div className="flex items-center gap-3">
-                    {/* Live System Indicator */}
-                    <div className="hidden md:flex items-center gap-1.5 px-2 py-0.5 rounded bg-[#111114] border border-[#222228] text-[10px] font-mono text-[#71717A]">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] animate-pulse"></span>
-                        <span className="text-[#A1A1AA] font-medium">SYS.ONLINE</span>
-                    </div>
-
                     {user ? (
                         <>
-                            {/* Role-Specific Navigation Tabs */}
-                            <nav className="flex items-center gap-1">
-                                {user.role === 'CANDIDATE' && (
-                                    <>
-                                        <Link
-                                            to="/candidate/dashboard"
-                                            className={`px-2.5 py-1 rounded text-xs font-medium transition-colors flex items-center gap-1.5 ${
-                                                location.pathname === '/candidate/dashboard'
-                                                    ? 'bg-[#18181C] text-[#FAFAFA] border border-[#3F3F46]'
-                                                    : 'text-[#A1A1AA] hover:text-[#FAFAFA] hover:bg-[#111114]'
-                                            }`}
-                                        >
-                                            <LayoutDashboard className="w-3.5 h-3.5" />
-                                            <span>Workspace</span>
-                                        </Link>
-                                        <Link
-                                            to="/candidate/reports"
-                                            className={`px-2.5 py-1 rounded text-xs font-medium transition-colors flex items-center gap-1.5 ${
-                                                location.pathname.startsWith('/candidate/report')
-                                                    ? 'bg-[#18181C] text-[#FAFAFA] border border-[#3F3F46]'
-                                                    : 'text-[#A1A1AA] hover:text-[#FAFAFA] hover:bg-[#111114]'
-                                            }`}
-                                        >
-                                            <FileText className="w-3.5 h-3.5" />
-                                            <span>Dossiers</span>
-                                        </Link>
-                                    </>
-                                )}
-
-                                {user.role === 'COMPANY' && (
-                                    <>
-                                        <Link
-                                            to="/company/dashboard"
-                                            className={`px-2.5 py-1 rounded text-xs font-medium transition-colors flex items-center gap-1.5 ${
-                                                location.pathname === '/company/dashboard'
-                                                    ? 'bg-[#18181C] text-[#FAFAFA] border border-[#3F3F46]'
-                                                    : 'text-[#A1A1AA] hover:text-[#FAFAFA] hover:bg-[#111114]'
-                                            }`}
-                                        >
-                                            <LayoutDashboard className="w-3.5 h-3.5" />
-                                            <span>Pipeline</span>
-                                        </Link>
-                                        <Link
-                                            to="/company/create-assessment"
-                                            className={`px-2.5 py-1 rounded text-xs font-medium transition-colors flex items-center gap-1.5 ${
-                                                location.pathname === '/company/create-assessment'
-                                                    ? 'bg-[#18181C] text-[#FAFAFA] border border-[#3F3F46]'
-                                                    : 'text-[#A1A1AA] hover:text-[#FAFAFA] hover:bg-[#111114]'
-                                            }`}
-                                        >
-                                            <Plus className="w-3.5 h-3.5" />
-                                            <span>New Assessment</span>
-                                        </Link>
-                                    </>
-                                )}
-                            </nav>
-
-                            <div className="h-4 w-[1px] bg-[#222228] mx-1"></div>
-
-                            {/* User Role Badge & Identifier */}
-                            <div className="flex items-center gap-2">
-                                <span className="studio-badge bg-[#111114] text-[#A1A1AA] border-[#222228]">
-                                    {user.role}
-                                </span>
-                                <span className="hidden sm:inline-block text-xs font-mono text-[#FAFAFA] truncate max-w-[140px]">
-                                    {user.name}
-                                </span>
+                            <div className="flex items-center gap-3 pl-2">
+                                <div className="w-7 h-7 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 font-semibold text-xs flex items-center justify-center">
+                                    {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                                </div>
+                                <div className="hidden sm:flex flex-col text-left">
+                                    <span className="text-xs font-medium text-[#EDEDF0] leading-tight">
+                                        {user.name}
+                                    </span>
+                                    <span className="text-[11px] text-[#8B8B9E] capitalize leading-tight">
+                                        {user.role === 'COMPANY' ? 'Recruiter' : 'Candidate'}
+                                    </span>
+                                </div>
                             </div>
 
-                            {/* Minimal Logout Button */}
+                            <div className="h-4 w-[1px] bg-[#232330] mx-1"></div>
+
                             <button
                                 onClick={logout}
-                                title="Sign Out of Session"
-                                className="studio-btn-secondary p-1.5 text-[#71717A] hover:text-[#FAFAFA]"
+                                title="Sign out"
+                                className="studio-btn-secondary px-2.5 py-1.5 text-xs text-[#8B8B9E] hover:text-[#EDEDF0]"
                             >
                                 <LogOut className="w-3.5 h-3.5" />
+                                <span className="hidden sm:inline">Sign out</span>
                             </button>
                         </>
                     ) : (
                         <div className="flex items-center gap-2">
                             <Link
                                 to="/login"
-                                className="px-3 py-1 text-xs font-medium text-[#A1A1AA] hover:text-[#FAFAFA] transition-colors"
+                                className="px-3 py-1.5 text-xs font-medium text-[#8B8B9E] hover:text-[#EDEDF0] transition-colors"
                             >
-                                Sign In
+                                Sign in
                             </Link>
                             <Link
                                 to="/register"
-                                className="studio-btn-primary"
+                                className="btn-primary text-xs py-1.5 px-3"
                             >
-                                Register
+                                Get started
                             </Link>
                         </div>
                     )}

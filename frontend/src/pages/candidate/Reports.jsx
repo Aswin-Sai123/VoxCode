@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../../services/api';
-import { FileText, ArrowRight, ExternalLink, Activity, ChevronLeft, AlertCircle, Clock } from 'lucide-react';
+import { FileText, ArrowRight, ExternalLink, ChevronLeft, AlertCircle, Loader2, Sparkles, Lock } from 'lucide-react';
 
 const Reports = () => {
     const navigate = useNavigate();
@@ -18,7 +18,7 @@ const Reports = () => {
                 }
             } catch (err) {
                 console.error('Failed to load reports', err);
-                setError('Could not retrieve evaluation dossiers.');
+                setError('Could not retrieve evaluation reports.');
             } finally {
                 setLoading(false);
             }
@@ -30,172 +30,198 @@ const Reports = () => {
     const getVerdictBadge = (verdict) => {
         switch (verdict) {
             case 'Strong Hire':
-                return 'text-[#10B981] bg-[#10B981]/10 border-[#10B981]/30';
             case 'Hire':
-                return 'text-[#10B981] bg-[#10B981]/10 border-[#10B981]/30';
+                return 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20';
             case 'Needs Improvement':
-                return 'text-[#F59E0B] bg-[#F59E0B]/10 border-[#F59E0B]/30';
+                return 'text-amber-400 bg-amber-500/10 border-amber-500/20';
             case 'Reject':
-                return 'text-[#F43F5E] bg-[#F43F5E]/10 border-[#F43F5E]/30';
+                return 'text-red-400 bg-red-500/10 border-red-500/20';
             default:
-                return 'text-[#A1A1AA] bg-[#18181C] border-[#222228]';
+                return 'text-[#8B8B9E] bg-[#141419] border-[#232330]';
         }
     };
 
-    const avgScore = reports.length
-        ? Math.round(reports.reduce((acc, r) => acc + (r.scores?.overall || 0), 0) / reports.length)
+    // Candidate scores for mock practice assessments
+    const mockReports = reports.filter(r => r.assessment?.assessmentType === 'MOCK' || !r.assessment?.assessmentType);
+
+    const avgScore = mockReports.length
+        ? Math.round(mockReports.reduce((acc, r) => acc + (r.scores?.overall || 0), 0) / mockReports.length)
         : 0;
 
-    const highestScore = reports.length
-        ? Math.max(...reports.map(r => r.scores?.overall || 0))
+    const highestScore = mockReports.length
+        ? Math.max(...mockReports.map(r => r.scores?.overall || 0))
         : 0;
 
     return (
-        <div className="flex-1 bg-[#09090B] text-[#FAFAFA] p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full space-y-6">
-            {/* Header Telemetry */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-[#222228] gap-3">
+        <div className="flex-1 p-6 sm:p-8 max-w-7xl mx-auto w-full space-y-8">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-[#232330] gap-4">
                 <div className="space-y-1">
                     <Link
                         to="/candidate/dashboard"
-                        className="inline-flex items-center gap-1.5 text-xs font-mono text-[#71717A] hover:text-[#FAFAFA] transition-colors"
+                        className="inline-flex items-center gap-1.5 text-xs text-[#8B8B9E] hover:text-[#EDEDF0] transition-colors"
                     >
-                        <ChevronLeft className="w-3.5 h-3.5" />
-                        <span>Command Center</span>
+                        <ChevronLeft className="w-4 h-4" />
+                        <span>Back to dashboard</span>
                     </Link>
-                    <h1 className="text-lg font-semibold text-[#FAFAFA] tracking-tight">
-                        Evaluation Dossiers Ledger
+                    <h1 className="text-2xl font-semibold text-[#EDEDF0] tracking-tight">
+                        Assessment Reports
                     </h1>
-                </div>
-
-                <div className="flex items-center gap-2">
-                    <span className="studio-badge bg-[#111114] text-[#A1A1AA] border-[#222228]">
-                        LEDGER // VERIFIED RECORDS
-                    </span>
+                    <p className="text-sm text-[#8B8B9E]">
+                        Review detailed scorecards and feedback for your mock practice assessments. Official company assessments are delivered directly to employer recruiters.
+                    </p>
                 </div>
             </div>
 
-            {/* Stat Overview Strip: 3-Column Connected Metric Bar */}
-            <div className="border border-[#222228] bg-[#111114] rounded-md grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-[#222228] overflow-hidden">
-                <div className="p-4 space-y-1">
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-[#71717A] block">
-                        Evaluated Sessions
+            {/* Stat Overview Strip */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="bg-[#141419] border border-[#232330] rounded-xl p-5">
+                    <span className="text-xs font-medium text-[#8B8B9E] block">
+                        Completed Interviews
                     </span>
-                    <div className="flex items-baseline gap-2">
-                        <span className="text-2xl font-mono font-semibold text-[#FAFAFA] tabular-nums">
+                    <div className="flex items-baseline gap-2 mt-2">
+                        <span className="text-3xl font-semibold text-[#EDEDF0] tabular-nums tracking-tight">
                             {reports.length}
                         </span>
-                        <span className="text-[11px] font-mono text-[#52525B]">dossiers</span>
+                        <span className="text-xs text-[#555568]">total sessions</span>
                     </div>
                 </div>
 
-                <div className="p-4 space-y-1">
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-[#71717A] block">
-                        Composite Average
+                <div className="bg-[#141419] border border-[#232330] rounded-xl p-5">
+                    <span className="text-xs font-medium text-[#8B8B9E] block">
+                        Mock Average Score
                     </span>
-                    <div className="flex items-baseline gap-2">
-                        <span className="text-2xl font-mono font-semibold text-[#FAFAFA] tabular-nums">
+                    <div className="flex items-baseline gap-2 mt-2">
+                        <span className="text-3xl font-semibold text-[#EDEDF0] tabular-nums tracking-tight">
                             {avgScore}%
                         </span>
-                        <span className="text-[11px] font-mono text-[#10B981]">overall</span>
+                        <span className="text-xs text-emerald-400 font-medium">composite</span>
                     </div>
                 </div>
 
-                <div className="p-4 space-y-1">
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-[#71717A] block">
-                        Peak Assessment Score
+                <div className="bg-[#141419] border border-[#232330] rounded-xl p-5">
+                    <span className="text-xs font-medium text-[#8B8B9E] block">
+                        Top Mock Performance
                     </span>
-                    <div className="flex items-baseline gap-2">
-                        <span className="text-2xl font-mono font-semibold text-[#FAFAFA] tabular-nums">
+                    <div className="flex items-baseline gap-2 mt-2">
+                        <span className="text-3xl font-semibold text-[#EDEDF0] tabular-nums tracking-tight">
                             {highestScore}%
                         </span>
-                        <span className="text-[11px] font-mono text-[#71717A]">maximum</span>
+                        <span className="text-xs text-[#555568]">best score</span>
                     </div>
                 </div>
             </div>
 
             {/* Error Message */}
             {error && (
-                <div className="p-3 bg-[#F43F5E]/10 border border-[#F43F5E]/30 rounded-md text-xs font-mono text-[#F43F5E] flex items-center gap-2">
+                <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-xs text-red-400 flex items-center gap-2">
                     <AlertCircle className="w-4 h-4 flex-shrink-0" />
                     <span>{error}</span>
                 </div>
             )}
 
-            {/* Ledger Table */}
-            <div className="border border-[#222228] bg-[#111114] rounded-md overflow-hidden">
+            {/* Reports Table */}
+            <div className="bg-[#141419] border border-[#232330] rounded-xl overflow-hidden">
                 {loading ? (
-                    <div className="p-12 flex items-center justify-center font-mono text-xs text-[#71717A] gap-2">
-                        <div className="w-4 h-4 border-2 border-[#FAFAFA] border-t-transparent rounded-full animate-spin"></div>
-                        <span>QUERYING PERFORMANCE LEDGER...</span>
+                    <div className="p-12 flex items-center justify-center text-sm text-[#8B8B9E] gap-3">
+                        <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
+                        <span>Loading reports...</span>
                     </div>
                 ) : reports.length > 0 ? (
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse text-xs font-mono">
+                        <table className="w-full text-left border-collapse text-sm">
                             <thead>
-                                <tr className="border-b border-[#222228] bg-[#09090B] text-[#52525B] text-[10px] uppercase">
-                                    <th className="py-2.5 px-4 font-medium">Session & Role</th>
-                                    <th className="py-2.5 px-4 font-medium">Organization</th>
-                                    <th className="py-2.5 px-4 font-medium">Timestamp</th>
-                                    <th className="py-2.5 px-4 font-medium">Composite Score</th>
-                                    <th className="py-2.5 px-4 font-medium">Rubric Breakdown</th>
-                                    <th className="py-2.5 px-4 font-medium">Verdict</th>
-                                    <th className="py-2.5 px-4 font-medium text-right">Action</th>
+                                <tr className="border-b border-[#232330] bg-[#0A0A0B]/60 text-[#8B8B9E] text-xs font-medium">
+                                    <th className="py-3 px-5">Assessment</th>
+                                    <th className="py-3 px-5">Type</th>
+                                    <th className="py-3 px-5">Organization</th>
+                                    <th className="py-3 px-5">Date</th>
+                                    <th className="py-3 px-5">Score</th>
+                                    <th className="py-3 px-5">Verdict / Status</th>
+                                    <th className="py-3 px-5 text-right">Action</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-[#222228]">
-                                {reports.map((report) => (
-                                    <tr key={report._id} className="hover:bg-[#18181C] transition-colors">
-                                        <td className="py-3 px-4">
-                                            <div className="font-sans font-medium text-[#FAFAFA]">
-                                                {report.assessmentTitle || 'Technical Interview'}
-                                            </div>
-                                            <span className="text-[10px] text-[#52525B]">
-                                                SESSION // {report.session?._id?.slice(-8) || report.session?.slice(-8)}
-                                            </span>
-                                        </td>
-                                        <td className="py-3 px-4 text-[#A1A1AA]">
-                                            {report.companyName || 'Hiring Entity'}
-                                        </td>
-                                        <td className="py-3 px-4 text-[#71717A] tabular-nums">
-                                            {new Date(report.createdAt).toLocaleDateString()}
-                                        </td>
-                                        <td className="py-3 px-4">
-                                            <span className="text-sm font-semibold text-[#FAFAFA] tabular-nums">
-                                                {report.scores?.overall || 0}%
-                                            </span>
-                                        </td>
-                                        <td className="py-3 px-4">
-                                            <div className="flex items-center gap-2 text-[10px] text-[#71717A]">
-                                                <span>DSA: {report.scores?.coding || 0}</span>
-                                                <span>•</span>
-                                                <span>ARCH: {report.scores?.conceptual || 0}</span>
-                                                <span>•</span>
-                                                <span>COMM: {report.scores?.communication || 0}</span>
-                                            </div>
-                                        </td>
-                                        <td className="py-3 px-4">
-                                            <span className={`studio-badge ${getVerdictBadge(report.verdict)}`}>
-                                                {report.verdict || 'COMPLETED'}
-                                            </span>
-                                        </td>
-                                        <td className="py-3 px-4 text-right">
-                                            <Link
-                                                to={`/candidate/report/${report.session?._id || report.session}`}
-                                                className="studio-btn-secondary text-[11px] py-1"
-                                            >
-                                                <span>View Dossier</span>
-                                                <ExternalLink className="w-3 h-3" />
-                                            </Link>
-                                        </td>
-                                    </tr>
-                                ))}
+                            <tbody className="divide-y divide-[#232330]">
+                                {reports.map((report) => {
+                                    const asmt = report.assessment || {};
+                                    const isMock = asmt.assessmentType === 'MOCK';
+                                    const companyName = asmt.targetCompanyName || asmt.companyName || 'Company';
+
+                                    return (
+                                        <tr key={report._id} className="hover:bg-[#1C1C24]/60 transition-colors">
+                                            <td className="py-4 px-5">
+                                                <div className="font-medium text-[#EDEDF0]">
+                                                    {asmt.title || 'Technical Interview'}
+                                                </div>
+                                                <span className="text-xs text-[#555568]">
+                                                    ID: {report.session?._id?.slice(-8) || report.session?.slice(-8)}
+                                                </span>
+                                            </td>
+                                            <td className="py-4 px-5">
+                                                {isMock ? (
+                                                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                                        Mock Practice
+                                                    </span>
+                                                ) : (
+                                                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                                        Official Test
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td className="py-4 px-5 text-xs text-[#8B8B9E]">
+                                                {companyName}
+                                            </td>
+                                            <td className="py-4 px-5 text-xs text-[#8B8B9E] tabular-nums">
+                                                {new Date(report.createdAt).toLocaleDateString()}
+                                            </td>
+                                            <td className="py-4 px-5">
+                                                {isMock ? (
+                                                    <span className="font-semibold text-[#EDEDF0] tabular-nums">
+                                                        {report.scores?.overall || 0}%
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-xs text-[#8B8B9E] italic">
+                                                        Confidential
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td className="py-4 px-5">
+                                                {isMock ? (
+                                                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${getVerdictBadge(report.verdict)}`}>
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
+                                                        <span>{report.verdict || 'Completed'}</span>
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border text-emerald-400 bg-emerald-500/10 border-emerald-500/20">
+                                                        <span>Submitted to Recruiter</span>
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td className="py-4 px-5 text-right">
+                                                {isMock ? (
+                                                    <Link
+                                                        to={`/candidate/report/${report.session?._id || report.session}`}
+                                                        className="studio-btn-secondary text-xs py-1.5 px-3"
+                                                    >
+                                                        <span>View report</span>
+                                                        <ExternalLink className="w-3.5 h-3.5 text-[#8B8B9E]" />
+                                                    </Link>
+                                                ) : (
+                                                    <span className="text-xs text-[#555568]">
+                                                        Recruiter Only
+                                                    </span>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>
                 ) : (
-                    <div className="p-10 text-center font-mono space-y-2">
-                        <p className="text-xs text-[#71717A]">No evaluation records found in ledger.</p>
-                        <p className="text-[11px] text-[#52525B]">Complete an interview session to review performance telemetry.</p>
+                    <div className="p-12 text-center space-y-1">
+                        <p className="text-sm text-[#8B8B9E]">No reports found.</p>
+                        <p className="text-xs text-[#555568]">Complete a mock interview practice session to generate your comprehensive performance report.</p>
                     </div>
                 )}
             </div>

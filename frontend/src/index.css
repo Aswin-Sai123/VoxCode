@@ -8,69 +8,59 @@
   }
 
   body {
-    background-color: #09090B;
-    color: #FAFAFA;
+    background-color: #0A0A0B;
+    color: #EDEDF0;
     font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     min-height: 100vh;
-    letter-spacing: -0.015em;
+    letter-spacing: -0.011em;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Force monospace tabular figures everywhere numbers are displayed */
+  /* Monospace figures */
   .tabular-nums {
     font-variant-numeric: tabular-nums;
   }
 }
 
-/* Minimalist IDE Dark Scrollbars */
+/* Minimalist Dark Scrollbars */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #09090B;
+  background: #0A0A0B;
 }
 ::-webkit-scrollbar-thumb {
-  background: #222228;
-  border-radius: 3px;
+  background: #232330;
+  border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #3F3F46;
-}
-
-/* Precision Hairline Background Grid */
-.bg-grid-studio {
-  background-size: 28px 28px;
-  background-image: 
-    linear-gradient(to right, rgba(34, 34, 40, 0.45) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(34, 34, 40, 0.45) 1px, transparent 1px);
-}
-
-.bg-dot-studio {
-  background-size: 20px 20px;
-  background-image: radial-gradient(rgba(82, 82, 91, 0.25) 1px, transparent 1px);
+  background: #363645;
 }
 
 /* Custom UI Component Utilities */
 @layer components {
+  .btn-primary,
   .studio-btn-primary {
-    @apply inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#09090B] bg-[#FAFAFA] hover:bg-[#E4E4E7] active:bg-[#D4D4D8] rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed select-none;
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-500 active:bg-blue-700 rounded-lg shadow-sm transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed select-none;
   }
 
+  .btn-secondary,
   .studio-btn-secondary {
-    @apply inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#A1A1AA] hover:text-[#FAFAFA] bg-[#111114] hover:bg-[#18181C] active:bg-[#222228] border border-[#222228] hover:border-[#3F3F46] rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed select-none;
+    @apply inline-flex items-center justify-center gap-2 px-3.5 py-2 text-sm font-medium text-[#EDEDF0] bg-[#141419] hover:bg-[#1C1C24] active:bg-[#232330] border border-[#232330] hover:border-[#363645] rounded-lg transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed select-none;
   }
 
+  .btn-danger,
   .studio-btn-danger {
-    @apply inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#F43F5E] bg-[#F43F5E]/10 hover:bg-[#F43F5E]/20 active:bg-[#F43F5E]/30 border border-[#F43F5E]/25 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed select-none;
+    @apply inline-flex items-center justify-center gap-2 px-3.5 py-2 text-sm font-medium text-red-400 bg-red-500/10 hover:bg-red-500/20 active:bg-red-500/30 border border-red-500/20 rounded-lg transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed select-none;
   }
 
   .studio-input {
-    @apply w-full bg-[#111114] border border-[#222228] hover:border-[#3F3F46] focus:border-[#FAFAFA] focus:outline-none text-xs text-[#FAFAFA] placeholder-[#52525B] px-3 py-2 rounded-md transition-colors;
+    @apply w-full bg-[#141419] border border-[#232330] hover:border-[#363645] focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 focus:outline-none text-sm text-[#EDEDF0] placeholder-[#555568] px-3.5 py-2.5 rounded-lg transition-colors;
   }
 
   .studio-badge {
-    @apply inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-mono tracking-wider rounded border uppercase tabular-nums;
+    @apply inline-flex items-center gap-1.5 px-2.5 py-0.5 text-xs font-medium rounded-full border tabular-nums;
   }
 }

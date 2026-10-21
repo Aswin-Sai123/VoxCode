@@ -1,7 +1,7 @@
 import React, { useState, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
-import { Terminal, ArrowRight, ShieldCheck, Cpu, Code2, AlertCircle } from 'lucide-react';
+import { Terminal, ArrowRight, AlertCircle, Loader2 } from 'lucide-react';
 
 const Register = () => {
     const [role, setRole] = useState('CANDIDATE');
@@ -32,96 +32,52 @@ const Register = () => {
     };
 
     return (
-        <div className="flex-1 flex min-h-[calc(100vh-48px)] bg-[#09090B]">
-            {/* Left Pane: Architecture Showcase */}
-            <div className="hidden lg:flex lg:w-1/2 relative bg-[#09090B] bg-grid-studio border-r border-[#222228] p-12 flex-col justify-between overflow-hidden">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-sm bg-[#FAFAFA]"></span>
-                        <span className="font-mono text-xs font-semibold text-[#A1A1AA] uppercase tracking-wider">
-                            VoxCode // Engineering Platform Registration
-                        </span>
+        <div className="flex-1 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+            <div className="w-full max-w-md space-y-6">
+                {/* Brand & Heading */}
+                <div className="text-center space-y-2">
+                    <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-blue-600/10 border border-blue-500/20 text-blue-500 mb-2">
+                        <Terminal className="w-5 h-5" />
                     </div>
-                    <span className="studio-badge bg-[#111114] text-[#A1A1AA] border-[#222228]">
-                        PROD.CLUSTER
-                    </span>
+                    <h1 className="text-2xl font-semibold tracking-tight text-[#EDEDF0]">
+                        Create your account
+                    </h1>
+                    <p className="text-sm text-[#8B8B9E]">
+                        Start taking or hosting technical assessments
+                    </p>
                 </div>
 
-                {/* Technical Architecture Preview Card */}
-                <div className="max-w-md w-full bg-[#111114] border border-[#222228] rounded-md p-6 space-y-5">
-                    <div className="flex items-center justify-between border-b border-[#222228] pb-3">
-                        <div className="flex items-center gap-2">
-                            <Code2 className="w-4 h-4 text-[#A1A1AA]" />
-                            <span className="font-mono text-xs text-[#FAFAFA] font-medium uppercase">
-                                Autonomous Technical Assessment
-                            </span>
-                        </div>
-                        <span className="font-mono text-[11px] text-[#10B981]">[STABLE]</span>
-                    </div>
-
-                    <div className="space-y-3 font-mono text-xs text-[#A1A1AA]">
-                        <div className="p-3 bg-[#09090B] border border-[#222228] rounded space-y-1">
-                            <span className="text-[10px] text-[#52525B] uppercase block">Stage 01 // Voice Screening</span>
-                            <p className="text-[#FAFAFA]">Real-time conversational audio screening with tech leads (Rohan).</p>
-                        </div>
-                        <div className="p-3 bg-[#09090B] border border-[#222228] rounded space-y-1">
-                            <span className="text-[10px] text-[#52525B] uppercase block">Stage 02 // Polyglot Sandbox</span>
-                            <p className="text-[#FAFAFA]">Sub-second native compilers for JavaScript, Python 3, C++, and Java.</p>
-                        </div>
-                        <div className="p-3 bg-[#09090B] border border-[#222228] rounded space-y-1">
-                            <span className="text-[10px] text-[#52525B] uppercase block">Stage 03 // Gemini 2.5 Flash Grading</span>
-                            <p className="text-[#FAFAFA]">4-dimension scoring, Big-O complexity telemetry, and hiring decisions.</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="flex items-center justify-between text-[11px] font-mono text-[#52525B]">
-                    <span>VOXCODE SPEC v2.4</span>
-                    <span>PRIVACY: ZERO MODEL TRAINING ON CODE</span>
-                </div>
-            </div>
-
-            {/* Right Pane: Registration Form Console */}
-            <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-12">
-                <div className="w-full max-w-sm space-y-6">
-                    <div className="space-y-1.5">
-                        <h1 className="text-xl font-semibold text-[#FAFAFA] tracking-tight">
-                            Create VoxCode Account
-                        </h1>
-                        <p className="text-xs text-[#71717A]">
-                            Initialize your candidate or recruiter credentials.
-                        </p>
-                    </div>
-
-                    {/* Role Segmented Selector */}
-                    <div className="grid grid-cols-2 p-1 bg-[#111114] border border-[#222228] rounded-md gap-1">
+                {/* Main Card */}
+                <div className="bg-[#141419] border border-[#232330] rounded-xl p-6 sm:p-8 space-y-5 shadow-2xl">
+                    {/* Role Selector Pill */}
+                    <div className="grid grid-cols-2 p-1 bg-[#0A0A0B] border border-[#232330] rounded-lg gap-1">
                         <button
                             type="button"
                             onClick={() => setRole('CANDIDATE')}
-                            className={`py-1.5 text-xs font-mono font-medium rounded transition-all ${
+                            className={`py-2 text-xs font-medium rounded-md transition-all ${
                                 role === 'CANDIDATE'
-                                    ? 'bg-[#18181C] text-[#FAFAFA] border border-[#3F3F46]'
-                                    : 'text-[#71717A] hover:text-[#FAFAFA]'
+                                    ? 'bg-[#1C1C24] text-white shadow-sm border border-[#363645]'
+                                    : 'text-[#8B8B9E] hover:text-[#EDEDF0]'
                             }`}
                         >
-                            [CANDIDATE]
+                            Candidate
                         </button>
                         <button
                             type="button"
                             onClick={() => setRole('COMPANY')}
-                            className={`py-1.5 text-xs font-mono font-medium rounded transition-all ${
+                            className={`py-2 text-xs font-medium rounded-md transition-all ${
                                 role === 'COMPANY'
-                                    ? 'bg-[#18181C] text-[#FAFAFA] border border-[#3F3F46]'
-                                    : 'text-[#71717A] hover:text-[#FAFAFA]'
+                                    ? 'bg-[#1C1C24] text-white shadow-sm border border-[#363645]'
+                                    : 'text-[#8B8B9E] hover:text-[#EDEDF0]'
                             }`}
                         >
-                            [RECRUITER]
+                            Recruiter
                         </button>
                     </div>
 
                     {/* Error Banner */}
                     {error && (
-                        <div className="p-3 bg-[#F43F5E]/10 border border-[#F43F5E]/30 rounded-md text-xs text-[#F43F5E] flex items-center gap-2 font-mono">
+                        <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-xs text-red-400 flex items-center gap-2">
                             <AlertCircle className="w-4 h-4 flex-shrink-0" />
                             <span>{error}</span>
                         </div>
@@ -130,37 +86,40 @@ const Register = () => {
                     {/* Form */}
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div className="space-y-1.5">
-                            <label className="text-xs font-mono text-[#A1A1AA] uppercase block">
-                                {role === 'COMPANY' ? 'Company Name' : 'Full Name'}
+                            <label className="text-xs font-medium text-[#8B8B9E] block">
+                                {role === 'COMPANY' ? 'Company or team name' : 'Full name'}
                             </label>
                             <input
                                 type="text"
                                 required
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
-                                placeholder={role === 'COMPANY' ? 'Acme Technologies' : 'Alex Mercer'}
+                                placeholder={role === 'COMPANY' ? 'Acme Labs' : 'Alex Mercer'}
                                 className="studio-input"
                             />
                         </div>
 
                         <div className="space-y-1.5">
-                            <label className="text-xs font-mono text-[#A1A1AA] uppercase block">
-                                Work Email
+                            <label className="text-xs font-medium text-[#8B8B9E] block">
+                                Work or personal email
                             </label>
                             <input
                                 type="email"
                                 required
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
-                                placeholder="name@company.com"
+                                placeholder="name@example.com"
                                 className="studio-input"
                             />
                         </div>
 
                         <div className="space-y-1.5">
-                            <label className="text-xs font-mono text-[#A1A1AA] uppercase block">
-                                Password
-                            </label>
+                            <div className="flex items-center justify-between">
+                                <label className="text-xs font-medium text-[#8B8B9E]">
+                                    Password
+                                </label>
+                                <span className="text-xs text-[#555568]">Min. 6 chars</span>
+                            </div>
                             <input
                                 type="password"
                                 required
@@ -175,31 +134,30 @@ const Register = () => {
                         <button
                             type="submit"
                             disabled={isSubmitting}
-                            className="studio-btn-primary w-full py-2.5 text-xs font-semibold"
+                            className="btn-primary w-full py-2.5 mt-2"
                         >
                             {isSubmitting ? (
                                 <span className="flex items-center gap-2">
-                                    <span className="w-3.5 h-3.5 border-2 border-[#09090B] border-t-transparent rounded-full animate-spin"></span>
-                                    <span>Creating Account...</span>
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    <span>Creating account...</span>
                                 </span>
                             ) : (
                                 <span className="flex items-center gap-1.5">
-                                    <span>Register & Proceed</span>
-                                    <ArrowRight className="w-3.5 h-3.5" />
+                                    <span>Create account</span>
+                                    <ArrowRight className="w-4 h-4" />
                                 </span>
                             )}
                         </button>
                     </form>
-
-                    <div className="text-center pt-2">
-                        <p className="text-xs text-[#71717A]">
-                            Already registered?{' '}
-                            <Link to="/login" className="text-[#FAFAFA] underline underline-offset-4 hover:text-[#E4E4E7]">
-                                Sign in to session
-                            </Link>
-                        </p>
-                    </div>
                 </div>
+
+                {/* Footer Switch */}
+                <p className="text-center text-xs text-[#8B8B9E]">
+                    Already have an account?{' '}
+                    <Link to="/login" className="text-blue-400 hover:text-blue-300 font-medium">
+                        Sign in
+                    </Link>
+                </p>
             </div>
         </div>
     );

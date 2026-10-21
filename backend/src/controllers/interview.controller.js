@@ -1,5 +1,6 @@
 import { Assessment } from '../models/assessment.model.js';
 import { InterviewSession } from '../models/interviewSession.model.js';
+import { Candidate } from '../models/candidate.model.js';
 import { ApiError } from '../utils/ApiError.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
@@ -15,6 +16,7 @@ const inMemorySessions = new Map();
  */
 export const startSession = asyncHandler(async (req, res) => {
     const { code } = req.params;
+    const { resumeText, interviewFormat } = req.body || {};
 
     let assessment = null;
     try {
@@ -46,6 +48,29 @@ export const startSession = asyncHandler(async (req, res) => {
 
     const candidateId = req.user?.id || 'guest-candidate';
 
+    // Retrieve or persist candidate resume
+    let candidateResume = (resumeText || '').trim();
+    if (!candidateResume && candidateId !== 'guest-candidate') {
+        try {
+            const candDoc = await Candidate.findById(candidateId).select('resumeText');
+            if (candDoc?.resumeText) {
+                candidateResume = candDoc.resumeText;
+            }
+        } catch {
+            // Mongo bypassed
+        }
+    } else if (candidateResume && candidateId !== 'guest-candidate') {
+        try {
+            await Candidate.findByIdAndUpdate(candidateId, { resumeText: candidateResume });
+        } catch {
+            // Mongo bypassed
+        }
+    }
+
+    const selectedFormat = interviewFormat === 'PROJECT_AND_TECHNICAL_ONLY'
+        ? 'PROJECT_AND_TECHNICAL_ONLY'
+        : 'FULL_INTERVIEW';
+
     // Check for existing in-progress session
     let session = null;
     try {
@@ -61,16 +86,20 @@ export const startSession = asyncHandler(async (req, res) => {
     if (!session && inMemorySessions.has(`${candidateId}_${code}`)) {
         session = inMemorySessions.get(`${candidateId}_${code}`);
     }
-
     if (!session) {
+        const companyName = assessment.targetCompanyName || assessment.company?.name || 'our company';
+        const roleTitle = assessment.targetRoleTitle || assessment.role?.title || assessment.title || 'Software Engineer';
+
         // Generate opening greeting with natural Indian tech lead persona
         const opening = await generateOpeningGreeting({
-            companyName: assessment.company?.name || 'our company',
+            companyName,
             candidateName: req.user?.name || '',
-            roleTitle: assessment.role?.title || assessment.title || 'Software Engineer',
+            roleTitle,
             skills: assessment.skills,
             experienceLevel: assessment.experienceLevel,
-            blueprint: assessment.blueprint
+            blueprint: assessment.blueprint,
+            candidateResume,
+            interviewFormat: selectedFormat
         });
 
         const initialTranscript = [{
@@ -86,6 +115,8 @@ export const startSession = asyncHandler(async (req, res) => {
             status: 'IN_PROGRESS',
             transcript: initialTranscript,
             codingChallenge: null,
+            candidateResume,
+            interviewFormat: selectedFormat,
             durationMinutes: assessment.durationMinutes || 30,
             startedAt: new Date()
         };
@@ -103,14 +134,16 @@ export const startSession = asyncHandler(async (req, res) => {
         session,
         assessment: {
             title: assessment.title,
-            roleTitle: assessment.role?.title || 'Developer',
-            companyName: assessment.company?.name || 'Company',
+            assessmentType: assessment.assessmentType || 'COMPANY',
+            roleTitle: assessment.targetRoleTitle || assessment.role?.title || 'Developer',
+            companyName: assessment.targetCompanyName || assessment.company?.name || 'Company',
             skills: assessment.skills,
             experienceLevel: assessment.experienceLevel,
             durationMinutes: assessment.durationMinutes
         }
     }, 'Interview session started'));
 });
+
 
 /**
  * Send candidate message (from voice STT or text chat) and get AI interviewer reply
@@ -159,18 +192,19 @@ export const sendCandidateMessage = asyncHandler(async (req, res) => {
     });
 
     // Get assessment details
-    let companyName = session.assessment?.company?.name || 'our company';
+    let companyName = session.assessment?.targetCompanyName || session.assessment?.company?.name || 'our company';
     let roleTitle = 'Software Engineer';
     let skills = [];
     let experienceLevel = 'Entry';
     let blueprint = '';
 
     if (session.assessment) {
-        roleTitle = session.assessment.role?.title || session.assessment.title || roleTitle;
+        roleTitle = session.assessment.targetRoleTitle || session.assessment.role?.title || session.assessment.title || roleTitle;
         skills = session.assessment.skills || [];
         experienceLevel = session.assessment.experienceLevel || 'Entry';
-        blueprint = session.assessment.blueprint || '';
+        blueprint = session.assessment.blueprint || session.assessment.scrapedBlueprint || '';
     }
+
 
     // Call Gemini AI service with live code awareness and dynamic conversation
     const effectiveCode = currentCode || session.codeSubmission?.code || '';
@@ -182,6 +216,8 @@ export const sendCandidateMessage = asyncHandler(async (req, res) => {
         skills,
         experienceLevel,
         blueprint,
+        candidateResume: session.candidateResume || '',
+        interviewFormat: session.interviewFormat || 'FULL_INTERVIEW',
         transcript: session.transcript,
         candidateMessage: message.trim(),
         currentStage: session.stage,
@@ -201,6 +237,15 @@ export const sendCandidateMessage = asyncHandler(async (req, res) => {
     if (aiResponse.nextStage === 'CODING' && aiResponse.codingChallenge) {
         session.stage = 'CODING';
         session.codingChallenge = aiResponse.codingChallenge;
+    } else if (aiResponse.nextStage === 'COMPLETED') {
+        session.stage = 'COMPLETED';
+        session.status = 'COMPLETED';
+        session.endedAt = new Date();
+        if (session._id) {
+            evaluateInterviewSession(session._id).catch(err => {
+                console.error('Auto AI evaluation error on completion:', err);
+            });
+        }
     }
 
     try {

@@ -5,7 +5,37 @@ import '../models/assessment.model.js';
 import { executeCodeSandbox } from './sandbox.service.js';
 import { sendEvaluationNotification } from './email.service.js';
 
-const GEMINI_MODEL = 'gemini-2.5-flash';
+const GEMINI_MODELS = ['gemini-flash-lite-latest', 'gemini-3.5-flash-lite', 'gemini-2.5-flash'];
+
+/**
+ * Resilient multi-model Gemini caller with automatic fallback
+ */
+const callGemini = async (body) => {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) return null;
+
+    for (const model of GEMINI_MODELS) {
+        try {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+
+            const data = await response.json();
+            if (data.error) {
+                console.warn(`[Evaluation] Model ${model} error ${data.error.code}: ${data.error.message?.slice(0, 80)}. Trying fallback...`);
+                continue;
+            }
+
+            const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (text) return text;
+        } catch (err) {
+            console.warn(`[Evaluation] Model ${model} failed:`, err.message);
+        }
+    }
+    return null;
+};
 
 /**
  * Safely executes JavaScript code against structured test cases
@@ -154,37 +184,40 @@ export const generateAiEvaluation = async ({
     transcript = [],
     codingChallenge = {},
     codeSubmission = {},
-    testCaseResults = []
+    testCaseResults = [],
+    candidateResume = '',
+    interviewFormat = 'FULL_INTERVIEW'
 }) => {
     const apiKey = process.env.GEMINI_API_KEY;
+    const isProjectOnly = interviewFormat === 'PROJECT_AND_TECHNICAL_ONLY';
 
     // Fallback evaluation structure if Gemini fails or is unconfigured
     const fallbackEvaluation = {
         scores: {
             overall: 78,
             conceptual: 80,
-            coding: 75,
+            coding: isProjectOnly ? 80 : 75,
             codeQuality: 80,
             communication: 77
         },
         verdict: 'Hire',
-        summary: `The candidate completed the technical interview for the ${roleTitle} role at ${companyName}. They demonstrated solid foundational knowledge during the conceptual round and showed a structured problem-solving approach in the practical coding challenge.`,
+        summary: `The candidate completed the technical interview for the ${roleTitle} role at ${companyName}. They demonstrated solid foundational knowledge during the discussion and showed a structured problem-solving approach.`,
         strengths: [
-            'Clear communication and willingness to explain thought process before coding',
-            'Solid grasp of core architectural patterns and standard library usage',
-            'Clean code structure with readable variable naming and indentation'
+            'Clear communication and willingness to explain thought process and project architecture',
+            'Solid grasp of core architectural patterns and engineering trade-offs',
+            'Strong ownership of past projects and technical choices'
         ],
         areasForImprovement: [
             'Deepen understanding of edge-case handling for boundary and extreme inputs',
             'Proactively discuss Time and Space complexity trade-offs before implementation'
         ],
         codeReview: {
-            correctness: 'The candidate produced a working solution that addresses the core algorithmic requirements.',
-            timeComplexity: 'O(n) - Linear time complexity traversing input elements.',
-            spaceComplexity: 'O(n) - Allocates auxiliary data structures proportional to input size.',
+            correctness: isProjectOnly ? 'Project & Technical Architecture discussion round; candidate demonstrated sound system design.' : 'The candidate produced a working solution that addresses the core algorithmic requirements.',
+            timeComplexity: isProjectOnly ? 'N/A - Architectural evaluation' : 'O(n) - Linear time complexity traversing input elements.',
+            spaceComplexity: isProjectOnly ? 'N/A - Architectural evaluation' : 'O(n) - Allocates auxiliary data structures proportional to input size.',
             suggestions: [
-                'Consider handling null or empty array edge-cases at the very beginning of the function.',
-                'Use const and let strictly to maintain immutability where possible.'
+                'Consider documenting failure modes and automated disaster recovery in architecture diagrams.',
+                'Use caching layers strategically to optimize database read latency.'
             ]
         }
     };
@@ -202,17 +235,20 @@ You are conducting a formal technical evaluation and grading of a candidate's co
 Role: ${roleTitle}
 Target Level: ${experienceLevel}
 Company: ${companyName}
+Format: ${isProjectOnly ? 'PROJECT & TECHNICAL ARCHITECTURE ONLY (No live coding round was scheduled. Focus evaluation on their project discussions, architectural depth, trade-offs, and communication.)' : 'FULL TECHNICAL LOOP (Technical / Project discussion followed by live coding challenge)'}
+
+${candidateResume ? `--- CANDIDATE RESUME & PROJECTS CONTEXT ---\n${candidateResume}\n` : ''}
 
 --- CODING CHALLENGE GIVEN TO CANDIDATE ---
-Title: ${codingChallenge?.title || 'Algorithmic Problem'}
-Description: ${codingChallenge?.description || 'N/A'}
+Title: ${codingChallenge?.title || (isProjectOnly ? 'N/A (Project Architecture Discussion)' : 'Algorithmic Problem')}
+Description: ${codingChallenge?.description || (isProjectOnly ? 'This round evaluated project experience, scalability, and system design.' : 'N/A')}
 Input/Output Expectations: ${codingChallenge?.inputFormat || 'N/A'} -> ${codingChallenge?.outputFormat || 'N/A'}
 
 --- CANDIDATE'S FINAL SUBMITTED CODE ---
 Language: ${codeSubmission?.language || 'javascript'}
 Code:
 """
-${codeSubmission?.code || '// No code submitted'}
+${codeSubmission?.code || (isProjectOnly ? '// No coding required for this round' : '// No code submitted')}
 """
 
 --- AUTOMATED TEST SUITE EXECUTION RESULTS ---
@@ -225,9 +261,9 @@ ${formattedTranscript || 'No transcript available.'}
 
 --- EVALUATION INSTRUCTIONS ---
 Perform a thorough, objective, and constructive assessment across 4 key dimensions:
-1. Conceptual Knowledge (0-100): How well did they understand foundational concepts, architecture, and system trade-offs during discussions with Rohan?
-2. Coding Correctness (0-100): Did their code solve the problem? Did it pass test cases? Are edge cases addressed?
-3. Code Quality (0-100): Is the code clean, idiomatic, maintainable, modular, and properly structured?
+1. Conceptual Knowledge (0-100): How well did they understand foundational concepts, architecture, and system trade-offs during discussions?
+2. Coding Correctness (0-100): ${isProjectOnly ? 'Since this was a Project/Architecture round without live coding, grade their technical depth, algorithmic clarity, and architectural soundness shown in dialogue.' : 'Did their code solve the problem? Did it pass test cases? Are edge cases addressed?'}
+3. Code Quality (0-100): ${isProjectOnly ? 'Grade their engineering standards, best practices, and code structure discussed during project review.' : 'Is the code clean, idiomatic, maintainable, modular, and properly structured?'}
 4. Communication (0-100): Did the candidate articulate their approach clearly, accept feedback, and explain their logic?
 5. Overall Score (0-100): Weighted synthesis of the above.
 6. Hiring Verdict: Choose strictly one of: 'Strong Hire', 'Hire', 'Needs Improvement', 'Reject'.
@@ -268,20 +304,14 @@ Return ONLY a JSON object matching this exact schema:
 }`;
 
     try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{ parts: [{ text: prompt }] }],
-                generationConfig: {
-                    responseMimeType: 'application/json',
-                    temperature: 0.2 // low temperature for consistent, objective evaluation
-                }
-            })
+        const text = await callGemini({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+                responseMimeType: 'application/json',
+                temperature: 0.2 // low temperature for consistent, objective evaluation
+            }
         });
 
-        const data = await response.json();
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
         if (text) {
             const parsed = JSON.parse(text);
             return {
@@ -347,13 +377,16 @@ export const evaluateInterviewSession = async (sessionId) => {
 
     // 2. Call Gemini for AI Scoring & Evaluation
     const aiResult = await generateAiEvaluation({
-        roleTitle: session.assessment?.roleTitle || 'Software Engineer',
-        companyName: session.assessment?.companyName || 'Engineering Team',
+        roleTitle: session.assessment?.targetRoleTitle || session.assessment?.roleTitle || 'Software Engineer',
+        companyName: session.assessment?.targetCompanyName || session.assessment?.companyName || 'Engineering Team',
         experienceLevel: session.assessment?.experienceLevel || 'Mid',
+
         transcript: session.transcript || [],
         codingChallenge: session.codingChallenge || {},
         codeSubmission: session.codeSubmission || {},
-        testCaseResults
+        testCaseResults,
+        candidateResume: session.candidateResume || '',
+        interviewFormat: session.interviewFormat || 'FULL_INTERVIEW'
     });
 
     // 3. Update and persist Evaluation

@@ -108,16 +108,18 @@ export const verifyAssessmentCode = asyncHandler(async (req, res) => {
     const lobbyData = {
         _id: assessment._id,
         title: assessment.title,
-        companyName: assessment.company.name,
-        roleTitle: assessment.role.title,
-        skills: assessment.skills,
-        experienceLevel: assessment.experienceLevel,
-        durationMinutes: assessment.durationMinutes,
+        assessmentType: assessment.assessmentType || 'COMPANY',
+        companyName: assessment.targetCompanyName || assessment.company?.name || 'Hiring Team',
+        roleTitle: assessment.targetRoleTitle || assessment.role?.title || 'Software Engineer',
+        skills: assessment.skills || [],
+        experienceLevel: assessment.experienceLevel || 'Entry',
+        durationMinutes: assessment.durationMinutes || 30,
         assessmentCode: assessment.assessmentCode
     };
 
     res.json(new ApiResponse(200, lobbyData, 'Assessment found'));
 });
+
 
 // Company invites candidates via email with automated magic links
 export const inviteCandidates = asyncHandler(async (req, res) => {
