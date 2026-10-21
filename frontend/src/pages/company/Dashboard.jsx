@@ -13,7 +13,14 @@ import {
     Clock, 
     ChevronRight,
     AlertCircle,
-    Loader2
+    Loader2,
+    Activity,
+    Edit3,
+    FileText,
+    Sparkles,
+    RefreshCw,
+    CheckCircle2,
+    User
 } from 'lucide-react';
 
 const Dashboard = () => {
@@ -22,8 +29,10 @@ const Dashboard = () => {
 
     const [roles, setRoles] = useState([]);
     const [assessments, setAssessments] = useState([]);
+    const [interviews, setInterviews] = useState({ ongoing: [], completed: [] });
     const [loadingRoles, setLoadingRoles] = useState(true);
     const [loadingAssessments, setLoadingAssessments] = useState(true);
+    const [loadingInterviews, setLoadingInterviews] = useState(true);
 
     // role form state
     const [showRoleForm, setShowRoleForm] = useState(false);
@@ -32,34 +41,57 @@ const Dashboard = () => {
     const [roleError, setRoleError] = useState('');
     const [copiedCode, setCopiedCode] = useState(null);
 
+    // role editing state
+    const [editingRoleId, setEditingRoleId] = useState(null);
+    const [editRoleTitle, setEditRoleTitle] = useState('');
+    const [editRoleDesc, setEditRoleDesc] = useState('');
+
+    // report generation state
+    const [generatingReportId, setGeneratingReportId] = useState(null);
+
     // fetch roles
-    useEffect(() => {
-        const fetchRoles = async () => {
-            try {
-                const res = await api.get('/company/roles');
-                if (res.data.success) setRoles(res.data.data);
-            } catch (err) {
-                console.error('Failed to fetch roles', err);
-            } finally {
-                setLoadingRoles(false);
-            }
-        };
-        fetchRoles();
-    }, []);
+    const fetchRoles = async () => {
+        try {
+            const res = await api.get('/company/roles');
+            if (res.data.success) setRoles(res.data.data);
+        } catch (err) {
+            console.error('Failed to fetch roles', err);
+        } finally {
+            setLoadingRoles(false);
+        }
+    };
 
     // fetch assessments
-    useEffect(() => {
-        const fetchAssessments = async () => {
-            try {
-                const res = await api.get('/assessments');
-                if (res.data.success) setAssessments(res.data.data);
-            } catch (err) {
-                console.error('Failed to fetch assessments', err);
-            } finally {
-                setLoadingAssessments(false);
+    const fetchAssessments = async () => {
+        try {
+            const res = await api.get('/assessments');
+            if (res.data.success) setAssessments(res.data.data);
+        } catch (err) {
+            console.error('Failed to fetch assessments', err);
+        } finally {
+            setLoadingAssessments(false);
+        }
+    };
+
+    // fetch interviews telemetry
+    const fetchInterviews = async () => {
+        setLoadingInterviews(true);
+        try {
+            const res = await api.get('/company/interviews');
+            if (res.data.success) {
+                setInterviews(res.data.data);
             }
-        };
+        } catch (err) {
+            console.error('Failed to fetch company interviews', err);
+        } finally {
+            setLoadingInterviews(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchRoles();
         fetchAssessments();
+        fetchInterviews();
     }, []);
 
     // create role
@@ -86,6 +118,33 @@ const Dashboard = () => {
         }
     };
 
+    // update role
+    const handleUpdateRole = async (e) => {
+        e.preventDefault();
+        if (!editRoleTitle.trim()) return;
+        try {
+            const res = await api.put(`/company/roles/${editingRoleId}`, {
+                title: editRoleTitle.trim(),
+                description: editRoleDesc.trim()
+            });
+            if (res.data.success) {
+                setRoles(roles.map(r => r._id === editingRoleId ? res.data.data : r));
+                setEditingRoleId(null);
+                setEditRoleTitle('');
+                setEditRoleDesc('');
+            }
+        } catch (err) {
+            console.error('Failed to update role', err);
+            alert(err.response?.data?.message || 'Failed to update role');
+        }
+    };
+
+    const startEditRole = (role) => {
+        setEditingRoleId(role._id);
+        setEditRoleTitle(role.title);
+        setEditRoleDesc(role.description || '');
+    };
+
     // delete role
     const handleDeleteRole = async (roleId) => {
         if (!window.confirm('Delete this role?')) return;
@@ -108,6 +167,22 @@ const Dashboard = () => {
             }
         } catch (err) {
             console.error('Failed to toggle status', err);
+        }
+    };
+
+    // trigger report generation manually
+    const handleTriggerEvaluation = async (sessionId) => {
+        setGeneratingReportId(sessionId);
+        try {
+            const res = await api.post(`/evaluation/trigger/${sessionId}`);
+            if (res.data.success) {
+                await fetchInterviews();
+            }
+        } catch (err) {
+            console.error('Failed to trigger evaluation', err);
+            alert(err.response?.data?.message || 'Failed to generate evaluation report');
+        } finally {
+            setGeneratingReportId(null);
         }
     };
 
@@ -149,8 +224,8 @@ const Dashboard = () => {
                 </div>
             </div>
 
-            {/* Stat Cards - 3 Column */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {/* Stat Cards - 4 Column */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="bg-[#141419] border border-[#232330] rounded-xl p-5">
                     <span className="text-xs font-medium text-[#8B8B9E] block">
                         Active Assessments
@@ -165,13 +240,25 @@ const Dashboard = () => {
 
                 <div className="bg-[#141419] border border-[#232330] rounded-xl p-5">
                     <span className="text-xs font-medium text-[#8B8B9E] block">
-                        Total Assessments
+                        Interviews in Session
+                    </span>
+                    <div className="flex items-baseline gap-2 mt-2">
+                        <span className="text-3xl font-semibold text-emerald-400 tabular-nums tracking-tight">
+                            {interviews?.ongoing?.length || 0}
+                        </span>
+                        <span className="text-xs text-emerald-400 font-medium">live candidates</span>
+                    </div>
+                </div>
+
+                <div className="bg-[#141419] border border-[#232330] rounded-xl p-5">
+                    <span className="text-xs font-medium text-[#8B8B9E] block">
+                        Completed Sessions
                     </span>
                     <div className="flex items-baseline gap-2 mt-2">
                         <span className="text-3xl font-semibold text-[#EDEDF0] tabular-nums tracking-tight">
-                            {assessments.length}
+                            {interviews?.completed?.length || 0}
                         </span>
-                        <span className="text-xs text-[#555568]">created</span>
+                        <span className="text-xs text-[#555568]">finished</span>
                     </div>
                 </div>
 
@@ -243,9 +330,159 @@ const Dashboard = () => {
                 </div>
             )}
 
+            {/* Live Ongoing Interviews Section */}
+            <div className="space-y-3">
+                <div className="flex items-center justify-between px-1">
+                    <div className="flex items-center gap-2">
+                        <Activity className="w-4 h-4 text-emerald-400 animate-pulse" />
+                        <h2 className="text-sm font-semibold text-[#EDEDF0]">
+                            Interviews in Progress ({interviews.ongoing.length})
+                        </h2>
+                    </div>
+                    <button
+                        onClick={fetchInterviews}
+                        disabled={loadingInterviews}
+                        className="text-xs text-[#8B8B9E] hover:text-[#EDEDF0] flex items-center gap-1.5 transition-colors"
+                        title="Refresh session list"
+                    >
+                        <RefreshCw className={`w-3.5 h-3.5 ${loadingInterviews ? 'animate-spin' : ''}`} />
+                        <span>Refresh</span>
+                    </button>
+                </div>
+
+                <div className="border border-[#232330] bg-[#141419] rounded-xl overflow-hidden">
+                    {loadingInterviews ? (
+                        <div className="p-8 flex items-center justify-center text-xs text-[#8B8B9E] gap-2">
+                            <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+                            <span>Loading live sessions...</span>
+                        </div>
+                    ) : interviews.ongoing.length > 0 ? (
+                        <div className="divide-y divide-[#232330]">
+                            {interviews.ongoing.map((session) => (
+                                <div
+                                    key={session.sessionId}
+                                    className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-[#1C1C24]/60 transition-colors"
+                                >
+                                    <div className="space-y-1.5 flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <span className="text-sm font-medium text-[#EDEDF0]">
+                                                {session.candidateName}
+                                            </span>
+                                            <span className="text-xs text-[#8B8B9E]">
+                                                &lt;{session.candidateEmail}&gt;
+                                            </span>
+                                            <span className="px-2 py-0.5 rounded-full text-xs font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-1.5">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+                                                <span>Live: {session.currentStage?.replace('_', ' ')}</span>
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-3 text-xs text-[#8B8B9E] flex-wrap">
+                                            <span>Assessment: <strong className="text-[#EDEDF0]">{session.assessmentTitle}</strong></span>
+                                            <span>•</span>
+                                            <span>Code: <span className="font-mono text-[#EDEDF0]">{session.assessmentCode}</span></span>
+                                            <span>•</span>
+                                            <span>Started: {new Date(session.startedAt).toLocaleTimeString()}</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xs bg-emerald-500/10 text-emerald-400 px-3 py-1 rounded-full border border-emerald-500/20 font-medium">
+                                            In Session
+                                        </span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="p-6 text-center space-y-1">
+                            <p className="text-xs text-[#8B8B9E]">No candidate interviews are currently in progress.</p>
+                            <p className="text-[11px] text-[#555568]">Candidates show up here while taking your assessment.</p>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Completed Interviews & Evaluation Reports */}
+            {interviews.completed.length > 0 && (
+                <div className="space-y-3">
+                    <div className="flex items-center justify-between px-1">
+                        <div className="flex items-center gap-2">
+                            <CheckCircle2 className="w-4 h-4 text-[#8B8B9E]" />
+                            <h2 className="text-sm font-semibold text-[#EDEDF0]">
+                                Completed Interviews ({interviews.completed.length})
+                            </h2>
+                        </div>
+                    </div>
+
+                    <div className="border border-[#232330] bg-[#141419] rounded-xl overflow-hidden">
+                        <div className="divide-y divide-[#232330]">
+                            {interviews.completed.map((session) => (
+                                <div
+                                    key={session.sessionId}
+                                    className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-[#1C1C24]/60 transition-colors"
+                                >
+                                    <div className="space-y-1.5 flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <span className="text-sm font-medium text-[#EDEDF0]">
+                                                {session.candidateName}
+                                            </span>
+                                            <span className="text-xs text-[#8B8B9E]">
+                                                &lt;{session.candidateEmail}&gt;
+                                            </span>
+                                            <span className="px-2 py-0.5 rounded-full text-xs font-medium text-[#8B8B9E] bg-[#0A0A0B] border border-[#232330]">
+                                                FINISHED
+                                            </span>
+                                            {session.score !== null && (
+                                                <span className="px-2 py-0.5 rounded-full text-xs font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/20">
+                                                    Score: {session.score}%
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center gap-3 text-xs text-[#8B8B9E] flex-wrap">
+                                            <span>Assessment: <strong className="text-[#EDEDF0]">{session.assessmentTitle}</strong></span>
+                                            <span>•</span>
+                                            <span>Finished: {new Date(session.updatedAt).toLocaleDateString()} {new Date(session.updatedAt).toLocaleTimeString()}</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-2 flex-shrink-0">
+                                        {session.hasReport ? (
+                                            <Link
+                                                to={`/candidate/report/${session.sessionId}`}
+                                                className="btn-primary text-xs py-1.5 px-3 flex items-center gap-1.5"
+                                            >
+                                                <FileText className="w-3.5 h-3.5" />
+                                                <span>View report</span>
+                                            </Link>
+                                        ) : (
+                                            <button
+                                                onClick={() => handleTriggerEvaluation(session.sessionId)}
+                                                disabled={generatingReportId === session.sessionId}
+                                                className="studio-btn-secondary text-xs py-1.5 px-3 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10 flex items-center gap-1.5"
+                                            >
+                                                {generatingReportId === session.sessionId ? (
+                                                    <>
+                                                        <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" />
+                                                        <span>Generating...</span>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Sparkles className="w-3.5 h-3.5" />
+                                                        <span>Generate Report</span>
+                                                    </>
+                                                )}
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Assessment Pipeline Directory */}
             <div className="space-y-3">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between px-1">
                     <div className="flex items-center gap-2">
                         <Layers className="w-4 h-4 text-[#8B8B9E]" />
                         <h2 className="text-sm font-semibold text-[#EDEDF0]">
@@ -347,9 +584,9 @@ const Dashboard = () => {
 
             {/* Configured Roles */}
             <div className="space-y-3">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between px-1">
                     <h2 className="text-sm font-semibold text-[#EDEDF0]">
-                        Job Roles ({roles.length})
+                        Configured Roles ({roles.length})
                     </h2>
                 </div>
 
@@ -357,18 +594,66 @@ const Dashboard = () => {
                     {roles.length > 0 ? (
                         <div className="divide-y divide-[#232330]">
                             {roles.map((r) => (
-                                <div key={r._id} className="p-4 flex items-center justify-between gap-3 text-sm hover:bg-[#1C1C24]/60 transition-colors">
-                                    <div className="space-y-0.5">
-                                        <span className="font-medium text-[#EDEDF0]">{r.title}</span>
-                                        {r.description && <p className="text-xs text-[#8B8B9E]">{r.description}</p>}
-                                    </div>
-                                    <button
-                                        onClick={() => handleDeleteRole(r._id)}
-                                        className="p-1.5 rounded-md text-[#8B8B9E] hover:text-red-400 hover:bg-red-500/10 transition-colors"
-                                        title="Delete role"
-                                    >
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
+                                <div key={r._id} className="p-4 text-xs hover:bg-[#1C1C24]/60 transition-colors">
+                                    {editingRoleId === r._id ? (
+                                        <form onSubmit={handleUpdateRole} className="space-y-3">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                <input
+                                                    type="text"
+                                                    value={editRoleTitle}
+                                                    onChange={(e) => setEditRoleTitle(e.target.value)}
+                                                    className="studio-input text-xs"
+                                                    placeholder="Role Title"
+                                                    required
+                                                />
+                                                <input
+                                                    type="text"
+                                                    value={editRoleDesc}
+                                                    onChange={(e) => setEditRoleDesc(e.target.value)}
+                                                    className="studio-input text-xs"
+                                                    placeholder="Role Description"
+                                                />
+                                            </div>
+                                            <div className="flex justify-end gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setEditingRoleId(null)}
+                                                    className="studio-btn-secondary text-xs py-1 px-3"
+                                                >
+                                                    Cancel
+                                                </button>
+                                                <button
+                                                    type="submit"
+                                                    className="btn-primary text-xs py-1 px-3"
+                                                >
+                                                    Save Changes
+                                                </button>
+                                            </div>
+                                        </form>
+                                    ) : (
+                                        <div className="flex items-center justify-between gap-3">
+                                            <div className="space-y-0.5">
+                                                <span className="font-medium text-[#EDEDF0] text-sm">{r.title}</span>
+                                                {r.description && <p className="text-xs text-[#8B8B9E]">{r.description}</p>}
+                                            </div>
+                                            <div className="flex items-center gap-1.5">
+                                                <button
+                                                    onClick={() => startEditRole(r)}
+                                                    className="p-1.5 rounded-md text-[#8B8B9E] hover:text-[#EDEDF0] hover:bg-[#232330] transition-colors"
+                                                    title="Edit role specification"
+                                                >
+                                                    <Edit3 className="w-3.5 h-3.5" />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDeleteRole(r._id)}
+                                                    className="p-1.5 rounded-md text-[#8B8B9E] hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                                                    title="Delete role profile"
+                                                >
+                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             ))}
                         </div>

@@ -39,6 +39,10 @@ const InterviewRoom = () => {
     const [stage, setStage] = useState('CONCEPTUAL'); // 'CONCEPTUAL' | 'CODING' | 'COMPLETED'
     const [transcript, setTranscript] = useState([]);
     const [latestAiMessage, setLatestAiMessage] = useState('');
+    const [currentTopic, setCurrentTopic] = useState('');
+    const [currentTopicIndex, setCurrentTopicIndex] = useState(0);
+    const [totalTopics, setTotalTopics] = useState(3);
+    const [latestEvaluation, setLatestEvaluation] = useState(null);
 
     // Timer state
     const [timeLeftSeconds, setTimeLeftSeconds] = useState(1800); // default 30m
@@ -51,6 +55,7 @@ const InterviewRoom = () => {
     const [isMuted, setIsMuted] = useState(false);
     const [isSending, setIsSending] = useState(false);
     const [showTextInput, setShowTextInput] = useState(false);
+    const [micError, setMicError] = useState('');
 
     // Coding state
     const [codingChallenge, setCodingChallenge] = useState(null);
@@ -153,6 +158,14 @@ const InterviewRoom = () => {
                     if (data.session.codingChallenge) {
                         setCodingChallenge(data.session.codingChallenge);
                         setEditorCode(data.session.codingChallenge.starterCode || '// Write your code here');
+                    }
+
+                    // Adaptive Curriculum State
+                    if (data.session.topics && data.session.topics.length > 0) {
+                        setTotalTopics(data.session.topics.length);
+                        const currIdx = data.session.currentTopicIndex || 0;
+                        setCurrentTopicIndex(currIdx);
+                        setCurrentTopic(data.session.topics[currIdx] || data.session.topics[0]);
                     }
                 }
             } catch (err) {
@@ -262,10 +275,12 @@ const InterviewRoom = () => {
 
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SpeechRecognition) {
+            setMicError('Speech recognition is not natively supported by this browser. Text input mode enabled.');
             setShowTextInput(true);
             return;
         }
 
+        setMicError('');
         const recognition = new SpeechRecognition();
         recognition.continuous = false; // Clean turn-based utterance capture
         recognition.interimResults = false; // No streaming partial chunks
@@ -277,6 +292,12 @@ const InterviewRoom = () => {
         };
 
         recognition.onresult = (event) => {
+            // Barge-in: cut off AI audio immediately when candidate begins speaking
+            if (window.speechSynthesis && window.speechSynthesis.speaking) {
+                window.speechSynthesis.cancel();
+                setIsAiSpeaking(false);
+                if (utteranceRef.current) utteranceRef.current = null;
+            }
             let finalStr = '';
             for (let i = 0; i < event.results.length; i++) {
                 if (event.results[i].isFinal) {
@@ -289,8 +310,16 @@ const InterviewRoom = () => {
         };
 
         recognition.onerror = (e) => {
-            console.error('Speech recognition error', e);
+            console.warn('Speech recognition error:', e.error);
             setIsListening(false);
+            if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+                setMicError('Microphone permission was denied. Please allow microphone in browser or switch to text mode.');
+                setShowTextInput(true);
+            } else if (e.error === 'no-speech') {
+                // Ignore benign timeout
+            } else {
+                setMicError(`Voice recognition notice: ${e.error}. Feel free to review/edit text below.`);
+            }
         };
 
         recognition.onend = () => {
@@ -299,16 +328,23 @@ const InterviewRoom = () => {
         };
 
         recognitionRef.current = recognition;
-        recognition.start();
+        try {
+            recognition.start();
+        } catch (err) {
+            console.warn('Failed to start recognition:', err);
+            setMicError('Microphone could not be started. Text mode enabled.');
+            setShowTextInput(true);
+        }
     };
 
     // 5. Send Candidate Answer to Backend + Gemini
     const handleSendMessage = async (customText) => {
-        const textToSend = (customText || candidateText || interimSpeech).trim();
+        // Only submit finalized text or explicit customText (never send stray unreviewed interim fragments alone)
+        const textToSend = (customText || candidateText || (isListening ? interimSpeech : '')).trim();
         if (!textToSend || isSending) return;
 
         if (recognitionRef.current && isListening) {
-            recognitionRef.current.stop();
+            try { recognitionRef.current.stop(); } catch {}
             setIsListening(false);
         }
         if (window.speechSynthesis) window.speechSynthesis.cancel();
@@ -331,9 +367,23 @@ const InterviewRoom = () => {
             });
 
             if (res.data.success) {
-                const { aiMessage, stage: newStage, codingChallenge: newChallenge, transcript: updatedTranscript } = res.data.data;
+                const {
+                    aiMessage,
+                    stage: newStage,
+                    codingChallenge: newChallenge,
+                    transcript: updatedTranscript,
+                    currentTopic: newTopic,
+                    currentTopicIndex: newTopicIndex,
+                    totalTopics: newTotalTopics,
+                    answerEvaluation
+                } = res.data.data;
+
                 setLatestAiMessage(aiMessage);
                 if (updatedTranscript) setTranscript(updatedTranscript);
+                if (newTopic) setCurrentTopic(newTopic);
+                if (newTopicIndex !== undefined) setCurrentTopicIndex(newTopicIndex);
+                if (newTotalTopics !== undefined) setTotalTopics(newTotalTopics);
+                if (answerEvaluation) setLatestEvaluation(answerEvaluation);
 
                 if (newStage === 'CODING' && stage !== 'CODING') {
                     setTransitionBanner(true);
@@ -613,7 +663,12 @@ const InterviewRoom = () => {
                 </div>
 
                 {/* Center: Phase Badge */}
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                    {code === 'PRACTICE-MOCK-SESSION' && (
+                        <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                            Practice Lab (Ungraded)
+                        </span>
+                    )}
                     <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${
                         stage === 'CONCEPTUAL'
                             ? 'bg-[#141419] text-[#EDEDF0] border-[#363645]'
@@ -713,10 +768,17 @@ const InterviewRoom = () => {
 
                     {/* Question Card */}
                     <div className="w-full bg-[#141419] border border-[#232330] rounded-xl p-6 sm:p-7 space-y-4">
-                        <div className="flex items-center justify-between">
-                            <span className="text-xs font-medium text-[#8B8B9E] flex items-center gap-2">
-                                <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span> Question
-                            </span>
+                        <div className="flex items-center justify-between flex-wrap gap-2">
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs font-medium text-[#8B8B9E] flex items-center gap-1.5">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span> Technical Discussion
+                                </span>
+                                {currentTopic && (
+                                    <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-mono text-xs">
+                                        Topic {currentTopicIndex + 1}/{totalTopics}: {currentTopic}
+                                    </span>
+                                )}
+                            </div>
                             <button
                                 onClick={() => speakAiMessage(latestAiMessage)}
                                 className="studio-btn-secondary text-xs py-1 px-2.5"
@@ -728,18 +790,83 @@ const InterviewRoom = () => {
                         <p className="text-base sm:text-lg font-medium text-[#EDEDF0] leading-relaxed">
                             "{latestAiMessage || 'Initializing interview questions...'}"
                         </p>
+                        {latestEvaluation && (
+                            <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-[#232330] text-xs font-mono">
+                                <span className="text-[#8B8B9E] text-[11px]">Previous Answer:</span>
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${latestEvaluation.correctness >= 70 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'}`}>
+                                    Correctness: {latestEvaluation.correctness}%
+                                </span>
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${latestEvaluation.depth >= 70 ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'bg-[#1C1C24] text-[#8B8B9E] border border-[#232330]'}`}>
+                                    Depth: {latestEvaluation.depth}%
+                                </span>
+                                {latestEvaluation.critique && (
+                                    <span className="text-[#8B8B9E] text-[11px] italic truncate max-w-sm sm:max-w-md">
+                                        "{latestEvaluation.critique}"
+                                    </span>
+                                )}
+                            </div>
+                        )}
                     </div>
 
-                    {/* Speech Recognition Transcript Box */}
-                    {(candidateText || isListening) && (
-                        <div className="w-full bg-[#0A0A0B] border border-[#232330] rounded-xl p-4 space-y-1 text-xs">
-                            <div className="flex justify-between text-xs text-[#8B8B9E]">
-                                <span>Your speech:</span>
-                                {isListening && <span className="text-red-400 font-medium animate-pulse">Listening... Click 'Stop speaking' when finished</span>}
+                    {/* Mic Error Banner */}
+                    {micError && (
+                        <div className="w-full p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-xs text-red-400 flex items-center justify-between font-mono gap-2">
+                            <div className="flex items-center gap-2">
+                                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                                <span>{micError}</span>
                             </div>
-                            <p className="text-[#EDEDF0] leading-relaxed">
-                                {candidateText || <span className="text-[#555568] italic">Listening for your speech...</span>}
-                            </p>
+                            <button
+                                onClick={() => { setShowTextInput(true); setMicError(''); }}
+                                className="studio-btn-secondary text-[11px] py-0.5 px-2 text-[#EDEDF0]"
+                            >
+                                Switch to Text Mode
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Speech Recognition Transcript Box with Review & Edit */}
+                    {(candidateText || interimSpeech || isListening) && (
+                        <div className="w-full bg-[#141419] border border-[#232330] rounded-xl p-4 space-y-2 text-xs">
+                            <div className="flex justify-between items-center text-xs text-[#8B8B9E]">
+                                <span className="flex items-center gap-1.5 font-medium">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                                    Candidate Speech Buffer:
+                                </span>
+                                {isListening ? (
+                                    <span className="text-red-400 font-medium animate-pulse">● RECORDING AUDIO...</span>
+                                ) : (
+                                    <span className="text-emerald-400 text-[11px]">[REVIEW & EDIT BEFORE TRANSMITTING]</span>
+                                )}
+                            </div>
+                            <textarea
+                                value={candidateText}
+                                onChange={(e) => setCandidateText(e.target.value)}
+                                placeholder={isListening ? "Transcribing speech from microphone..." : "Transcribed response. You can refine or edit your answer before sending..."}
+                                rows={3}
+                                className="w-full bg-[#0A0A0B] border border-[#232330] rounded-lg p-2.5 text-xs text-[#EDEDF0] focus:outline-none focus:border-blue-500/50 resize-none leading-relaxed"
+                            />
+                            {interimSpeech && (
+                                <p className="text-[11px] text-[#8B8B9E] italic">
+                                    Live stream: {interimSpeech}
+                                </p>
+                            )}
+                            <div className="flex justify-end gap-2 pt-1">
+                                <button
+                                    type="button"
+                                    onClick={() => { setCandidateText(''); setInterimSpeech(''); }}
+                                    className="studio-btn-secondary text-xs py-1 px-2.5"
+                                >
+                                    Clear Buffer
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => handleSendMessage()}
+                                    disabled={isSending || (!candidateText.trim() && !interimSpeech.trim())}
+                                    className="btn-primary text-xs py-1 px-3.5 font-medium"
+                                >
+                                    {isSending ? 'Transmitting...' : 'Transmit Answer'}
+                                </button>
+                            </div>
                         </div>
                     )}
 

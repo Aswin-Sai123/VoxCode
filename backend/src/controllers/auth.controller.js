@@ -19,8 +19,11 @@ export const registerCompany = asyncHandler(async (req, res) => {
         throw new ApiError(400, 'Company already exists');
     }
     
-    await Company.create({ name, email, password });
-    res.status(201).json(new ApiResponse(201, null, 'Company registered successfully'));
+    const company = await Company.create({ name, email, password });
+    const { accessToken, refreshToken } = generateTokens(company, 'COMPANY');
+    await RefreshToken.create({ token: refreshToken, userId: company._id, role: 'COMPANY' });
+    
+    res.status(201).json(new ApiResponse(201, { accessToken, refreshToken, role: 'COMPANY' }, 'Company registered successfully'));
 });
 
 export const loginCompany = asyncHandler(async (req, res) => {
@@ -43,8 +46,11 @@ export const registerCandidate = asyncHandler(async (req, res) => {
         throw new ApiError(400, 'Candidate already exists');
     }
     
-    await Candidate.create({ name, email, password });
-    res.status(201).json(new ApiResponse(201, null, 'Candidate registered successfully'));
+    const candidate = await Candidate.create({ name, email, password });
+    const { accessToken, refreshToken } = generateTokens(candidate, 'CANDIDATE');
+    await RefreshToken.create({ token: refreshToken, userId: candidate._id, role: 'CANDIDATE' });
+    
+    res.status(201).json(new ApiResponse(201, { accessToken, refreshToken, role: 'CANDIDATE' }, 'Candidate registered successfully'));
 });
 
 export const loginCandidate = asyncHandler(async (req, res) => {
@@ -66,16 +72,21 @@ export const googleLogin = asyncHandler(async (req, res) => {
 
 export const googleCallback = asyncHandler(async (req, res) => {
     const candidate = req.user;
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
     
+    if (!candidate) {
+        return res.redirect(`${frontendUrl}/login?error=google_failed`);
+    }
+
     const { accessToken, refreshToken } = generateTokens(candidate, 'CANDIDATE');
     await RefreshToken.create({ token: refreshToken, userId: candidate._id, role: 'CANDIDATE' });
     
-    // Redirect back to frontend with tokens in the URL
-    res.redirect(`${process.env.FRONTEND_URL}/login?accessToken=${accessToken}&refreshToken=${refreshToken}`);
+    // Redirect back to frontend with tokens and role in the URL
+    res.redirect(`${frontendUrl}/login?accessToken=${accessToken}&refreshToken=${refreshToken}&role=CANDIDATE`);
 });
 
 export const refreshToken = asyncHandler(async (req, res) => {
-    const { token } = req.body;
+    const token = req.body.token || req.body.refreshToken;
     if (!token) {
         throw new ApiError(401, 'No refresh token');
     }
@@ -111,10 +122,20 @@ export const logout = asyncHandler(async (req, res) => {
 export const getMe = asyncHandler(async (req, res) => {
     if (req.user.role === 'COMPANY') {
         const company = await Company.findById(req.user.id).select('-password');
-        res.json(new ApiResponse(200, company, "Current user fetched"));
+        if (!company) {
+            throw new ApiError(404, 'Company user not found');
+        }
+        const data = company.toObject();
+        data.role = 'COMPANY';
+        res.json(new ApiResponse(200, data, "Current user fetched"));
     } else if (req.user.role === 'CANDIDATE') {
         const candidate = await Candidate.findById(req.user.id).select('-password');
-        res.json(new ApiResponse(200, candidate, "Current user fetched"));
+        if (!candidate) {
+            throw new ApiError(404, 'Candidate user not found');
+        }
+        const data = candidate.toObject();
+        data.role = 'CANDIDATE';
+        res.json(new ApiResponse(200, data, "Current user fetched"));
     } else {
         throw new ApiError(404, 'User not found');
     }

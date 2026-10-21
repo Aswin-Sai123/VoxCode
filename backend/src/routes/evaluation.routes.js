@@ -14,7 +14,7 @@ const router = Router();
 router.get('/my-reports', protect(['CANDIDATE']), getMyReports);
 
 // Get evaluation report for a specific interview session
-router.get('/session/:sessionId', getEvaluationBySession);
+router.get('/session/:sessionId', protect(['CANDIDATE', 'COMPANY']), getEvaluationBySession);
 
 // Company: get all candidate evaluations for an assessment (leaderboard)
 router.get('/assessment/:assessmentId', protect(['COMPANY']), getAssessmentEvaluations);
@@ -23,6 +23,6 @@ router.get('/assessment/:assessmentId', protect(['COMPANY']), getAssessmentEvalu
 router.patch('/:evaluationId/decision', protect(['COMPANY']), updateRecruiterDecision);
 
 // Trigger evaluation manually
-router.post('/trigger/:sessionId', triggerEvaluation);
+router.post('/trigger/:sessionId', protect(['CANDIDATE', 'COMPANY']), triggerEvaluation);
 
 export default router;

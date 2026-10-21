@@ -24,6 +24,12 @@ const CreateAssessment = () => {
     const [experienceLevel, setExperienceLevel] = useState('Mid');
     const [durationMinutes, setDurationMinutes] = useState(30);
     const [blueprint, setBlueprint] = useState('');
+    const [openingTime, setOpeningTime] = useState('');
+    const [closingTime, setClosingTime] = useState('');
+    const [accessType, setAccessType] = useState('PUBLIC');
+    const [eligibleEmails, setEligibleEmails] = useState('');
+    const [codingRoundEnabled, setCodingRoundEnabled] = useState(true);
+    const [voiceRoundEnabled, setVoiceRoundEnabled] = useState(true);
 
     // other state
     const [roles, setRoles] = useState([]);
@@ -87,7 +93,13 @@ const CreateAssessment = () => {
                 skills,
                 experienceLevel,
                 durationMinutes,
-                blueprint: blueprint.trim()
+                blueprint: blueprint.trim(),
+                openingTime: openingTime || null,
+                closingTime: closingTime || null,
+                accessType,
+                eligibleEmails,
+                codingRoundEnabled,
+                voiceRoundEnabled
             });
 
             if (res.data.success) {
@@ -324,6 +336,100 @@ const CreateAssessment = () => {
                                 placeholder="Focus on system scalability, code modularity, edge cases, and asynchronous programming."
                                 className="studio-input resize-none"
                             />
+                        </div>
+
+                        {/* Assessment Time Window & Expiry */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                                <label className="text-[11px] uppercase text-[#A1A1AA] block">
+                                    Scheduled Opening Time (Optional):
+                                </label>
+                                <input
+                                    type="datetime-local"
+                                    value={openingTime}
+                                    onChange={(e) => setOpeningTime(e.target.value)}
+                                    className="studio-input font-mono text-xs"
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="text-[11px] uppercase text-[#A1A1AA] block">
+                                    Closing / Expiry Time (Optional):
+                                </label>
+                                <input
+                                    type="datetime-local"
+                                    value={closingTime}
+                                    onChange={(e) => setClosingTime(e.target.value)}
+                                    className="studio-input font-mono text-xs"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Access Control & Eligibility Policy */}
+                        <div className="space-y-2">
+                            <label className="text-[11px] uppercase text-[#A1A1AA] block">
+                                Candidate Access Policy:
+                            </label>
+                            <div className="grid grid-cols-2 gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setAccessType('PUBLIC')}
+                                    className={`py-1.5 text-xs font-mono rounded border transition-all ${
+                                        accessType === 'PUBLIC'
+                                            ? 'bg-[#18181C] text-[#FAFAFA] border-[#3F3F46]'
+                                            : 'text-[#71717A] border-[#222228] hover:text-[#FAFAFA]'
+                                    }`}
+                                >
+                                    [PUBLIC ACCESS]
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setAccessType('INVITE_ONLY')}
+                                    className={`py-1.5 text-xs font-mono rounded border transition-all ${
+                                        accessType === 'INVITE_ONLY'
+                                            ? 'bg-[#18181C] text-[#FAFAFA] border-[#3F3F46]'
+                                            : 'text-[#71717A] border-[#222228] hover:text-[#FAFAFA]'
+                                    }`}
+                                >
+                                    [INVITE-ONLY RESTRICTED]
+                                </button>
+                            </div>
+
+                            {accessType === 'INVITE_ONLY' && (
+                                <div className="space-y-1 pt-1">
+                                    <label className="text-[10px] uppercase text-[#71717A] block font-mono">
+                                        Authorized Candidate Emails (comma or newline separated):
+                                    </label>
+                                    <textarea
+                                        rows={2}
+                                        value={eligibleEmails}
+                                        onChange={(e) => setEligibleEmails(e.target.value)}
+                                        placeholder="sarah@example.com, alex@mit.edu"
+                                        className="studio-input font-mono text-xs resize-none"
+                                    />
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Round Flags */}
+                        <div className="grid grid-cols-2 gap-2 pt-1 font-mono text-xs">
+                            <label className="flex items-center gap-2 p-2.5 rounded bg-[#111114] border border-[#222228] cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={voiceRoundEnabled}
+                                    onChange={(e) => setVoiceRoundEnabled(e.target.checked)}
+                                    className="accent-[#10B981]"
+                                />
+                                <span className="text-[#FAFAFA]">Voice Screening Round</span>
+                            </label>
+                            <label className="flex items-center gap-2 p-2.5 rounded bg-[#111114] border border-[#222228] cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={codingRoundEnabled}
+                                    onChange={(e) => setCodingRoundEnabled(e.target.checked)}
+                                    className="accent-[#10B981]"
+                                />
+                                <span className="text-[#FAFAFA]">Polyglot Coding Round</span>
+                            </label>
                         </div>
 
                         <button

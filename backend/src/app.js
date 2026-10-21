@@ -9,9 +9,12 @@ app.use(cors({
     credentials: true
 }));
 
+import passport from './passport.js';
+
 app.use(express.json({ limit: "16kb" }));
 app.use(express.urlencoded({ extended: true, limit: "16kb" }));
 app.use(cookieParser());
+app.use(passport.initialize());
 
 // Route imports
 import authRouter from './routes/auth.routes.js';

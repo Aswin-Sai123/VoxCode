@@ -4,12 +4,14 @@ import {
     createRole,
     getRoles,
     updateRole,
-    deleteRole
+    deleteRole,
+    getCompanyInterviews
 } from '../controllers/company.controller.js';
 
 const router = Router();
 
-// Dashboard endpoints
+// Dashboard & telemetry endpoints
+router.get('/interviews', protect(['COMPANY']), getCompanyInterviews);
 router.get('/dashboard', protect(['COMPANY']), (req, res) => {
     res.json({ message: 'Company Dashboard data' });
 });

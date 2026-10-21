@@ -7,6 +7,7 @@ import { ApiError } from '../utils/ApiError.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { getCuratedCompanyProfiles, getScrapedCompanyIntelligence } from '../services/companyScraper.service.js';
 import { parseResumeProjects } from '../services/ai.service.js';
+import { reconcileInterviewSessionStatus } from '../utils/reconcileInterviewSession.js';
 
 /**
  * Get rich dashboard metrics, in-progress sessions, and recent reports for logged-in candidate
@@ -70,14 +71,33 @@ export const getCandidateDashboard = asyncHandler(async (req, res) => {
         }
     }
 
-    // 2. Fetch any in-progress sessions (so candidate can resume)
-    const inProgressSessions = await InterviewSession.find({
+    // 2. Fetch valid in-progress sessions (exclude completed evaluations, expired or closed assessments)
+    const rawInProgress = await InterviewSession.find({
         candidate: candidateId,
         status: 'IN_PROGRESS'
     })
-        .populate('assessment', 'title roleTitle companyName targetCompanyName targetRoleTitle assessmentType skills durationMinutes assessmentCode')
-        .sort({ updatedAt: -1 })
-        .limit(3);
+        .populate('assessment', 'title roleTitle companyName targetCompanyName targetRoleTitle assessmentType skills durationMinutes assessmentCode status openingTime closingTime')
+        .sort({ updatedAt: -1 });
+
+    const inProgressSessions = [];
+    for (const sess of rawInProgress) {
+        // If assessment is missing or closed, skip
+        if (!sess.assessment || sess.assessment.status === 'CLOSED') continue;
+
+        const effectiveStatus = await reconcileInterviewSessionStatus(sess);
+        if (effectiveStatus !== 'IN_PROGRESS') continue;
+
+        inProgressSessions.push({
+            _id: sess._id,
+            assessmentId: sess.assessment._id,
+            assessmentTitle: sess.assessment.title,
+            assessmentCode: sess.assessment.assessmentCode,
+            companyName: sess.assessment.targetCompanyName || sess.assessment.companyName || 'Company',
+            stage: sess.stage,
+            isPractice: sess.isPractice || false,
+            startedAt: sess.startedAt
+        });
+    }
 
     // 3. Recommended / Available Practice Assessments
     const availableAssessments = await Assessment.find({ status: 'ACTIVE' })

@@ -19,6 +19,10 @@ const evaluationSchema = new Schema({
         required: true,
         index: true
     },
+    isPractice: {
+        type: Boolean,
+        default: false
+    },
     scores: {
         overall: { type: Number, min: 0, max: 100, default: 0 },
         conceptual: { type: Number, min: 0, max: 100, default: 0 },

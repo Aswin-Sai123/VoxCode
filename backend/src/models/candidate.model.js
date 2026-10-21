@@ -6,6 +6,7 @@ const candidateSchema = new Schema({
     email: { type: String, required: true, unique: true },
     password: { type: String }, // Optional for Google OAuth
     googleId: { type: String },
+    role: { type: String, default: 'CANDIDATE', enum: ['CANDIDATE'] },
     resumeText: { type: String, default: '' },
     parsedProjects: [{
         title: { type: String, default: '' },

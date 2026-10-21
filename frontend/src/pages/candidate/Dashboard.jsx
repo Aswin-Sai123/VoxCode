@@ -25,7 +25,8 @@ import {
     Globe,
     Cpu,
     Check,
-    FolderGit2
+    FolderGit2,
+    Play
 } from 'lucide-react';
 
 const POPULAR_COMPANIES = [
@@ -148,6 +149,22 @@ const Dashboard = () => {
         };
     }, [creatingMock]);
 
+    const [startingPractice, setStartingPractice] = useState(false);
+
+    const handleStartPractice = async () => {
+        setStartingPractice(true);
+        setJoinError('');
+        try {
+            const res = await api.post('/interview/practice/start');
+            if (res.data.success) {
+                navigate('/candidate/interview/PRACTICE-MOCK-SESSION');
+            }
+        } catch (err) {
+            setJoinError(err.response?.data?.message || 'Failed to start practice mock session');
+        } finally {
+            setStartingPractice(false);
+        }
+    };
     const handleJoin = (e) => {
         if (e) e.preventDefault();
         const code = assessmentCode.trim().toUpperCase();
@@ -261,9 +278,17 @@ const Dashboard = () => {
                         <Globe className="w-3.5 h-3.5" />
                         <span>Start Mock Interview</span>
                     </button>
+                    <button
+                        onClick={handleStartPractice}
+                        disabled={startingPractice}
+                        className="studio-btn-primary bg-[#10B981] hover:bg-[#059669] text-[#09090B] font-semibold text-xs flex items-center gap-1.5"
+                    >
+                        <Play className="w-3.5 h-3.5 fill-current" />
+                        <span>{startingPractice ? 'Starting...' : 'Practice Lab'}</span>
+                    </button>
                     <Link to="/candidate/reports" className="studio-btn-secondary text-xs">
                         <FileText className="w-4 h-4 text-[#8B8B9E]" />
-                        <span>View reports</span>
+                        <span>My reports</span>
                     </Link>
                 </div>
             </div>
@@ -274,9 +299,16 @@ const Dashboard = () => {
                     <div className="flex items-center gap-3">
                         <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse flex-shrink-0"></span>
                         <div>
-                            <p className="text-sm font-medium text-[#EDEDF0]">
-                                Active Session: {inProgressSessions[0].assessmentTitle || 'Technical Interview'}
-                            </p>
+                            <div className="flex items-center gap-2">
+                                <p className="text-sm font-medium text-[#EDEDF0]">
+                                    Active Session: {inProgressSessions[0].assessmentTitle || 'Technical Interview'}
+                                </p>
+                                {inProgressSessions[0].isPractice && (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                        Practice
+                                    </span>
+                                )}
+                            </div>
                             <p className="text-xs text-[#8B8B9E] mt-0.5">
                                 Code: {inProgressSessions[0].assessmentCode} • Current stage: {inProgressSessions[0].stage}
                             </p>
@@ -378,11 +410,11 @@ const Dashboard = () => {
                 </div>
             </div>
 
-            {/* Stat Cards - 3 Column */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="bg-[#141419] border border-[#232330] rounded-xl p-5">
-                    <span className="text-xs font-medium text-[#8B8B9E] block">
-                        Completed Interviews
+            {/* Top Telemetry Strip: 4-Column Connected Metric Bar */}
+            <div className="border border-[#232330] bg-[#141419] rounded-xl grid grid-cols-2 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x divide-[#232330] overflow-hidden">
+                <div className="p-4 space-y-1">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-[#8B8B9E] block">
+                        Interviews done
                     </span>
                     <div className="flex items-baseline gap-2 mt-2">
                         <span className="text-3xl font-semibold text-[#EDEDF0] tabular-nums tracking-tight">
@@ -392,21 +424,21 @@ const Dashboard = () => {
                     </div>
                 </div>
 
-                <div className="bg-[#141419] border border-[#232330] rounded-xl p-5">
-                    <span className="text-xs font-medium text-[#8B8B9E] block">
-                        Average Technical Score
+                <div className="p-4 space-y-1">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-[#8B8B9E] block">
+                        Average score
                     </span>
                     <div className="flex items-baseline gap-2 mt-2">
                         <span className="text-3xl font-semibold text-[#EDEDF0] tabular-nums tracking-tight">
                             {stats.avgScore}%
                         </span>
-                        <span className="text-xs text-emerald-400 font-medium">composite</span>
+                        <span className="text-xs text-emerald-400 font-medium">overall</span>
                     </div>
                 </div>
 
-                <div className="bg-[#141419] border border-[#232330] rounded-xl p-5">
-                    <span className="text-xs font-medium text-[#8B8B9E] block">
-                        Best Performance
+                <div className="p-4 space-y-1">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-[#8B8B9E] block">
+                        Best score
                     </span>
                     <div className="flex items-baseline gap-2 mt-2">
                         <span className="text-3xl font-semibold text-[#EDEDF0] tabular-nums tracking-tight">
@@ -415,15 +447,27 @@ const Dashboard = () => {
                         <span className="text-xs text-[#555568]">top score</span>
                     </div>
                 </div>
+
+                <div className="p-4 space-y-1">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-[#8B8B9E] block">
+                        Code runners
+                    </span>
+                    <div className="flex items-baseline gap-2 mt-2">
+                        <span className="text-sm font-mono font-medium text-emerald-400">
+                            Ready
+                        </span>
+                        <span className="text-[11px] font-mono text-[#555568]">0.18s</span>
+                    </div>
+                </div>
             </div>
 
-            {/* Available Assessments Section */}
+            {/* Active Assessment Queue */}
             <div className="space-y-3">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between px-1">
                     <div className="flex items-center gap-2">
                         <Layers className="w-4 h-4 text-[#8B8B9E]" />
                         <h2 className="text-sm font-semibold text-[#EDEDF0]">
-                            Active / Assigned Assessments
+                            Available Assessments
                         </h2>
                     </div>
                     <span className="text-xs text-[#555568]">
@@ -579,7 +623,7 @@ const Dashboard = () => {
                                             <td className="py-4 px-5 text-right">
                                                 {report.isMock ? (
                                                     <Link
-                                                        to={`/candidate/report/${report.sessionId}`}
+                                                        to={`/candidate/report/${report.sessionId || report.session?._id || report.session}`}
                                                         className="studio-btn-secondary text-xs py-1.5 px-3"
                                                     >
                                                         <span>View report</span>

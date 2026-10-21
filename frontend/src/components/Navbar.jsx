@@ -1,7 +1,7 @@
 import React, { useContext } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
-import { Terminal, LogOut, FileText, Plus, LayoutDashboard, User } from 'lucide-react';
+import { Terminal, LogOut, FileText, Plus, LayoutDashboard, User, Play } from 'lucide-react';
 
 const Navbar = () => {
     const { user, logout } = useContext(AuthContext);
@@ -36,6 +36,13 @@ const Navbar = () => {
                                     >
                                         <LayoutDashboard className="w-4 h-4" />
                                         <span>Dashboard</span>
+                                    </Link>
+                                    <Link
+                                        to="/candidate/interview/PRACTICE-MOCK-SESSION"
+                                        className="px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-2 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 border border-emerald-500/20"
+                                    >
+                                        <Play className="w-3.5 h-3.5 fill-current" />
+                                        <span>Practice Lab</span>
                                     </Link>
                                     <Link
                                         to="/candidate/reports"
