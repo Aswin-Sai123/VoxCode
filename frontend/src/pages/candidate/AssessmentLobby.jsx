@@ -213,6 +213,8 @@ const AssessmentLobby = () => {
         );
     }
 
+    const interviewFormat = assessment?.interviewFormat || assessment?.blueprint?.interviewFormat || 'FULL_INTERVIEW';
+
     return (
         <div className="flex-1 p-6 sm:p-8 max-w-6xl mx-auto w-full space-y-6">
             {/* Navigation & Code pill */}
