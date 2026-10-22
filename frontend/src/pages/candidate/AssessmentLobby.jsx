@@ -22,6 +22,8 @@ import {
     Globe,
     Lock
 } from 'lucide-react';
+import { toast } from 'sonner';
+import { CardSkeleton } from '../../components/common/Skeleton';
 
 const AssessmentLobby = () => {
     const { code } = useParams();
@@ -89,12 +91,12 @@ const AssessmentLobby = () => {
         const lowerName = file.name.toLowerCase();
         const isSupported = validExtensions.some(ext => lowerName.endsWith(ext));
         if (!isSupported) {
-            alert('Please upload a PDF (.pdf), Word document (.docx), or plain text (.txt) file.');
+            toast.error('Please upload a PDF (.pdf), Word document (.docx), or plain text (.txt) file.');
             return;
         }
 
         if (file.size > 20 * 1024 * 1024) {
-            alert('File size exceeds 20MB limit. Please upload a smaller resume document.');
+            toast.error('File size exceeds 20MB limit. Please upload a smaller resume document.');
             return;
         }
 
@@ -122,11 +124,12 @@ const AssessmentLobby = () => {
                     setCandidateSummary(data.summary || '');
                     setCandidateSkills(data.skills || []);
                     setParseSuccess(true);
+                    toast.success('Resume parsed and contextualized with Gemini');
                     setTimeout(() => setParseSuccess(false), 5000);
                 }
             } catch (err) {
                 console.error('Failed to parse resume document:', err);
-                alert(err.response?.data?.message || 'Failed to parse resume document with Gemini.');
+                toast.error(err.response?.data?.message || 'Failed to parse resume document with Gemini.');
             } finally {
                 setIsParsingResume(false);
             }
@@ -178,10 +181,11 @@ const AssessmentLobby = () => {
 
     if (loading) {
         return (
-            <div className="flex-1 flex items-center justify-center p-12">
-                <div className="flex items-center gap-3 text-sm text-[#8B8B9E]">
-                    <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
-                    <span>Loading assessment details...</span>
+            <div className="flex-1 p-6 sm:p-8 max-w-5xl mx-auto w-full space-y-6 animate-in fade-in duration-300">
+                <CardSkeleton className="h-40" />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <CardSkeleton className="h-64" />
+                    <CardSkeleton className="h-64" />
                 </div>
             </div>
         );

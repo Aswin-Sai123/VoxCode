@@ -24,8 +24,17 @@ import {
     Moon, 
     CameraOff, 
     ShieldAlert, 
-    AlertTriangle
+    AlertTriangle,
+    Move,
+    HelpCircle,
+    Code,
+    Settings2,
+    Check
 } from 'lucide-react';
+import { toast } from 'sonner';
+import confetti from 'canvas-confetti';
+import { playChime, playClick, playSuccess, playWarning } from '../../utils/soundEffects';
+import VoiceVisualizerOrb from '../../components/common/VoiceVisualizerOrb';
 
 // Live YouTube/Karaoke-style dynamic animated speech caption renderer
 const LiveCaptionsText = ({ text, isSpeaking, activeWordIndex }) => {
@@ -146,7 +155,14 @@ const InterviewRoom = () => {
     const [violationAlert, setViolationAlert] = useState(null);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [isWebcamMinimized, setIsWebcamMinimized] = useState(false);
+    const [webcamCorner, setWebcamCorner] = useState('bottom-right'); // 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left'
     const [faceStatus, setFaceStatus] = useState('INITIALIZING'); // 'INITIALIZING' | 'VERIFIED' | 'ABSENT' | 'MULTIPLE'
+
+    // Monaco IDE Pro Bar & Customization state
+    const [editorTheme, setEditorTheme] = useState('vs-dark'); // 'vs-dark' | 'vs' | 'hc-black'
+    const [editorFontSize, setEditorFontSize] = useState(13); // 12 | 13 | 14 | 16
+    const [showCheatsheet, setShowCheatsheet] = useState(false);
+    const monacoEditorRef = useRef(null);
 
     const missedFaceCountRef = useRef(0);
     const multipleFaceCountRef = useRef(0);
@@ -164,6 +180,7 @@ const InterviewRoom = () => {
 
     const recordViolation = useCallback(async (eventType, details) => {
         try {
+            playWarning();
             const sessId = session?._id;
             if (!sessId) return;
 
@@ -716,6 +733,9 @@ const InterviewRoom = () => {
     const speakAiMessage = (text) => {
         if (!text || isMutedRef.current || !window.speechSynthesis) return;
 
+        // Play gentle chime when interviewer begins speaking
+        playChime();
+
         // Auto-pause mic while AI speaks so the mic never catches the speakers
         if (recognitionRef.current && isListening) {
             recognitionRef.current.stop();
@@ -854,6 +874,7 @@ const InterviewRoom = () => {
 
     // 4. Clean Turn-by-Turn Speech Recognition (No live streaming jitter)
     const toggleSpeechRecognition = () => {
+        playClick();
         if (isListening) {
             if (recognitionRef.current) {
                 recognitionRef.current.stop();
@@ -932,6 +953,52 @@ const InterviewRoom = () => {
             setShowTextInput(true);
         }
     };
+
+    // Push-to-Talk (Hold Spacebar to speak) and Enter-to-transmit
+    useEffect(() => {
+        let spaceActive = false;
+
+        const handleKeyDown = (e) => {
+            const target = e.target;
+            const isEditing = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.closest('.monaco-editor');
+
+            if (e.code === 'Space' && !isEditing && !e.repeat && !isAiSpeaking) {
+                e.preventDefault();
+                if (!isListening && !spaceActive) {
+                    spaceActive = true;
+                    toggleSpeechRecognition();
+                }
+            } else if (e.key === 'Enter' && !isEditing && !e.shiftKey) {
+                if (candidateText.trim() || interimSpeech.trim()) {
+                    e.preventDefault();
+                    handleSendMessage();
+                }
+            } else if (e.key === '?' && !isEditing && !e.metaKey && !e.ctrlKey) {
+                e.preventDefault();
+                setShowCheatsheet(prev => !prev);
+            }
+        };
+
+        const handleKeyUp = (e) => {
+            const target = e.target;
+            const isEditing = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.closest('.monaco-editor');
+
+            if (e.code === 'Space' && !isEditing && spaceActive) {
+                e.preventDefault();
+                spaceActive = false;
+                if (isListening) {
+                    toggleSpeechRecognition();
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('keyup', handleKeyUp);
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('keyup', handleKeyUp);
+        };
+    }, [isListening, isAiSpeaking, candidateText, interimSpeech]);
 
     // 5. Send Candidate Answer to Backend + Gemini
     const handleSendMessage = async (customText) => {
@@ -1019,11 +1086,18 @@ const InterviewRoom = () => {
             if (res.data.success) {
                 const out = res.data.data.output || 'Code executed with no stdout output.';
                 setExecutionOutput(out);
+                const hasErr = res.data.data.hasError || false;
                 setExecutionDetails({
-                    hasError: res.data.data.hasError || false,
+                    hasError: hasErr,
                     executionTime: res.data.data.executionTime || '0.20s',
                     output: out
                 });
+                if (!hasErr) {
+                    playSuccess();
+                    toast.success('Code executed successfully');
+                } else {
+                    toast.error('Execution returned runtime or test failure');
+                }
             }
         } catch (err) {
             const errMsg = `Execution failed: ${err.response?.data?.message || err.message}`;
@@ -1033,6 +1107,7 @@ const InterviewRoom = () => {
                 executionTime: '0.00s',
                 output: errMsg
             });
+            toast.error('Execution error occurred');
         } finally {
             setIsRunningCode(false);
         }
@@ -1057,10 +1132,12 @@ const InterviewRoom = () => {
                     output: executionOutput
                 }
             });
+            confetti();
+            toast.success('Interview successfully submitted');
             setStage('COMPLETED');
             if (window.speechSynthesis) window.speechSynthesis.cancel();
         } catch (err) {
-            alert('Failed to submit interview: ' + (err.response?.data?.message || err.message));
+            toast.error('Failed to submit interview: ' + (err.response?.data?.message || err.message));
         } finally {
             setIsSubmitting(false);
         }
@@ -1261,14 +1338,45 @@ const InterviewRoom = () => {
                     </span>
                 </div>
 
-                {/* Center: Phase Badge */}
-                <div className="flex items-center gap-2">
+                {/* Center: Interactive Interview Stage Stepper */}
+                <div className="hidden md:flex items-center gap-1.5 lg:gap-2">
+                    {[
+                        { num: 1, label: 'Profile', active: stage === 'CONCEPTUAL' && currentTopicIndex === 0, done: stage === 'CODING' || currentTopicIndex > 0 },
+                        { num: 2, label: 'Architecture Deep-Dive', active: stage === 'CONCEPTUAL' && currentTopicIndex > 0, done: stage === 'CODING' },
+                        { num: 3, label: 'Coding Challenge', active: stage === 'CODING', done: stage === 'COMPLETED' },
+                        { num: 4, label: 'Debrief', active: stage === 'COMPLETED', done: false }
+                    ].map((step, idx, arr) => (
+                        <React.Fragment key={step.num}>
+                            <div className="flex items-center gap-1.5">
+                                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-mono font-bold transition-all ${
+                                    step.active
+                                        ? 'bg-blue-600 text-white shadow-[0_0_10px_rgba(37,99,235,0.5)]'
+                                        : step.done
+                                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                            : 'bg-[#1C1C24] text-[#8B8B9E] border border-[#2B2B3B]'
+                                }`}>
+                                    {step.done ? '✓' : step.num}
+                                </span>
+                                <span className={`text-[11px] font-medium transition-colors ${
+                                    step.active ? 'text-[#EDEDF0]' : step.done ? 'text-emerald-400/80' : 'text-[#8B8B9E]'
+                                }`}>
+                                    {step.label}
+                                </span>
+                            </div>
+                            {idx < arr.length - 1 && (
+                                <span className="w-2.5 h-[1px] bg-[#2E2E3E]" />
+                            )}
+                        </React.Fragment>
+                    ))}
+                </div>
+
+                <div className="md:hidden flex items-center gap-2">
                     <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${
                         stage === 'CONCEPTUAL'
                             ? 'bg-[#141419] text-[#EDEDF0] border-[#363645]'
                             : 'bg-blue-500/10 text-blue-400 border-blue-500/20'
                     }`}>
-                        {stage === 'CONCEPTUAL' ? 'Phase 1: Discussion' : 'Phase 2: Live Coding'}
+                        {stage === 'CONCEPTUAL' ? `Discussion (${currentTopicIndex + 1}/${totalTopics})` : 'Live Coding'}
                     </span>
                 </div>
 
@@ -1359,26 +1467,13 @@ const InterviewRoom = () => {
                             </span>
                         </div>
 
-                        {/* Frequency Bar Visualizer */}
-                        <div className="flex items-center justify-center gap-1.5 h-12 w-full max-w-md py-1">
-                            {[16, 28, 22, 38, 26, 14, 32, 20, 42, 24, 30, 16, 36, 26, 20, 32, 18, 24].map((h, i) => (
-                                <span
-                                    key={i}
-                                    style={{
-                                        height: isAiSpeaking ? `${h}px` : isListening ? `${(h * 0.8)}px` : '4px',
-                                    }}
-                                    className={`w-1 rounded-full transition-all duration-200 ${
-                                        isAiSpeaking 
-                                            ? 'bg-emerald-400' 
-                                            : isListening 
-                                                ? 'bg-red-400' 
-                                                : isSending 
-                                                    ? 'bg-amber-400 animate-pulse' 
-                                                    : 'bg-[#232330]'
-                                    }`}
-                                />
-                            ))}
-                        </div>
+                        {/* Real-Time Web Audio Waveform & Glowing Voice Orb */}
+                        <VoiceVisualizerOrb
+                            isAiSpeaking={isAiSpeaking}
+                            isListening={isListening}
+                            isSending={isSending}
+                            audioLevel={audioLevel}
+                        />
 
                         <span className="text-xs text-[#555568]">
                             Interactive voice response active
@@ -1491,7 +1586,7 @@ const InterviewRoom = () => {
 
                     {/* Control Action Deck */}
                     <div className="w-full flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
-                        <div className="flex items-center gap-3 w-full sm:w-auto">
+                        <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
                             <button
                                 onClick={toggleSpeechRecognition}
                                 className={`px-5 py-2.5 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-all flex-1 sm:flex-initial ${
@@ -1514,6 +1609,16 @@ const InterviewRoom = () => {
                                     <Send className="w-3.5 h-3.5" />
                                 </button>
                             )}
+
+                            {/* Push-to-Talk and Enter Keyboard Badges */}
+                            <div className="hidden lg:flex items-center gap-2 text-[10px] font-mono text-[#8B8B9E] pl-1">
+                                <span className="px-2 py-0.5 rounded bg-[#1C1C24] border border-[#2B2B3B] text-[#EDEDF0]">
+                                    [SPACE] Hold to speak
+                                </span>
+                                <span className="px-2 py-0.5 rounded bg-[#1C1C24] border border-[#2B2B3B] text-[#EDEDF0]">
+                                    [ENTER] Transmit
+                                </span>
+                            </div>
                         </div>
 
                         <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
@@ -1741,10 +1846,10 @@ const InterviewRoom = () => {
                         style={{ width: `${100 - leftPanelWidth}%` }}
                         className="flex flex-col bg-[#0A0A0B] overflow-hidden flex-1 min-w-0"
                     >
-                        {/* Editor Top Bar (h-10) */}
-                        <div className="h-10 border-b border-[#232330] bg-[#141419] px-3 flex items-center justify-between flex-shrink-0 text-xs">
-                            <div className="flex items-center gap-2.5">
-                                <span className="text-xs text-[#8B8B9E]">Language:</span>
+                        {/* Monaco IDE Pro Bar (h-10) */}
+                        <div className="h-10 border-b border-[#232330] bg-[#141419] px-3 flex items-center justify-between flex-shrink-0 text-xs overflow-x-auto">
+                            <div className="flex items-center gap-2 sm:gap-2.5">
+                                <span className="text-[11px] text-[#8B8B9E] font-mono uppercase tracking-wider">Language:</span>
                                 <select
                                     value={selectedLanguage}
                                     onChange={(e) => {
@@ -1762,23 +1867,76 @@ const InterviewRoom = () => {
                                             }
                                         }
                                     }}
-                                    className="bg-[#0A0A0B] border border-[#232330] text-xs text-[#EDEDF0] px-2.5 py-1 rounded-md focus:outline-none focus:border-blue-500"
+                                    className="bg-[#0A0A0B] border border-[#232330] text-xs text-[#EDEDF0] px-2 py-1 rounded-md focus:outline-none focus:border-blue-500 font-mono"
                                 >
                                     <option value="javascript">JavaScript (Node.js 24)</option>
                                     <option value="python">Python 3 (3.14)</option>
                                     <option value="cpp">C++ (GCC 6.3 / C++17)</option>
                                     <option value="java">Java (OpenJDK 24)</option>
                                 </select>
+
+                                {/* Theme Switcher */}
+                                <div className="hidden sm:flex items-center gap-1.5 pl-1">
+                                    <span className="text-[11px] text-[#8B8B9E] font-mono">Theme:</span>
+                                    <select
+                                        value={editorTheme}
+                                        onChange={(e) => setEditorTheme(e.target.value)}
+                                        className="bg-[#0A0A0B] border border-[#232330] text-xs text-[#EDEDF0] px-1.5 py-1 rounded-md focus:outline-none focus:border-blue-500 font-mono text-[11px]"
+                                    >
+                                        <option value="vs-dark">Dark (VS Dark)</option>
+                                        <option value="vs">Light (VS Light)</option>
+                                        <option value="hc-black">High Contrast</option>
+                                    </select>
+                                </div>
+
+                                {/* Font Size Switcher */}
+                                <div className="hidden md:flex items-center gap-1.5 pl-1">
+                                    <span className="text-[11px] text-[#8B8B9E] font-mono">Font:</span>
+                                    <select
+                                        value={editorFontSize}
+                                        onChange={(e) => setEditorFontSize(Number(e.target.value))}
+                                        className="bg-[#0A0A0B] border border-[#232330] text-xs text-[#EDEDF0] px-1.5 py-1 rounded-md focus:outline-none focus:border-blue-500 font-mono text-[11px]"
+                                    >
+                                        <option value={12}>12px</option>
+                                        <option value={13}>13px</option>
+                                        <option value={14}>14px</option>
+                                        <option value={16}>16px</option>
+                                    </select>
+                                </div>
                             </div>
 
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1.5 sm:gap-2">
+                                {/* Format Code Button */}
+                                <button
+                                    onClick={() => {
+                                        if (monacoEditorRef.current) {
+                                            monacoEditorRef.current.getAction('editor.action.formatDocument')?.run();
+                                            toast.success('Document formatted');
+                                        }
+                                    }}
+                                    className="studio-btn-secondary text-xs py-1 px-2.5 font-mono"
+                                    title="Prettier Format Code (Shift+Alt+F)"
+                                >
+                                    <Code className="w-3 h-3 text-[#8B8B9E]" />
+                                    <span className="hidden sm:inline">Format</span>
+                                </button>
+
+                                {/* Keyboard Shortcuts Cheatsheet Modal Trigger */}
+                                <button
+                                    onClick={() => setShowCheatsheet(true)}
+                                    className="studio-btn-secondary text-xs py-1 px-2"
+                                    title="IDE & Interview Keyboard Shortcuts (?)"
+                                >
+                                    <HelpCircle className="w-3.5 h-3.5 text-[#8B8B9E]" />
+                                </button>
+
                                 <button
                                     onClick={() => setEditorCode(codingChallenge?.starterCode || '')}
                                     className="studio-btn-secondary text-xs py-1 px-2.5"
                                     title="Reset code to default starter template"
                                 >
                                     <RotateCcw className="w-3 h-3 text-[#8B8B9E]" />
-                                    <span>Reset</span>
+                                    <span className="hidden sm:inline">Reset</span>
                                 </button>
                                 <button
                                     onClick={() => {
@@ -1818,10 +1976,11 @@ const InterviewRoom = () => {
                             <Editor
                                 height="100%"
                                 language={selectedLanguage}
-                                theme={isDark ? "vs-dark" : "vs"}
+                                theme={editorTheme || (isDark ? "vs-dark" : "vs")}
                                 value={editorCode}
                                 onChange={(value) => setEditorCode(value || '')}
                                 onMount={(editor) => {
+                                    monacoEditorRef.current = editor;
                                     editor.onDidPaste((e) => {
                                         const pasteLength = e.range ? (e.text?.length || 0) : 0;
                                         if (pasteLength > 40) {
@@ -1834,7 +1993,7 @@ const InterviewRoom = () => {
                                     });
                                 }}
                                 options={{
-                                    fontSize: 13,
+                                    fontSize: editorFontSize,
                                     fontFamily: '"JetBrains Mono", Consolas, monospace',
                                     minimap: { enabled: false },
                                     scrollBeyondLastLine: false,
@@ -2035,17 +2194,28 @@ const InterviewRoom = () => {
             )}
 
             {/* Floating Picture-in-Picture Live Proctoring Card */}
-            <div className={`fixed bottom-4 right-4 z-50 transition-all duration-300 shadow-2xl rounded-xl border border-[#232330] bg-[#141419]/95 backdrop-blur-md overflow-hidden ${
+            <div className={`fixed ${
+                webcamCorner === 'bottom-left' ? 'bottom-4 left-4' :
+                webcamCorner === 'top-right' ? 'top-16 right-4' :
+                webcamCorner === 'top-left' ? 'top-16 left-4' : 'bottom-4 right-4'
+            } z-50 transition-all duration-300 shadow-2xl rounded-xl border border-[#232330] bg-[#141419]/95 backdrop-blur-md overflow-hidden ${
                 isWebcamMinimized ? 'w-48' : 'w-64 sm:w-72'
             }`}>
                 {/* Video Header Bar */}
                 <div className="h-8 px-2.5 bg-[#0A0A0B] border-b border-[#232330] flex items-center justify-between text-[11px]">
                     <div className="flex items-center gap-1.5">
-                        <span className={`w-2 h-2 rounded-full ${
-                            faceStatus === 'VERIFIED' ? 'bg-emerald-400 animate-pulse' :
-                            faceStatus === 'ABSENT' ? 'bg-red-500 animate-ping' :
-                            faceStatus === 'MULTIPLE' ? 'bg-amber-400 animate-ping' : 'bg-zinc-400 animate-pulse'
-                        }`} />
+                        <div className="relative flex items-center justify-center w-3 h-3">
+                            <span className={`absolute w-full h-full rounded-full radar-ring ${
+                                faceStatus === 'VERIFIED' ? 'bg-emerald-400' :
+                                faceStatus === 'ABSENT' ? 'bg-red-500' :
+                                faceStatus === 'MULTIPLE' ? 'bg-amber-400' : 'bg-zinc-400'
+                            }`} />
+                            <span className={`w-2 h-2 rounded-full relative z-10 ${
+                                faceStatus === 'VERIFIED' ? 'bg-emerald-400' :
+                                faceStatus === 'ABSENT' ? 'bg-red-500' :
+                                faceStatus === 'MULTIPLE' ? 'bg-amber-400' : 'bg-zinc-400'
+                            }`} />
+                        </div>
                         <span className={`font-semibold tracking-wider uppercase text-[10px] ${
                             faceStatus === 'VERIFIED' ? 'text-emerald-400' :
                             faceStatus === 'ABSENT' ? 'text-red-400' :
@@ -2056,7 +2226,7 @@ const InterviewRoom = () => {
                              faceStatus === 'MULTIPLE' ? 'MULTI-FACE' : 'INITIALIZING'}
                         </span>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 sm:gap-2">
                         <span className={`text-[10px] font-mono font-medium px-1.5 py-0.5 rounded border ${
                             integrityScore >= 90 
                                 ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
@@ -2066,9 +2236,22 @@ const InterviewRoom = () => {
                         }`}>
                             {integrityScore}% Trust
                         </span>
+                        {/* Snap-to-Corner Toggle Button */}
+                        <button
+                            onClick={() => {
+                                const corners = ['bottom-right', 'bottom-left', 'top-left', 'top-right'];
+                                const next = corners[(corners.indexOf(webcamCorner) + 1) % corners.length];
+                                setWebcamCorner(next);
+                                toast.info(`Webcam snapped to ${next.replace('-', ' ')}`);
+                            }}
+                            className="text-[#8B8B9E] hover:text-[#EDEDF0] p-0.5 cursor-pointer"
+                            title="Snap webcam to different corner"
+                        >
+                            <Move className="w-3 h-3" />
+                        </button>
                         <button
                             onClick={() => setIsWebcamMinimized(!isWebcamMinimized)}
-                            className="text-[#8B8B9E] hover:text-[#EDEDF0] p-0.5"
+                            className="text-[#8B8B9E] hover:text-[#EDEDF0] p-0.5 cursor-pointer"
                             title={isWebcamMinimized ? "Expand camera preview" : "Minimize camera preview"}
                         >
                             {isWebcamMinimized ? <Maximize2 className="w-3 h-3" /> : <Minimize2 className="w-3 h-3" />}
@@ -2153,11 +2336,59 @@ const InterviewRoom = () => {
                         <div className="pt-2">
                             <button
                                 onClick={() => setViolationAlert(null)}
-                                className="btn-primary w-full py-2.5 text-xs font-medium"
+                                className="btn-primary w-full py-2.5 text-xs font-medium cursor-pointer"
                             >
                                 Acknowledge & Return to Test
                             </button>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Keyboard Shortcuts Cheatsheet Modal */}
+            {showCheatsheet && (
+                <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fadeIn">
+                    <div className="bg-[#141419] border border-[#232330] rounded-2xl p-6 max-w-md w-full space-y-4 shadow-2xl text-left light-catch">
+                        <div className="flex items-center justify-between border-b border-[#232330] pb-3">
+                            <div className="flex items-center gap-2">
+                                <Code className="w-4 h-4 text-blue-400" />
+                                <h3 className="text-sm font-semibold text-[#EDEDF0]">Interview & IDE Shortcuts</h3>
+                            </div>
+                            <button
+                                onClick={() => setShowCheatsheet(false)}
+                                className="text-[#8B8B9E] hover:text-white text-xs px-2 py-0.5 rounded border border-[#232330] cursor-pointer"
+                            >
+                                ESC
+                            </button>
+                        </div>
+                        <div className="space-y-2.5 text-xs">
+                            <div className="flex justify-between items-center py-1 border-b border-[#232330]/60">
+                                <span className="text-[#8B8B9E]">Push-to-Talk (Walkie Talkie)</span>
+                                <kbd className="px-2 py-0.5 rounded bg-[#0A0A0B] border border-[#232330] text-[#EDEDF0] font-mono">[Space] Hold</kbd>
+                            </div>
+                            <div className="flex justify-between items-center py-1 border-b border-[#232330]/60">
+                                <span className="text-[#8B8B9E]">Transmit Spoken Answer</span>
+                                <kbd className="px-2 py-0.5 rounded bg-[#0A0A0B] border border-[#232330] text-[#EDEDF0] font-mono">Enter</kbd>
+                            </div>
+                            <div className="flex justify-between items-center py-1 border-b border-[#232330]/60">
+                                <span className="text-[#8B8B9E]">Prettier Format Code</span>
+                                <kbd className="px-2 py-0.5 rounded bg-[#0A0A0B] border border-[#232330] text-[#EDEDF0] font-mono">Shift + Alt + F</kbd>
+                            </div>
+                            <div className="flex justify-between items-center py-1 border-b border-[#232330]/60">
+                                <span className="text-[#8B8B9E]">Global Command Palette</span>
+                                <kbd className="px-2 py-0.5 rounded bg-[#0A0A0B] border border-[#232330] text-[#EDEDF0] font-mono">⌘K / Ctrl+K</kbd>
+                            </div>
+                            <div className="flex justify-between items-center py-1 border-b border-[#232330]/60">
+                                <span className="text-[#8B8B9E]">Toggle Shortcuts Modal</span>
+                                <kbd className="px-2 py-0.5 rounded bg-[#0A0A0B] border border-[#232330] text-[#EDEDF0] font-mono">?</kbd>
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => setShowCheatsheet(false)}
+                            className="btn-primary w-full py-2 text-xs font-medium cursor-pointer"
+                        >
+                            Got it
+                        </button>
                     </div>
                 </div>
             )}

@@ -12,6 +12,8 @@ import {
     ShieldCheck
 } from 'lucide-react';
 
+import { CardSkeleton, TableSkeleton } from '../../components/common/Skeleton';
+
 const ReportDetail = () => {
     const { sessionId } = useParams();
     const navigate = useNavigate();
@@ -53,9 +55,14 @@ const ReportDetail = () => {
 
     if (loading) {
         return (
-            <div className="flex-1 flex flex-col items-center justify-center p-12 space-y-3">
-                <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
-                <span className="text-sm text-[#8B8B9E]">Loading assessment report...</span>
+            <div className="flex-1 p-6 sm:p-8 max-w-6xl mx-auto w-full space-y-6 animate-in fade-in duration-300">
+                <CardSkeleton className="h-8 w-40" />
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                    <CardSkeleton className="lg:col-span-5 h-64" />
+                    <CardSkeleton className="lg:col-span-7 h-64" />
+                </div>
+                <CardSkeleton className="h-44" />
+                <TableSkeleton rows={3} />
             </div>
         );
     }

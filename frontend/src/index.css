@@ -577,4 +577,137 @@ html[data-theme="light"] .code-chit {
   color: #0F172A !important;
 }
 
+/* ==========================================================================
+   LINEAR / VERCEL CRAFTSMANSHIP DESIGN UTILITIES
+   ========================================================================== */
+
+/* Ultra-Thin 4px Precision Scrollbars */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+html.light ::-webkit-scrollbar-thumb,
+html[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Subtle Isometric / Dot-Grid Backdrop */
+.bg-dot-grid {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+html.light .bg-dot-grid,
+html[data-theme="light"] .bg-dot-grid {
+  background-image: radial-gradient(rgba(15, 23, 42, 0.08) 1px, transparent 1px) !important;
+  background-size: 24px 24px;
+}
+
+/* 1px Inner Highlight Edge ("Light Catch") */
+.light-catch {
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+}
+html.light .light-catch,
+html[data-theme="light"] .light-catch {
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.7) !important;
+}
+
+/* Prismatic Shimmer Skeleton Loader */
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+.skeleton-shimmer {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.07), transparent);
+  animation: shimmer 1.8s infinite;
+}
+html.light .skeleton-shimmer,
+html[data-theme="light"] .skeleton-shimmer {
+  background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.06), transparent) !important;
+}
+
+/* Radar Ripple Ring for Active Live Telemetry */
+@keyframes radar-ripple {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+.radar-ring {
+  animation: radar-ripple 2s cubic-bezier(0, 0.2, 0.8, 1) infinite;
+}
+
+/* Metallic Gradient Headings */
+.metallic-heading {
+  background: linear-gradient(180deg, #FFFFFF 0%, #E2E8F0 50%, #94A3B8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+html.light .metallic-heading,
+html[data-theme="light"] .metallic-heading {
+  background: linear-gradient(180deg, #0F172A 0%, #334155 100%) !important;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Soft Mask Truncation Fade */
+.mask-fade-right {
+  mask-image: linear-gradient(to right, black 85%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, black 85%, transparent 100%);
+}
+
+/* Dual-Tone Status Pill */
+.dual-tone-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.125rem 0.625rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border-radius: 9999px;
+  box-shadow: inset 0 0 0 1px currentColor;
+}
+
+/* Staggered Page Entrance Animation */
+@keyframes cascadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.stagger-container > * {
+  animation: cascadeIn 400ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.stagger-container > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-container > *:nth-child(2) { animation-delay: 40ms; }
+.stagger-container > *:nth-child(3) { animation-delay: 80ms; }
+.stagger-container > *:nth-child(4) { animation-delay: 120ms; }
+.stagger-container > *:nth-child(5) { animation-delay: 160ms; }
+.stagger-container > *:nth-child(6) { animation-delay: 200ms; }
+
+/* Spring sliding segmented pills */
+.spring-pill-transition {
+  transition: all 250ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+
 

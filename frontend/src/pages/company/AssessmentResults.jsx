@@ -12,6 +12,9 @@ import {
     X,
     Loader2
 } from 'lucide-react';
+import { toast } from 'sonner';
+import { CardSkeleton, TableSkeleton } from '../../components/common/Skeleton';
+import EmptyState from '../../components/common/EmptyState';
 
 const AssessmentResults = () => {
     const { id } = useParams();
@@ -64,10 +67,11 @@ const AssessmentResults = () => {
                 setEvaluations(prev =>
                     prev.map(ev => (ev._id === evaluationId ? { ...ev, recruiterDecision: newDecision } : ev))
                 );
+                toast.success('Candidate decision updated');
             }
         } catch (err) {
             console.error('Failed to update recruiter decision', err);
-            alert('Failed to update decision: ' + (err.response?.data?.message || err.message));
+            toast.error('Failed to update decision: ' + (err.response?.data?.message || err.message));
         }
     };
 
@@ -83,10 +87,11 @@ const AssessmentResults = () => {
             if (res.data.success) {
                 setInviteSuccessData(res.data.data);
                 setInviteEmails('');
+                toast.success('Assessment invitations sent successfully');
             }
         } catch (err) {
             console.error('Failed to send invites', err);
-            alert('Failed to send invites: ' + (err.response?.data?.message || err.message));
+            toast.error('Failed to send invites: ' + (err.response?.data?.message || err.message));
         } finally {
             setInviteLoading(false);
         }
@@ -96,6 +101,7 @@ const AssessmentResults = () => {
         const link = `${window.location.origin}/candidate/assessment/${assessment?.assessmentCode}`;
         navigator.clipboard.writeText(link);
         setCopied(true);
+        toast.success('Magic link copied to clipboard');
         setTimeout(() => setCopied(false), 2000);
     };
 
@@ -161,8 +167,8 @@ const AssessmentResults = () => {
 
             {/* Stat Cards - 3 Column */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="bg-[#141419] border border-[#232330] rounded-xl p-5">
-                    <span className="text-[11px] font-mono uppercase tracking-wider text-[#8B8B9E] block">
+                <div className="bg-[#141419] border border-[#232330] rounded-xl p-5 light-catch">
+                    <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#8B8B9E] block">
                         Evaluated Candidates
                     </span>
                     <div className="flex items-baseline gap-2 mt-2">
@@ -173,8 +179,8 @@ const AssessmentResults = () => {
                     </div>
                 </div>
 
-                <div className="bg-[#141419] border border-[#232330] rounded-xl p-5">
-                    <span className="text-[11px] font-mono uppercase tracking-wider text-[#8B8B9E] block">
+                <div className="bg-[#141419] border border-[#232330] rounded-xl p-5 light-catch">
+                    <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#8B8B9E] block">
                         Shortlisted Candidates
                     </span>
                     <div className="flex items-baseline gap-2 mt-2">
@@ -185,8 +191,8 @@ const AssessmentResults = () => {
                     </div>
                 </div>
 
-                <div className="bg-[#141419] border border-[#232330] rounded-xl p-5">
-                    <span className="text-[11px] font-mono uppercase tracking-wider text-[#8B8B9E] block">
+                <div className="bg-[#141419] border border-[#232330] rounded-xl p-5 light-catch">
+                    <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#8B8B9E] block">
                         Average Cohort Score
                     </span>
                     <div className="flex items-baseline gap-2 mt-2">
@@ -353,10 +359,13 @@ const AssessmentResults = () => {
                         </table>
                     </div>
                 ) : (
-                    <div className="p-12 text-center space-y-1">
-                        <p className="text-sm text-[#8B8B9E]">No candidates evaluated for this assessment yet.</p>
-                        <p className="text-xs text-[#555568]">Send invitations to candidates or share the assessment link above.</p>
-                    </div>
+                    <EmptyState
+                        title="No candidates evaluated yet"
+                        description="Send invitations to candidates or share the assessment magic link above."
+                        actionLabel="Invite Candidates"
+                        onAction={() => setShowInviteModal(true)}
+                        actionIcon={Mail}
+                    />
                 )}
             </div>
 

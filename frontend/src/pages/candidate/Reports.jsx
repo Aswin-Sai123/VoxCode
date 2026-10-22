@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../services/api';
-import { ExternalLink, ChevronLeft, AlertCircle, Loader2 } from 'lucide-react';
+import { ExternalLink, ChevronLeft, AlertCircle, Search } from 'lucide-react';
+import { CardSkeleton, TableSkeleton } from '../../components/common/Skeleton';
+import EmptyState from '../../components/common/EmptyState';
 
 const Reports = () => {
     const [reports, setReports] = useState([]);
@@ -52,18 +54,18 @@ const Reports = () => {
         : 0;
 
     return (
-        <div className="flex-1 p-6 sm:p-8 max-w-7xl mx-auto w-full space-y-8">
+        <div className="flex-1 p-6 sm:p-8 max-w-7xl mx-auto w-full space-y-8 animate-in fade-in duration-300">
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-[#232330] gap-4">
                 <div className="space-y-1">
                     <Link
                         to="/candidate/dashboard"
-                        className="inline-flex items-center gap-1.5 text-xs text-[#8B8B9E] hover:text-[#EDEDF0] transition-colors"
+                        className="inline-flex items-center gap-1.5 text-xs text-[#8B8B9E] hover:text-[#EDEDF0] transition-colors active:scale-[0.98]"
                     >
                         <ChevronLeft className="w-4 h-4" />
                         <span>Back to dashboard</span>
                     </Link>
-                    <h1 className="text-2xl font-semibold text-[#EDEDF0] tracking-tight">
+                    <h1 className="text-2xl font-semibold metallic-heading tracking-tight">
                         Assessment Reports
                     </h1>
                     <p className="text-sm text-[#8B8B9E]">
@@ -74,41 +76,51 @@ const Reports = () => {
 
             {/* Stat Overview Strip */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="bg-[#141419] border border-[#232330] rounded-xl p-5">
-                    <span className="text-[11px] font-mono uppercase tracking-wider text-[#8B8B9E] block">
-                        Completed Interviews
-                    </span>
-                    <div className="flex items-baseline gap-2 mt-2">
-                        <span className="text-3xl font-semibold text-[#EDEDF0] tabular-nums tracking-tight">
-                            {reports.length}
-                        </span>
-                        <span className="text-xs text-[#555568]">total sessions</span>
-                    </div>
-                </div>
+                {loading ? (
+                    <>
+                        <CardSkeleton className="h-24" />
+                        <CardSkeleton className="h-24" />
+                        <CardSkeleton className="h-24" />
+                    </>
+                ) : (
+                    <>
+                        <div className="bg-[#141419] border border-[#232330] rounded-xl p-5 light-catch">
+                            <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#8B8B9E] block">
+                                Completed Interviews
+                            </span>
+                            <div className="flex items-baseline gap-2 mt-2">
+                                <span className="text-3xl font-semibold text-[#EDEDF0] tabular-nums tracking-tight">
+                                    {reports.length}
+                                </span>
+                                <span className="text-xs text-[#555568]">total sessions</span>
+                            </div>
+                        </div>
 
-                <div className="bg-[#141419] border border-[#232330] rounded-xl p-5">
-                    <span className="text-[11px] font-mono uppercase tracking-wider text-[#8B8B9E] block">
-                        Mock Average Score
-                    </span>
-                    <div className="flex items-baseline gap-2 mt-2">
-                        <span className="text-3xl font-semibold text-[#EDEDF0] tabular-nums tracking-tight">
-                            {avgScore}%
-                        </span>
-                        <span className="text-xs text-emerald-400 font-medium">composite</span>
-                    </div>
-                </div>
+                        <div className="bg-[#141419] border border-[#232330] rounded-xl p-5 light-catch">
+                            <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#8B8B9E] block">
+                                Mock Average Score
+                            </span>
+                            <div className="flex items-baseline gap-2 mt-2">
+                                <span className="text-3xl font-semibold text-[#EDEDF0] tabular-nums tracking-tight">
+                                    {avgScore}%
+                                </span>
+                                <span className="text-xs text-emerald-400 font-medium">composite</span>
+                            </div>
+                        </div>
 
-                <div className="bg-[#141419] border border-[#232330] rounded-xl p-5">
-                    <span className="text-[11px] font-mono uppercase tracking-wider text-[#8B8B9E] block">
-                        Top Mock Performance
-                    </span>
-                    <div className="flex items-baseline gap-2 mt-2">
-                        <span className="text-3xl font-semibold text-[#EDEDF0] tabular-nums tracking-tight">
-                            {highestScore}%
-                        </span>
-                        <span className="text-xs text-[#555568]">best score</span>
-                    </div>
-                </div>
+                        <div className="bg-[#141419] border border-[#232330] rounded-xl p-5 light-catch">
+                            <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#8B8B9E] block">
+                                Top Mock Performance
+                            </span>
+                            <div className="flex items-baseline gap-2 mt-2">
+                                <span className="text-3xl font-semibold text-[#EDEDF0] tabular-nums tracking-tight">
+                                    {highestScore}%
+                                </span>
+                                <span className="text-xs text-[#555568]">best score</span>
+                            </div>
+                        </div>
+                    </>
+                )}
             </div>
 
             {/* Error Message */}
@@ -120,12 +132,9 @@ const Reports = () => {
             )}
 
             {/* Reports Table */}
-            <div className="bg-[#141419] border border-[#232330] rounded-xl overflow-hidden">
+            <div className="bg-[#141419] border border-[#232330] rounded-xl overflow-hidden light-catch">
                 {loading ? (
-                    <div className="p-12 flex items-center justify-center text-sm text-[#8B8B9E] gap-3">
-                        <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
-                        <span>Loading reports...</span>
-                    </div>
+                    <TableSkeleton rows={5} />
                 ) : reports.length > 0 ? (
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse text-sm">
@@ -152,18 +161,18 @@ const Reports = () => {
                                                 <div className="font-medium text-[#EDEDF0]">
                                                     {asmt.title || 'Technical Interview'}
                                                 </div>
-                                                <span className="text-xs text-[#555568]">
+                                                <span className="text-xs font-mono text-[#555568]">
                                                     ID: {report.session?._id?.slice(-8) || report.session?.slice(-8)}
                                                 </span>
                                             </td>
                                             <td className="py-4 px-5">
                                                 {isMock ? (
-                                                    <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20 inline-flex items-center gap-1.5">
+                                                    <span className="dual-tone-pill text-blue-400 bg-blue-500/10 border-blue-500/20">
                                                         <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
                                                         <span>Mock Practice</span>
                                                     </span>
                                                 ) : (
-                                                    <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 inline-flex items-center gap-1.5">
+                                                    <span className="dual-tone-pill text-emerald-400 bg-emerald-500/10 border-emerald-500/20">
                                                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
                                                         <span>Official Test</span>
                                                     </span>
@@ -172,7 +181,7 @@ const Reports = () => {
                                             <td className="py-4 px-5 text-xs text-[#8B8B9E]">
                                                 {companyName}
                                             </td>
-                                            <td className="py-4 px-5 text-xs text-[#8B8B9E] tabular-nums">
+                                            <td className="py-4 px-5 text-xs text-[#8B8B9E] tabular-nums font-mono">
                                                 {new Date(report.createdAt).toLocaleDateString()}
                                             </td>
                                             <td className="py-4 px-5">
@@ -203,7 +212,7 @@ const Reports = () => {
                                                 {isMock ? (
                                                     <Link
                                                         to={`/candidate/report/${report.session?._id || report.session}`}
-                                                        className="studio-btn-secondary text-xs py-1.5 px-3"
+                                                        className="studio-btn-secondary text-xs py-1.5 px-3 active:scale-[0.98] transition-transform"
                                                     >
                                                         <span>View report</span>
                                                         <ExternalLink className="w-3.5 h-3.5 text-[#8B8B9E]" />
@@ -221,10 +230,13 @@ const Reports = () => {
                         </table>
                     </div>
                 ) : (
-                    <div className="p-12 text-center space-y-1">
-                        <p className="text-sm text-[#8B8B9E]">No reports found.</p>
-                        <p className="text-xs text-[#555568]">Complete a mock interview practice session to generate your comprehensive performance report.</p>
-                    </div>
+                    <EmptyState
+                        title="No evaluation reports found"
+                        description="Complete a mock interview practice session to generate your comprehensive performance report."
+                        actionLabel="Go to Dashboard"
+                        onAction={() => window.location.href = '/candidate/dashboard'}
+                        actionIcon={Search}
+                    />
                 )}
             </div>
         </div>

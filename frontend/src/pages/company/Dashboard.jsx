@@ -20,6 +20,10 @@ import {
     RefreshCw,
     CheckCircle2
 } from 'lucide-react';
+import { toast } from 'sonner';
+import EmptyState from '../../components/common/EmptyState';
+import CopyButton from '../../components/common/CopyButton';
+import { CardSkeleton, TableSkeleton } from '../../components/common/Skeleton';
 
 const Dashboard = () => {
     const { user } = useContext(AuthContext);
@@ -131,7 +135,7 @@ const Dashboard = () => {
             }
         } catch (err) {
             console.error('Failed to update role', err);
-            alert(err.response?.data?.message || 'Failed to update role');
+            toast.error(err.response?.data?.message || 'Failed to update role');
         }
     };
 
@@ -176,7 +180,7 @@ const Dashboard = () => {
             }
         } catch (err) {
             console.error('Failed to trigger evaluation', err);
-            alert(err.response?.data?.message || 'Failed to generate evaluation report');
+            toast.error(err.response?.data?.message || 'Failed to generate evaluation report');
         } finally {
             setGeneratingReportId(null);
         }
@@ -222,8 +226,8 @@ const Dashboard = () => {
 
             {/* Stat Cards - 4 Column */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-[#141419] border border-[#232330] rounded-xl p-5">
-                    <span className="text-[11px] font-mono uppercase tracking-wider text-[#8B8B9E] block">
+                <div className="bg-[#141419] border border-[#232330] rounded-xl p-5 light-catch">
+                    <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#8B8B9E] block">
                         Active Assessments
                     </span>
                     <div className="flex items-baseline gap-2 mt-2">
@@ -234,8 +238,8 @@ const Dashboard = () => {
                     </div>
                 </div>
 
-                <div className="bg-[#141419] border border-[#232330] rounded-xl p-5">
-                    <span className="text-[11px] font-mono uppercase tracking-wider text-[#8B8B9E] block">
+                <div className="bg-[#141419] border border-[#232330] rounded-xl p-5 light-catch">
+                    <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#8B8B9E] block">
                         Live Interviews
                     </span>
                     <div className="flex items-baseline gap-2 mt-2">
@@ -246,8 +250,8 @@ const Dashboard = () => {
                     </div>
                 </div>
 
-                <div className="bg-[#141419] border border-[#232330] rounded-xl p-5">
-                    <span className="text-[11px] font-mono uppercase tracking-wider text-[#8B8B9E] block">
+                <div className="bg-[#141419] border border-[#232330] rounded-xl p-5 light-catch">
+                    <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#8B8B9E] block">
                         Completed Sessions
                     </span>
                     <div className="flex items-baseline gap-2 mt-2">
@@ -258,8 +262,8 @@ const Dashboard = () => {
                     </div>
                 </div>
 
-                <div className="bg-[#141419] border border-[#232330] rounded-xl p-5">
-                    <span className="text-[11px] font-mono uppercase tracking-wider text-[#8B8B9E] block">
+                <div className="bg-[#141419] border border-[#232330] rounded-xl p-5 light-catch">
+                    <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#8B8B9E] block">
                         Configured Roles
                     </span>
                     <div className="flex items-baseline gap-2 mt-2">
@@ -522,22 +526,7 @@ const Dashboard = () => {
                                         </div>
 
                                         <div className="flex items-center gap-3 text-xs text-[#8B8B9E] flex-wrap">
-                                            <div className="flex items-center gap-1.5">
-                                                <span className="font-mono text-xs text-[#EDEDF0] bg-[#0A0A0B] px-2 py-0.5 rounded border border-[#232330]">
-                                                    {asmt.assessmentCode}
-                                                </span>
-                                                <button
-                                                    onClick={() => handleCopyCode(asmt.assessmentCode)}
-                                                    className="p-1 hover:text-[#EDEDF0] transition-colors"
-                                                    title="Copy code"
-                                                >
-                                                    {copiedCode === asmt.assessmentCode ? (
-                                                        <Check className="w-3.5 h-3.5 text-emerald-400" />
-                                                    ) : (
-                                                        <Copy className="w-3.5 h-3.5 text-[#8B8B9E]" />
-                                                    )}
-                                                </button>
-                                            </div>
+                                            <CopyButton textToCopy={asmt.assessmentCode} successMessage={`Copied ${asmt.assessmentCode} to clipboard`} />
                                             <span>•</span>
                                             <span>{asmt.durationMinutes || 30} mins</span>
                                             <span>•</span>
@@ -548,7 +537,7 @@ const Dashboard = () => {
                                     <div className="flex items-center gap-2.5 flex-shrink-0">
                                         <button
                                             onClick={() => handleToggleStatus(asmt._id)}
-                                            className="studio-btn-secondary text-xs py-1.5 px-3"
+                                            className="studio-btn-secondary text-xs py-1.5 px-3 active:scale-[0.98] transition-transform"
                                             title="Toggle active status"
                                         >
                                             {asmt.status === 'ACTIVE' ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
@@ -556,7 +545,7 @@ const Dashboard = () => {
                                         </button>
                                         <Link
                                             to={`/company/assessment/${asmt._id}/results`}
-                                            className="btn-primary text-xs py-1.5 px-3.5"
+                                            className="btn-primary text-xs py-1.5 px-3.5 active:scale-[0.98] transition-transform"
                                         >
                                             <span>View results</span>
                                             <ChevronRight className="w-3.5 h-3.5" />
@@ -566,16 +555,13 @@ const Dashboard = () => {
                             ))}
                         </div>
                     ) : (
-                        <div className="p-10 text-center space-y-3">
-                            <p className="text-sm text-[#8B8B9E]">No assessments created yet.</p>
-                            <Link
-                                to="/company/create-assessment"
-                                className="btn-primary inline-flex text-xs py-2 px-4"
-                            >
-                                <Plus className="w-3.5 h-3.5" />
-                                <span>Create your first assessment</span>
-                            </Link>
-                        </div>
+                        <EmptyState
+                            title="No assessments created yet"
+                            description="Create an assessment to start screening engineering candidates with AI."
+                            actionLabel="Create Assessment"
+                            onAction={() => window.location.href = '/company/create-assessment'}
+                            actionIcon={Plus}
+                        />
                     )}
                 </div>
             </div>

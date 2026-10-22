@@ -14,6 +14,8 @@ import Reports from './pages/candidate/Reports';
 import ReportDetail from './pages/candidate/ReportDetail';
 import AssessmentResults from './pages/company/AssessmentResults';
 import ProtectedRoute from './components/ProtectedRoute';
+import CommandPalette from './components/common/CommandPalette';
+import { Toaster } from 'sonner';
 
 const AppContent = () => {
     const location = useLocation();
@@ -21,9 +23,24 @@ const AppContent = () => {
     const isInterviewRoom = location.pathname.includes('/candidate/interview/');
 
     return (
-        <div className={`min-h-screen ${isDark ? 'bg-[#0A0A0B] text-[#EDEDF0]' : 'bg-[#F8FAFC] text-[#0F172A]'} flex flex-col antialiased selection:bg-blue-600/30 selection:text-white transition-colors duration-200`}>
+        <div className={`min-h-screen ${isDark ? 'bg-[#0A0A0B] text-[#EDEDF0]' : 'bg-[#F8FAFC] text-[#0F172A]'} flex flex-col antialiased selection:bg-blue-600/30 selection:text-white transition-colors duration-200 relative`}>
+            {/* Ambient Canvas Lighting Mesh */}
+            <div className="fixed inset-0 bg-dot-grid pointer-events-none opacity-40 z-0" />
+            <div className="fixed -top-40 left-1/2 -translate-x-1/2 w-[700px] h-[350px] bg-blue-600/10 blur-[130px] rounded-full pointer-events-none z-0" />
+
+            {/* Global Stacked Toast Notifications */}
+            <Toaster 
+                richColors 
+                position="top-right" 
+                theme={isDark ? 'dark' : 'light'} 
+                closeButton 
+            />
+
+            {/* Global Command Palette (Cmd+K / Ctrl+K) */}
+            <CommandPalette />
+
             {!isInterviewRoom && <Navbar />}
-            <main className={!isInterviewRoom ? "pt-14 flex-1 flex flex-col" : "flex-1 flex flex-col"}>
+            <main className={!isInterviewRoom ? "pt-14 flex-1 flex flex-col relative z-10" : "flex-1 flex flex-col relative z-10"}>
                 <Routes>
                     <Route path="/" element={<Navigate to="/login" />} />
                     <Route path="/login" element={<Login />} />

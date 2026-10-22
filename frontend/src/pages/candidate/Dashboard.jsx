@@ -21,6 +21,11 @@ import {
     FileText,
     UploadCloud
 } from 'lucide-react';
+import SpotlightCard from '../../components/common/SpotlightCard';
+import { CardSkeleton, TableSkeleton } from '../../components/common/Skeleton';
+import EmptyState from '../../components/common/EmptyState';
+import CopyButton from '../../components/common/CopyButton';
+import { toast } from 'sonner';
 
 const POPULAR_COMPANIES = [
     { id: 'google', name: 'Google', badge: 'GOOG', color: '#4285F4' },
@@ -76,6 +81,7 @@ const Dashboard = () => {
     const [mockError, setMockError] = useState('');
     const [savedResume, setSavedResume] = useState(null);
     const [isUploadingResume, setIsUploadingResume] = useState(false);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const fetchDashboardData = async () => {
@@ -94,6 +100,8 @@ const Dashboard = () => {
                 }
             } catch (err) {
                 console.error('Failed to load candidate dashboard', err);
+            } finally {
+                setLoading(false);
             }
         };
 
@@ -103,7 +111,7 @@ const Dashboard = () => {
     const handleDashboardResumeUpload = async (file) => {
         if (!file) return;
         if (file.size > 20 * 1024 * 1024) {
-            alert('File size exceeds 20MB limit. Please upload a smaller resume document.');
+            toast.error('File size exceeds 20MB limit. Please upload a smaller resume document.');
             return;
         }
 
@@ -125,13 +133,14 @@ const Dashboard = () => {
                         projectsCount: (data.projects || []).length,
                         summary: data.summary
                     });
+                    toast.success('Resume parsed and contextualized with Gemini');
                 }
                 setIsUploadingResume(false);
             };
             reader.readAsDataURL(file);
         } catch (err) {
             console.error('Failed to parse resume document:', err);
-            alert(err.response?.data?.message || 'Failed to upload and parse resume document.');
+            toast.error(err.response?.data?.message || 'Failed to upload and parse resume document.');
             setIsUploadingResume(false);
         }
     };
@@ -237,6 +246,24 @@ const Dashboard = () => {
     const currentRoleLabel = selectedRoleId === 'custom' ? (customRoleTitle || 'your custom role') : (activeRole?.title || 'SDE-2');
 
 
+    if (loading && !dashboardData) {
+        return (
+            <div className="flex-1 p-6 sm:p-8 max-w-7xl mx-auto w-full space-y-8 animate-in fade-in duration-300">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <CardSkeleton className="h-64" />
+                    <CardSkeleton className="h-64" />
+                </div>
+                <div className="border border-[#232330] bg-[#141419] rounded-xl grid grid-cols-2 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x divide-[#232330] p-4 gap-4">
+                    <CardSkeleton className="h-20" />
+                    <CardSkeleton className="h-20" />
+                    <CardSkeleton className="h-20" />
+                    <CardSkeleton className="h-20" />
+                </div>
+                <TableSkeleton rows={4} />
+            </div>
+        );
+    }
+
     return (
         <div className="flex-1 p-6 sm:p-8 max-w-7xl mx-auto w-full space-y-8">
 
@@ -275,7 +302,10 @@ const Dashboard = () => {
             {/* 2 Main Action Cards: Real-Time Scraped Mock Studio vs Join Official Assessment */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 {/* 1. Real-Time Scraped Mock Assessment Studio Card */}
-                <div className="bg-[#141419] border border-blue-500/30 hover:border-blue-500/60 hover:shadow-lg hover:shadow-blue-500/5 transition-all rounded-xl p-6 relative overflow-hidden flex flex-col justify-between space-y-4">
+                <SpotlightCard
+                    spotlightColor="rgba(59, 130, 246, 0.15)"
+                    className="p-6 flex flex-col justify-between space-y-4 border-blue-500/30 hover:border-blue-500/60"
+                >
                     <div className="space-y-2">
                         <div className="flex items-center justify-between">
                             <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20 flex items-center gap-1.5">
@@ -283,9 +313,9 @@ const Dashboard = () => {
                                 <Globe className="w-3 h-3" />
                                 <span>Live Interview Questions</span>
                             </span>
-                            <span className="text-[11px] font-mono text-[#8B8B9E]">Real Questions</span>
+                            <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#8B8B9E]">Real Questions</span>
                         </div>
-                        <h2 className="text-lg font-semibold text-[#EDEDF0]">
+                        <h2 className="text-lg font-semibold metallic-heading">
                             Mock Interview
                         </h2>
                         <p className="text-xs text-[#8B8B9E] leading-relaxed">
@@ -304,16 +334,19 @@ const Dashboard = () => {
 
                     <button
                         onClick={() => setIsMockModalOpen(true)}
-                        className="btn-primary w-full py-2.5 text-xs font-medium mt-2"
+                        className="btn-primary w-full py-2.5 text-xs font-medium mt-2 active:scale-[0.98] transition-transform duration-100"
                     >
                         <Search className="w-3.5 h-3.5" />
                         <span>Start Mock Interview</span>
                         <ArrowRight className="w-4 h-4 ml-auto" />
                     </button>
-                </div>
+                </SpotlightCard>
 
                 {/* 2. Official Company Assessment Card */}
-                <div className="bg-[#141419] border border-emerald-500/30 hover:border-emerald-500/60 hover:shadow-lg hover:shadow-emerald-500/5 transition-all rounded-xl p-6 relative overflow-hidden flex flex-col justify-between space-y-4">
+                <SpotlightCard
+                    spotlightColor="rgba(16, 185, 129, 0.15)"
+                    className="p-6 flex flex-col justify-between space-y-4 border-emerald-500/30 hover:border-emerald-500/60"
+                >
                     <div className="space-y-2">
                         <div className="flex items-center justify-between">
                             <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5">
@@ -321,9 +354,9 @@ const Dashboard = () => {
                                 <Lock className="w-3 h-3" />
                                 <span>Confidential to Recruiter</span>
                             </span>
-                            <span className="text-[11px] font-mono text-[#8B8B9E]">Hiring Test</span>
+                            <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#8B8B9E]">Hiring Test</span>
                         </div>
-                        <h2 className="text-lg font-semibold text-[#EDEDF0]">
+                        <h2 className="text-lg font-semibold metallic-heading">
                             Join an Official Assessment
                         </h2>
                         <p className="text-xs text-[#8B8B9E] leading-relaxed">
@@ -345,7 +378,7 @@ const Dashboard = () => {
                             />
                             <button
                                 type="submit"
-                                className="btn-primary px-4 py-2 text-xs font-medium whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 flex items-center gap-1.5"
+                                className="btn-primary px-4 py-2 text-xs font-medium whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] transition-transform duration-100 flex items-center gap-1.5"
                             >
                                 <span>Join Lobby</span>
                                 <ArrowRight className="w-3.5 h-3.5" />
@@ -358,11 +391,11 @@ const Dashboard = () => {
                             </p>
                         )}
                     </form>
-                </div>
+                </SpotlightCard>
             </div>
 
             {/* Top Telemetry Strip: 4-Column Connected Metric Bar */}
-            <div className="border border-[#232330] bg-[#141419] rounded-xl grid grid-cols-2 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x divide-[#232330] overflow-hidden">
+            <div className="border border-[#232330] bg-[#141419] rounded-xl grid grid-cols-2 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x divide-[#232330] overflow-hidden light-catch">
                 <div className="p-4 space-y-1">
                     <span className="text-[11px] font-mono uppercase tracking-wider text-[#8B8B9E] block">
                         Interviews done
@@ -460,9 +493,7 @@ const Dashboard = () => {
                                         </div>
 
                                         <div className="flex items-center gap-4 text-xs text-[#8B8B9E] flex-wrap">
-                                            <span className="font-mono text-xs text-[#EDEDF0] bg-[#0A0A0B] px-2 py-0.5 rounded border border-[#232330]">
-                                                {asmt.assessmentCode}
-                                            </span>
+                                            <CopyButton textToCopy={asmt.assessmentCode} successMessage={`Copied ${asmt.assessmentCode} to clipboard`} />
                                             <span>•</span>
                                             <span className="flex items-center gap-1">
                                                 <Clock className="w-3.5 h-3.5 text-[#555568]" />
@@ -498,22 +529,13 @@ const Dashboard = () => {
                             );
                         })
                     ) : (
-                        <div className="p-10 text-center space-y-3 flex flex-col items-center justify-center">
-                            <div className="w-11 h-11 rounded-full bg-[#1C1C24] border border-[#232330] flex items-center justify-center text-[#8B8B9E]">
-                                <Layers className="w-5 h-5 text-[#8B8B9E]" />
-                            </div>
-                            <div className="space-y-1 max-w-sm">
-                                <p className="text-sm font-semibold text-[#EDEDF0]">No assessments in queue</p>
-                                <p className="text-xs text-[#8B8B9E]">Launch an AI practice session or enter an official company code above to begin.</p>
-                            </div>
-                            <button
-                                onClick={() => setIsMockModalOpen(true)}
-                                className="btn-primary text-xs py-2 px-3.5 mt-1 inline-flex items-center gap-1.5"
-                            >
-                                <Search className="w-3.5 h-3.5" />
-                                <span>Start Mock Interview</span>
-                            </button>
-                        </div>
+                        <EmptyState
+                            title="No assessments in queue"
+                            description="Launch an AI practice session or enter an official company code above to begin."
+                            actionLabel="Start Mock Interview"
+                            onAction={() => setIsMockModalOpen(true)}
+                            actionIcon={Search}
+                        />
                     )}
                 </div>
             </div>
@@ -617,15 +639,13 @@ const Dashboard = () => {
                             </table>
                         </div>
                     ) : (
-                        <div className="p-10 text-center space-y-3 flex flex-col items-center justify-center">
-                            <div className="w-11 h-11 rounded-full bg-[#1C1C24] border border-[#232330] flex items-center justify-center text-[#8B8B9E]">
-                                <Activity className="w-5 h-5 text-[#8B8B9E]" />
-                            </div>
-                            <div className="space-y-1 max-w-sm">
-                                <p className="text-sm font-semibold text-[#EDEDF0]">No interview records found</p>
-                                <p className="text-xs text-[#8B8B9E]">Complete your first mock or official interview to view comprehensive evaluation scorecards.</p>
-                            </div>
-                        </div>
+                        <EmptyState
+                            title="No interview records found"
+                            description="Complete your first mock or official interview to view comprehensive evaluation scorecards."
+                            actionLabel="Start Mock Interview"
+                            onAction={() => setIsMockModalOpen(true)}
+                            actionIcon={Search}
+                        />
                     )}
                 </div>
             </div>
