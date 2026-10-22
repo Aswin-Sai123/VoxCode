@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { protect } from '../middlewares/auth.middleware.js';
 import {
     createAssessment,
+    synthesizeBlueprint,
     getMyAssessments,
     getAssessmentById,
     toggleAssessmentStatus,
@@ -16,6 +17,7 @@ router.get('/join/:code', protect(['CANDIDATE']), verifyAssessmentCode);
 router.get('/code/:code', protect(['CANDIDATE']), verifyAssessmentCode);
 
 // Company routes (protected — COMPANY only)
+router.post('/synthesize-blueprint', protect(['COMPANY']), synthesizeBlueprint);
 router.post('/', protect(['COMPANY']), createAssessment);
 router.get('/', protect(['COMPANY']), getMyAssessments);
 router.get('/:id', protect(['COMPANY']), getAssessmentById);

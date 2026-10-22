@@ -70,7 +70,7 @@ const getOrCreatePracticeAssessment = async () => {
  */
 export const startSession = asyncHandler(async (req, res) => {
     const rawCode = req.params.code || req.body.code || req.body.assessmentCode;
-    const { resumeText, interviewFormat } = req.body || {};
+    const { resumeText } = req.body || {};
     const candidateId = req.user?.id || req.user?._id;
 
     if (!candidateId) {
@@ -127,11 +127,17 @@ export const startSession = asyncHandler(async (req, res) => {
         }
     }
 
-    const selectedFormat = interviewFormat === 'PROJECT_AND_TECHNICAL_ONLY'
-        ? 'PROJECT_AND_TECHNICAL_ONLY'
-        : 'FULL_INTERVIEW';
+    // 3. Interview Format is 100% determined by Company Assessment Blueprint (never candidate choice)
+    let selectedFormat = 'FULL_INTERVIEW';
+    if (assessment.interviewFormat) {
+        selectedFormat = assessment.interviewFormat;
+    } else if (assessment.blueprintAnalysis?.interviewFormat) {
+        selectedFormat = assessment.blueprintAnalysis.interviewFormat;
+    } else if (assessment.codingRoundEnabled === false) {
+        selectedFormat = 'PROJECT_AND_TECHNICAL_ONLY';
+    }
 
-    // 3. FIX CHANGE H (Resume-Interview Bug):
+    // 4. FIX CHANGE H (Resume-Interview Bug):
     // Check if candidate already completed this assessment. If so, REJECT!
     const completedSession = await InterviewSession.findOne({
         candidate: candidateId,
@@ -143,14 +149,14 @@ export const startSession = asyncHandler(async (req, res) => {
         throw new ApiError(403, 'Assessment already completed. Completed assessments cannot be resumed or restarted.');
     }
 
-    // 4. Check for existing IN_PROGRESS session
+    // 5. Check for existing IN_PROGRESS session
     let session = await InterviewSession.findOne({
         candidate: candidateId,
         assessment: assessment._id,
         status: 'IN_PROGRESS'
     });
 
-    // 5. If no active session, initialize a new one with AI opening greeting
+    // 6. If no active session, initialize a new one with AI opening greeting
     if (!session) {
         const candidate = await Candidate.findById(candidateId);
         const companyName = assessment.targetCompanyName || assessment.company?.name || 'our company';
@@ -163,6 +169,7 @@ export const startSession = asyncHandler(async (req, res) => {
             skills: assessment.skills,
             experienceLevel: assessment.experienceLevel,
             blueprint: assessment.blueprint || assessment.scrapedBlueprint || '',
+            blueprintAnalysis: assessment.blueprintAnalysis || null,
             candidateResume,
             interviewFormat: selectedFormat
         });
@@ -394,6 +401,7 @@ export const sendCandidateMessage = asyncHandler(async (req, res) => {
         skills,
         experienceLevel,
         blueprint,
+        blueprintAnalysis: session.assessment?.blueprintAnalysis || null,
         candidateResume: session.candidateResume || '',
         interviewFormat: session.interviewFormat || 'FULL_INTERVIEW',
         transcript: session.transcript,
@@ -404,7 +412,8 @@ export const sendCandidateMessage = asyncHandler(async (req, res) => {
         executionOutput: effectiveOutput,
         topics,
         currentTopicIndex,
-        questionsInCurrentTopic
+        questionsInCurrentTopic,
+        stateMachine: session.stateMachine || null
     });
 
     // Append candidate's message with evaluation and active topic
@@ -561,4 +570,101 @@ export const submitSession = asyncHandler(async (req, res) => {
         evaluationId: evaluation?._id || null,
         message: 'Interview submitted and evaluation generated successfully'
     }, 'Session completed'));
+});
+
+/**
+ * Record live proctoring event (tab switch, window blur, code paste, fullscreen exit, etc.)
+ */
+export const recordProctoringEvent = asyncHandler(async (req, res) => {
+    const candidateId = req.user?.id || req.user?._id;
+    const { sessionId, eventType, details } = req.body;
+    const targetSessionId = req.params.sessionId || sessionId;
+
+    if (!targetSessionId) {
+        throw new ApiError(400, 'Session ID is required');
+    }
+
+    const session = await InterviewSession.findOne({
+        _id: targetSessionId,
+        candidate: candidateId
+    });
+
+    if (!session) {
+        throw new ApiError(404, 'Active interview session not found');
+    }
+
+    if (!session.proctoring) {
+        session.proctoring = {
+            integrityScore: 100,
+            tabSwitchCount: 0,
+            windowBlurCount: 0,
+            pasteCount: 0,
+            fullscreenExitCount: 0,
+            cameraStatus: 'ACTIVE',
+            micStatus: 'ACTIVE',
+            events: []
+        };
+    }
+
+    let penalty = 0;
+    switch (eventType) {
+        case 'TAB_SWITCH':
+            session.proctoring.tabSwitchCount = (session.proctoring.tabSwitchCount || 0) + 1;
+            penalty = 8;
+            break;
+        case 'WINDOW_BLUR':
+            session.proctoring.windowBlurCount = (session.proctoring.windowBlurCount || 0) + 1;
+            penalty = 3;
+            break;
+        case 'SUSPICIOUS_PASTE':
+            session.proctoring.pasteCount = (session.proctoring.pasteCount || 0) + 1;
+            penalty = 12;
+            break;
+        case 'FULLSCREEN_EXIT':
+            session.proctoring.fullscreenExitCount = (session.proctoring.fullscreenExitCount || 0) + 1;
+            penalty = 5;
+            break;
+        case 'DEVTOOLS_ATTEMPT':
+            penalty = 15;
+            break;
+        case 'CAMERA_OFF':
+            session.proctoring.cameraStatus = 'DISABLED';
+            penalty = 10;
+            break;
+        case 'FACE_ABSENT':
+        case 'NO_FACE_DETECTED':
+            session.proctoring.faceMissingCount = (session.proctoring.faceMissingCount || 0) + 1;
+            penalty = 6;
+            break;
+        case 'FACE_OBSTRUCTED':
+            session.proctoring.faceMissingCount = (session.proctoring.faceMissingCount || 0) + 1;
+            penalty = 5;
+            break;
+        case 'MULTIPLE_FACES':
+            session.proctoring.multipleFacesCount = (session.proctoring.multipleFacesCount || 0) + 1;
+            penalty = 12;
+            break;
+        case 'AUDIO_ANOMALY':
+            penalty = 5;
+            break;
+        default:
+            penalty = 2;
+    }
+
+    session.proctoring.integrityScore = Math.max(0, (session.proctoring.integrityScore || 100) - penalty);
+    session.proctoring.events.push({
+        type: eventType,
+        timestamp: new Date(),
+        details: details || '',
+        penalty
+    });
+
+    await session.save();
+
+    res.status(200).json(new ApiResponse(200, {
+        integrityScore: session.proctoring.integrityScore,
+        tabSwitchCount: session.proctoring.tabSwitchCount,
+        pasteCount: session.proctoring.pasteCount,
+        blurCount: session.proctoring.windowBlurCount
+    }, 'Proctoring telemetry recorded'));
 });

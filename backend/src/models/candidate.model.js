@@ -8,6 +8,7 @@ const candidateSchema = new Schema({
     googleId: { type: String },
     role: { type: String, default: 'CANDIDATE', enum: ['CANDIDATE'] },
     resumeText: { type: String, default: '' },
+    resumeFileName: { type: String, default: '' },
     parsedProjects: [{
         title: { type: String, default: '' },
         techStack: [{ type: String }],

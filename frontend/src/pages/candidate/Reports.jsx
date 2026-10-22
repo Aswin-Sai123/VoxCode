@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import api from '../../services/api';
-import { FileText, ArrowRight, ExternalLink, ChevronLeft, AlertCircle, Loader2, Sparkles, Lock } from 'lucide-react';
+import { ExternalLink, ChevronLeft, AlertCircle, Loader2 } from 'lucide-react';
 
 const Reports = () => {
-    const navigate = useNavigate();
     const [reports, setReports] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -76,7 +75,7 @@ const Reports = () => {
             {/* Stat Overview Strip */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="bg-[#141419] border border-[#232330] rounded-xl p-5">
-                    <span className="text-xs font-medium text-[#8B8B9E] block">
+                    <span className="text-[11px] font-mono uppercase tracking-wider text-[#8B8B9E] block">
                         Completed Interviews
                     </span>
                     <div className="flex items-baseline gap-2 mt-2">
@@ -88,7 +87,7 @@ const Reports = () => {
                 </div>
 
                 <div className="bg-[#141419] border border-[#232330] rounded-xl p-5">
-                    <span className="text-xs font-medium text-[#8B8B9E] block">
+                    <span className="text-[11px] font-mono uppercase tracking-wider text-[#8B8B9E] block">
                         Mock Average Score
                     </span>
                     <div className="flex items-baseline gap-2 mt-2">
@@ -100,7 +99,7 @@ const Reports = () => {
                 </div>
 
                 <div className="bg-[#141419] border border-[#232330] rounded-xl p-5">
-                    <span className="text-xs font-medium text-[#8B8B9E] block">
+                    <span className="text-[11px] font-mono uppercase tracking-wider text-[#8B8B9E] block">
                         Top Mock Performance
                     </span>
                     <div className="flex items-baseline gap-2 mt-2">
@@ -159,12 +158,14 @@ const Reports = () => {
                                             </td>
                                             <td className="py-4 px-5">
                                                 {isMock ? (
-                                                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                                                        Mock Practice
+                                                    <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20 inline-flex items-center gap-1.5">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                                                        <span>Mock Practice</span>
                                                     </span>
                                                 ) : (
-                                                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                                                        Official Test
+                                                    <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 inline-flex items-center gap-1.5">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                                                        <span>Official Test</span>
                                                     </span>
                                                 )}
                                             </td>
@@ -193,6 +194,7 @@ const Reports = () => {
                                                     </span>
                                                 ) : (
                                                     <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border text-emerald-400 bg-emerald-500/10 border-emerald-500/20">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
                                                         <span>Submitted to Recruiter</span>
                                                     </span>
                                                 )}

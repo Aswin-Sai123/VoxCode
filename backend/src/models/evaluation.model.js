@@ -67,6 +67,27 @@ const evaluationSchema = new Schema({
         type: String,
         default: ''
     },
+    proctoringSummary: {
+        integrityScore: { type: Number, default: 100 },
+        trustLevel: { 
+            type: String, 
+            enum: ['HIGH_TRUST', 'MODERATE_TRUST', 'SUSPICIOUS', 'FLAGGED'], 
+            default: 'HIGH_TRUST' 
+        },
+        tabSwitchCount: { type: Number, default: 0 },
+        windowBlurCount: { type: Number, default: 0 },
+        pasteCount: { type: Number, default: 0 },
+        fullscreenExitCount: { type: Number, default: 0 },
+        faceMissingCount: { type: Number, default: 0 },
+        multipleFacesCount: { type: Number, default: 0 },
+        totalViolations: { type: Number, default: 0 },
+        events: [{
+            type: { type: String },
+            timestamp: { type: Date },
+            details: { type: String },
+            penalty: { type: Number, default: 0 }
+        }]
+    },
     status: {
         type: String,
         enum: ['PENDING', 'COMPLETED', 'FAILED'],

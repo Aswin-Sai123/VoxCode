@@ -5,7 +5,7 @@ export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(() => !!localStorage.getItem('accessToken'));
 
     const checkAuth = async () => {
         const token = localStorage.getItem('accessToken');
@@ -24,15 +24,18 @@ export const AuthProvider = ({ children }) => {
                 localStorage.removeItem('refreshToken');
                 localStorage.removeItem('userRole');
                 setUser(null);
+            } finally {
+                setLoading(false);
             }
         } else {
-            setUser(null);
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     useEffect(() => {
-        checkAuth();
+        if (localStorage.getItem('accessToken')) {
+            checkAuth();
+        }
     }, []);
 
     const login = async (role, email, password) => {

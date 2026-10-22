@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import api from '../../services/api';
 import { 
     Copy, 
@@ -8,7 +8,6 @@ import {
     Search, 
     ChevronLeft, 
     ExternalLink, 
-    CheckCircle2, 
     AlertCircle, 
     X,
     Loader2
@@ -16,7 +15,6 @@ import {
 
 const AssessmentResults = () => {
     const { id } = useParams();
-    const navigate = useNavigate();
 
     const [assessment, setAssessment] = useState(null);
     const [evaluations, setEvaluations] = useState([]);
@@ -136,7 +134,7 @@ const AssessmentResults = () => {
                         <h1 className="text-2xl font-semibold text-[#EDEDF0] tracking-tight">
                             {assessment?.title || 'Assessment Results'}
                         </h1>
-                        <span className="text-xs font-mono text-[#8B8B9E] bg-[#141419] px-2.5 py-1 rounded-md border border-[#232330]">
+                        <span className="code-chit">
                             {assessment?.assessmentCode}
                         </span>
                     </div>
@@ -164,7 +162,7 @@ const AssessmentResults = () => {
             {/* Stat Cards - 3 Column */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="bg-[#141419] border border-[#232330] rounded-xl p-5">
-                    <span className="text-xs font-medium text-[#8B8B9E] block">
+                    <span className="text-[11px] font-mono uppercase tracking-wider text-[#8B8B9E] block">
                         Evaluated Candidates
                     </span>
                     <div className="flex items-baseline gap-2 mt-2">
@@ -176,7 +174,7 @@ const AssessmentResults = () => {
                 </div>
 
                 <div className="bg-[#141419] border border-[#232330] rounded-xl p-5">
-                    <span className="text-xs font-medium text-[#8B8B9E] block">
+                    <span className="text-[11px] font-mono uppercase tracking-wider text-[#8B8B9E] block">
                         Shortlisted Candidates
                     </span>
                     <div className="flex items-baseline gap-2 mt-2">
@@ -188,7 +186,7 @@ const AssessmentResults = () => {
                 </div>
 
                 <div className="bg-[#141419] border border-[#232330] rounded-xl p-5">
-                    <span className="text-xs font-medium text-[#8B8B9E] block">
+                    <span className="text-[11px] font-mono uppercase tracking-wider text-[#8B8B9E] block">
                         Average Cohort Score
                     </span>
                     <div className="flex items-baseline gap-2 mt-2">
@@ -261,6 +259,7 @@ const AssessmentResults = () => {
                                     <th className="py-3 px-5">Rank</th>
                                     <th className="py-3 px-5">Candidate</th>
                                     <th className="py-3 px-5">Score</th>
+                                    <th className="py-3 px-5">Integrity</th>
                                     <th className="py-3 px-5">Rubric Summary</th>
                                     <th className="py-3 px-5">AI Verdict</th>
                                     <th className="py-3 px-5">Hiring Decision</th>
@@ -272,6 +271,7 @@ const AssessmentResults = () => {
                                     const candidateName = ev.candidate?.name || ev.candidateName || 'Candidate';
                                     const candidateEmail = ev.candidate?.email || ev.candidateEmail || 'N/A';
                                     const score = ev.scores?.overall || 0;
+                                    const integrity = ev.proctoringSummary?.integrityScore ?? 100;
 
                                     return (
                                         <tr key={ev._id} className="hover:bg-[#1C1C24]/60 transition-colors">
@@ -293,11 +293,22 @@ const AssessmentResults = () => {
                                                     </span>
                                                     <div className="w-16 h-1.5 bg-[#0A0A0B] rounded-full overflow-hidden border border-[#232330] hidden sm:block">
                                                         <div
-                                                            style={{ width: `${score}%` }}
+                                                             style={{ width: `${score}%` }}
                                                             className={`h-full ${score >= 75 ? 'bg-emerald-400' : score >= 50 ? 'bg-amber-400' : 'bg-red-400'}`}
                                                         />
                                                     </div>
                                                 </div>
+                                            </td>
+                                            <td className="py-4 px-5">
+                                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${
+                                                    integrity >= 90
+                                                        ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
+                                                        : integrity >= 75
+                                                            ? 'text-amber-400 bg-amber-500/10 border-amber-500/20'
+                                                            : 'text-red-400 bg-red-500/10 border-red-500/20'
+                                                }`}>
+                                                    <span>{integrity}% Trust</span>
+                                                </span>
                                             </td>
                                             <td className="py-4 px-5 text-xs text-[#8B8B9E]">
                                                 <div className="flex items-center gap-1.5">

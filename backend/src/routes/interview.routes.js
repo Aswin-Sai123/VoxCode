@@ -5,7 +5,8 @@ import {
     startPracticeSession,
     sendCandidateMessage,
     runCandidateCode,
-    submitSession
+    submitSession,
+    recordProctoringEvent
 } from '../controllers/interview.controller.js';
 
 const router = Router();
@@ -16,6 +17,8 @@ router.post('/start', protect(['CANDIDATE']), startSession);
 router.post('/practice/start', protect(['CANDIDATE']), startPracticeSession);
 router.post('/message', protect(['CANDIDATE']), sendCandidateMessage);
 router.post('/session/:sessionId/answer', protect(['CANDIDATE']), sendCandidateMessage);
+router.post('/session/:sessionId/proctoring', protect(['CANDIDATE']), recordProctoringEvent);
+router.post('/proctoring/event', protect(['CANDIDATE']), recordProctoringEvent);
 router.post('/run-code', protect(['CANDIDATE']), runCandidateCode);
 router.post('/execute', protect(['CANDIDATE']), runCandidateCode);
 router.post('/submit', protect(['CANDIDATE']), submitSession);

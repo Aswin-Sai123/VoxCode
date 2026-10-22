@@ -2,14 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import api from '../../services/api';
 import { 
-    FileText, 
     ChevronLeft, 
     Printer, 
     CheckCircle2, 
     AlertCircle, 
     Code2, 
     Cpu, 
-    Loader2
+    Loader2,
+    ShieldCheck
 } from 'lucide-react';
 
 const ReportDetail = () => {
@@ -191,6 +191,123 @@ const ReportDetail = () => {
                 </div>
             </div>
 
+            {/* Integrity & Proctoring Audit Card */}
+            {evaluation?.proctoringSummary && (
+                <div className="bg-[#141419] border border-[#232330] rounded-xl p-6 space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#232330] pb-4">
+                        <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                                <ShieldCheck className="w-4 h-4" />
+                            </div>
+                            <div>
+                                <h2 className="text-sm font-semibold text-[#EDEDF0] flex items-center gap-2">
+                                    <span>Integrity & Anti-Cheat Audit</span>
+                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium border ${
+                                        evaluation.proctoringSummary.integrityScore >= 90
+                                            ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
+                                            : evaluation.proctoringSummary.integrityScore >= 75
+                                                ? 'text-amber-400 bg-amber-500/10 border-amber-500/20'
+                                                : 'text-red-400 bg-red-500/10 border-red-500/20'
+                                    }`}>
+                                        {evaluation.proctoringSummary.trustLevel?.replace('_', ' ') || 'HIGH TRUST'}
+                                    </span>
+                                </h2>
+                                <p className="text-xs text-[#8B8B9E]">
+                                    Live browser telemetry, window focus monitoring, and code injection auditing.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="flex items-baseline gap-1.5 self-start sm:self-center">
+                            <span className="text-2xl font-bold text-[#EDEDF0] tabular-nums">
+                                {evaluation.proctoringSummary.integrityScore ?? 100}%
+                            </span>
+                            <span className="text-xs text-[#8B8B9E]">Trust Index</span>
+                        </div>
+                    </div>
+
+                    {/* Metric Tiles */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                        <div className="p-3 bg-[#0A0A0B] border border-[#232330] rounded-lg">
+                            <span className="text-[11px] font-mono uppercase tracking-wider text-[#8B8B9E] block">Tab Switches</span>
+                            <span className={`text-base font-semibold tabular-nums mt-0.5 block ${
+                                (evaluation.proctoringSummary.tabSwitchCount || 0) > 0 ? 'text-amber-400' : 'text-[#EDEDF0]'
+                            }`}>
+                                {evaluation.proctoringSummary.tabSwitchCount || 0}
+                            </span>
+                        </div>
+
+                        <div className="p-3 bg-[#0A0A0B] border border-[#232330] rounded-lg">
+                            <span className="text-[11px] font-mono uppercase tracking-wider text-[#8B8B9E] block">Window Blurs</span>
+                            <span className={`text-base font-semibold tabular-nums mt-0.5 block ${
+                                (evaluation.proctoringSummary.windowBlurCount || 0) > 0 ? 'text-amber-400' : 'text-[#EDEDF0]'
+                            }`}>
+                                {evaluation.proctoringSummary.windowBlurCount || 0}
+                            </span>
+                        </div>
+
+                        <div className="p-3 bg-[#0A0A0B] border border-[#232330] rounded-lg">
+                            <span className="text-[11px] font-mono uppercase tracking-wider text-[#8B8B9E] block">Face Missing</span>
+                            <span className={`text-base font-semibold tabular-nums mt-0.5 block ${
+                                (evaluation.proctoringSummary.faceMissingCount || 0) > 0 ? 'text-red-400' : 'text-[#EDEDF0]'
+                            }`}>
+                                {evaluation.proctoringSummary.faceMissingCount || 0}
+                            </span>
+                        </div>
+
+                        <div className="p-3 bg-[#0A0A0B] border border-[#232330] rounded-lg">
+                            <span className="text-[11px] font-mono uppercase tracking-wider text-[#8B8B9E] block">Multiple Faces</span>
+                            <span className={`text-base font-semibold tabular-nums mt-0.5 block ${
+                                (evaluation.proctoringSummary.multipleFacesCount || 0) > 0 ? 'text-red-400' : 'text-[#EDEDF0]'
+                            }`}>
+                                {evaluation.proctoringSummary.multipleFacesCount || 0}
+                            </span>
+                        </div>
+
+                        <div className="p-3 bg-[#0A0A0B] border border-[#232330] rounded-lg">
+                            <span className="text-[11px] font-mono uppercase tracking-wider text-[#8B8B9E] block">Large Pastes</span>
+                            <span className={`text-base font-semibold tabular-nums mt-0.5 block ${
+                                (evaluation.proctoringSummary.pasteCount || 0) > 0 ? 'text-red-400' : 'text-[#EDEDF0]'
+                            }`}>
+                                {evaluation.proctoringSummary.pasteCount || 0}
+                            </span>
+                        </div>
+
+                        <div className="p-3 bg-[#0A0A0B] border border-[#232330] rounded-lg">
+                            <span className="text-[11px] font-mono uppercase tracking-wider text-[#8B8B9E] block">Fullscrn Exits</span>
+                            <span className={`text-base font-semibold tabular-nums mt-0.5 block ${
+                                (evaluation.proctoringSummary.fullscreenExitCount || 0) > 0 ? 'text-amber-400' : 'text-[#EDEDF0]'
+                            }`}>
+                                {evaluation.proctoringSummary.fullscreenExitCount || 0}
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Event Log (if any) */}
+                    {evaluation.proctoringSummary.events && evaluation.proctoringSummary.events.length > 0 && (
+                        <div className="pt-2 space-y-2">
+                            <span className="text-[11px] font-semibold text-[#8B8B9E] uppercase tracking-wider block">
+                                Audit Incident Timeline
+                            </span>
+                            <div className="space-y-1.5 max-h-36 overflow-y-auto">
+                                {evaluation.proctoringSummary.events.map((evt, idx) => (
+                                    <div key={idx} className="p-2 bg-[#0A0A0B] border border-[#232330] rounded flex items-center justify-between text-xs">
+                                        <div className="flex items-center gap-2">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                                            <span className="font-medium text-[#EDEDF0]">{evt.type?.replace('_', ' ')}</span>
+                                            <span className="text-[#8B8B9E] text-[11px]">• {evt.details}</span>
+                                        </div>
+                                        <span className="text-[10px] text-[#555568] font-mono">
+                                            {new Date(evt.timestamp).toLocaleTimeString()}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+
             {/* Algorithmic Complexity & Test Suite Matrix */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 text-xs">
                 {/* Big-O Complexity */}
@@ -207,19 +324,24 @@ const ReportDetail = () => {
                         <div className="p-3.5 bg-[#0A0A0B] border border-[#232330] rounded-lg space-y-1">
                             <span className="text-xs text-[#8B8B9E] block">Time Complexity</span>
                             <span className="text-sm font-semibold text-[#EDEDF0] font-mono">
-                                {codeReview?.timeComplexity || 'O(N log N)'}
+                                {codeReview?.timeComplexity || 'N/A'}
                             </span>
                         </div>
                         <div className="p-3.5 bg-[#0A0A0B] border border-[#232330] rounded-lg space-y-1">
                             <span className="text-xs text-[#8B8B9E] block">Space Complexity</span>
                             <span className="text-sm font-semibold text-[#EDEDF0] font-mono">
-                                {codeReview?.spaceComplexity || 'O(N)'}
+                                {codeReview?.spaceComplexity || 'N/A'}
                             </span>
                         </div>
                     </div>
 
-                    {codeReview?.comments && (
+                    {codeReview?.correctness && (
                         <p className="text-xs text-[#8B8B9E] leading-relaxed pt-1">
+                            {codeReview.correctness}
+                        </p>
+                    )}
+                    {codeReview?.comments && (
+                        <p className="text-xs text-[#8B8B9E] leading-relaxed">
                             {codeReview.comments}
                         </p>
                     )}
@@ -233,31 +355,41 @@ const ReportDetail = () => {
                             Test Suite Results
                         </span>
                         <span className="text-xs text-emerald-400 font-medium">
-                            {(testCaseResults || []).filter(t => t.passed).length} of {testCaseResults?.length || 2} passed
+                            {testCaseResults && testCaseResults.length > 0 
+                                ? `${testCaseResults.filter(t => t.passed).length} of ${testCaseResults.length} passed`
+                                : 'Discussion Round'}
                         </span>
                     </div>
 
                     <div className="space-y-2">
-                        {(testCaseResults && testCaseResults.length > 0 ? testCaseResults : [
-                            { caseIndex: 0, passed: true, input: 'Sample Case 1', expectedOutput: 'Valid' },
-                            { caseIndex: 1, passed: true, input: 'Sample Case 2', expectedOutput: 'Valid' }
-                        ]).map((tc, idx) => (
-                            <div key={idx} className="p-3 bg-[#0A0A0B] border border-[#232330] rounded-lg flex items-center justify-between text-xs">
-                                <div className="flex items-center gap-2.5">
-                                    <span className={`w-2 h-2 rounded-full ${tc.passed ? 'bg-emerald-400' : 'bg-red-400'}`} />
-                                    <span className="text-[#EDEDF0] font-medium">Test case #{idx + 1}</span>
+                        {testCaseResults && testCaseResults.length > 0 ? (
+                            testCaseResults.map((tc, idx) => (
+                                <div key={idx} className="p-3 bg-[#0A0A0B] border border-[#232330] rounded-lg flex items-center justify-between text-xs">
+                                    <div className="flex items-center gap-2.5">
+                                        <span className={`w-2 h-2 rounded-full ${tc.passed ? 'bg-emerald-400' : 'bg-red-400'}`} />
+                                        <span className="text-[#EDEDF0] font-medium">Test case #{idx + 1}</span>
+                                    </div>
+                                    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium border ${tc.passed ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' : 'text-red-400 bg-red-500/10 border-red-500/20'}`}>
+                                        {tc.passed ? `Passed (${tc.executionTime || '0.05s'})` : 'Failed'}
+                                    </span>
                                 </div>
-                                <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium border ${tc.passed ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' : 'text-red-400 bg-red-500/10 border-red-500/20'}`}>
-                                    {tc.passed ? 'Passed (0.20s)' : 'Failed'}
-                                </span>
+                            ))
+                        ) : (
+                            <div className="p-4 bg-[#0A0A0B] border border-[#232330] rounded-lg text-center space-y-1">
+                                <p className="text-xs text-[#8B8B9E]">
+                                    No automated code execution was required for this interview.
+                                </p>
+                                <p className="text-[11px] text-[#555568]">
+                                    Evaluation was based on technical depth, architecture, and live discussion.
+                                </p>
                             </div>
-                        ))}
+                        )}
                     </div>
                 </div>
             </div>
 
             {/* Submitted Code Solution */}
-            {evaluation.codeSubmission && (
+            {evaluation.codeSubmission?.code && (
                 <div className="bg-[#141419] border border-[#232330] rounded-xl overflow-hidden text-xs">
                     <div className="h-10 border-b border-[#232330] bg-[#0A0A0B] px-4 flex items-center justify-between">
                         <div className="flex items-center gap-2">
@@ -271,7 +403,7 @@ const ReportDetail = () => {
                         </div>
                     </div>
                     <pre className="p-4 bg-[#0A0A0B] overflow-x-auto text-[#EDEDF0] text-xs leading-relaxed font-mono">
-                        {evaluation.codeSubmission.code || '// No code submitted'}
+                        {evaluation.codeSubmission.code}
                     </pre>
                 </div>
             )}
@@ -284,15 +416,16 @@ const ReportDetail = () => {
                         Key Strengths
                     </span>
                     <ul className="space-y-2 text-xs text-[#8B8B9E]">
-                        {(strengths || [
-                            'Demonstrated solid algorithmic understanding and optimal data structure choices',
-                            'Clear verbal articulation of trade-offs prior to code implementation'
-                        ]).map((s, i) => (
-                            <li key={i} className="flex items-start gap-2.5">
-                                <span className="text-emerald-400 flex-shrink-0 font-bold">•</span>
-                                <span className="text-[#EDEDF0] leading-relaxed">{s}</span>
-                            </li>
-                        ))}
+                        {strengths && strengths.length > 0 ? (
+                            strengths.map((s, i) => (
+                                <li key={i} className="flex items-start gap-2.5">
+                                    <span className="text-emerald-400 flex-shrink-0 font-bold">•</span>
+                                    <span className="text-[#EDEDF0] leading-relaxed">{s}</span>
+                                </li>
+                            ))
+                        ) : (
+                            <li className="text-xs text-[#8B8B9E]">Completed the interview session.</li>
+                        )}
                     </ul>
                 </div>
 
@@ -302,15 +435,16 @@ const ReportDetail = () => {
                         Areas for Improvement
                     </span>
                     <ul className="space-y-2 text-xs text-[#8B8B9E]">
-                        {(areasForImprovement || [
-                            'Consider testing boundary edge cases (empty inputs, large values) before submitting',
-                            'Provide more detail regarding horizontal scaling and failure recovery in distributed setups'
-                        ]).map((w, i) => (
-                            <li key={i} className="flex items-start gap-2.5">
-                                <span className="text-amber-400 flex-shrink-0 font-bold">•</span>
-                                <span className="text-[#EDEDF0] leading-relaxed">{w}</span>
-                            </li>
-                        ))}
+                        {areasForImprovement && areasForImprovement.length > 0 ? (
+                            areasForImprovement.map((w, i) => (
+                                <li key={i} className="flex items-start gap-2.5">
+                                    <span className="text-amber-400 flex-shrink-0 font-bold">•</span>
+                                    <span className="text-[#EDEDF0] leading-relaxed">{w}</span>
+                                </li>
+                            ))
+                        ) : (
+                            <li className="text-xs text-[#8B8B9E]">Continue broadening systems and problem-solving depth.</li>
+                        )}
                     </ul>
                 </div>
             </div>

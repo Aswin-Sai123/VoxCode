@@ -7,7 +7,18 @@ const Login = () => {
     const [role, setRole] = useState('CANDIDATE');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [error, setError] = useState('');
+    const [error, setError] = useState(() => {
+        const params = new URLSearchParams(window.location.search);
+        const errorMsg = params.get('error');
+        if (errorMsg === 'google_not_configured') {
+            return 'Google OAuth credentials not configured on backend. Please use email/password login.';
+        } else if (errorMsg === 'google_failed') {
+            return 'Google sign-in was cancelled or failed. Please verify credentials.';
+        } else if (errorMsg) {
+            return 'OAuth authentication failed. Please enter credentials directly.';
+        }
+        return '';
+    });
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const { login } = useContext(AuthContext);
@@ -20,23 +31,14 @@ const Login = () => {
         const access = params.get('accessToken');
         const refresh = params.get('refreshToken');
         const roleParam = params.get('role') || 'CANDIDATE';
-        const errorMsg = params.get('error');
 
-        if (errorMsg) {
-            if (errorMsg === 'google_not_configured') {
-                setError('Google OAuth credentials not configured on backend. Please use email/password login.');
-            } else if (errorMsg === 'google_failed') {
-                setError('Google sign-in was cancelled or failed. Please verify credentials.');
-            } else {
-                setError('OAuth authentication failed. Please enter credentials directly.');
-            }
-        } else if (access && refresh) {
+        if (access && refresh) {
             localStorage.setItem('accessToken', access);
             localStorage.setItem('refreshToken', refresh);
             localStorage.setItem('userRole', roleParam);
             window.location.href = roleParam === 'COMPANY' ? '/company/dashboard' : '/candidate/dashboard';
         }
-    }, [location]);
+    }, [location.search]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -74,14 +76,14 @@ const Login = () => {
                 {/* Main Card */}
                 <div className="bg-[#141419] border border-[#232330] rounded-xl p-6 sm:p-8 space-y-5 shadow-2xl">
                     {/* Role Selector Pill */}
-                    <div className="grid grid-cols-2 p-1 bg-[#0A0A0B] border border-[#232330] rounded-lg gap-1">
+                    <div className="grid grid-cols-2 p-1 role-pill-container border rounded-lg gap-1">
                         <button
                             type="button"
                             onClick={() => setRole('CANDIDATE')}
-                            className={`py-2 text-xs font-medium rounded-md transition-all ${
+                            className={`py-2 text-xs font-semibold rounded-md border transition-all ${
                                 role === 'CANDIDATE'
-                                    ? 'bg-[#1C1C24] text-white shadow-sm border border-[#363645]'
-                                    : 'text-[#8B8B9E] hover:text-[#EDEDF0]'
+                                    ? 'role-pill-btn-active'
+                                    : 'role-pill-btn-inactive border-transparent'
                             }`}
                         >
                             Candidate
@@ -89,10 +91,10 @@ const Login = () => {
                         <button
                             type="button"
                             onClick={() => setRole('COMPANY')}
-                            className={`py-2 text-xs font-medium rounded-md transition-all ${
+                            className={`py-2 text-xs font-semibold rounded-md border transition-all ${
                                 role === 'COMPANY'
-                                    ? 'bg-[#1C1C24] text-white shadow-sm border border-[#363645]'
-                                    : 'text-[#8B8B9E] hover:text-[#EDEDF0]'
+                                    ? 'role-pill-btn-active'
+                                    : 'role-pill-btn-inactive border-transparent'
                             }`}
                         >
                             Recruiter
@@ -163,8 +165,8 @@ const Login = () => {
                     {role === 'CANDIDATE' && (
                         <div className="space-y-3 pt-1">
                             <div className="relative flex items-center justify-center">
-                                <div className="border-t border-[#232330] w-full"></div>
-                                <span className="bg-[#09090B] px-2 text-[10px] font-mono text-[#52525B] uppercase absolute">
+                                <div className="border-t auth-divider-line w-full"></div>
+                                <span className="auth-divider-badge px-2 text-[10px] font-mono uppercase absolute">
                                     or continue with
                                 </span>
                             </div>

@@ -94,7 +94,7 @@ const interviewSessionSchema = new Schema({
     },
     interviewFormat: {
         type: String,
-        enum: ['FULL_INTERVIEW', 'PROJECT_AND_TECHNICAL_ONLY'],
+        enum: ['FULL_INTERVIEW', 'PROJECT_AND_TECHNICAL_ONLY', 'BEHAVIORAL_ONLY'],
         default: 'FULL_INTERVIEW'
     },
     startedAt: { 
@@ -103,6 +103,67 @@ const interviewSessionSchema = new Schema({
     },
     endedAt: { 
         type: Date 
+    },
+    proctoring: {
+        integrityScore: { 
+            type: Number, 
+            default: 100,
+            min: 0,
+            max: 100 
+        },
+        tabSwitchCount: { 
+            type: Number, 
+            default: 0 
+        },
+        windowBlurCount: { 
+            type: Number, 
+            default: 0 
+        },
+        pasteCount: { 
+            type: Number, 
+            default: 0 
+        },
+        fullscreenExitCount: { 
+            type: Number, 
+            default: 0 
+        },
+        faceMissingCount: {
+            type: Number,
+            default: 0
+        },
+        multipleFacesCount: {
+            type: Number,
+            default: 0
+        },
+        cameraStatus: { 
+            type: String, 
+            enum: ['ACTIVE', 'DISABLED', 'ERROR', 'NOT_STARTED'], 
+            default: 'NOT_STARTED' 
+        },
+        micStatus: { 
+            type: String, 
+            enum: ['ACTIVE', 'MUTED', 'ERROR', 'NOT_STARTED'], 
+            default: 'NOT_STARTED' 
+        },
+        events: [{
+            type: { 
+                type: String, 
+                enum: ['TAB_SWITCH', 'WINDOW_BLUR', 'SUSPICIOUS_PASTE', 'FULLSCREEN_EXIT', 'DEVTOOLS_ATTEMPT', 'CAMERA_OFF', 'AUDIO_ANOMALY', 'FACE_ABSENT', 'NO_FACE_DETECTED', 'FACE_OBSTRUCTED', 'MULTIPLE_FACES'], 
+                required: true 
+            },
+            timestamp: { 
+                type: Date, 
+                default: Date.now 
+            },
+            details: { 
+                type: String, 
+                default: '' 
+            },
+            penalty: { 
+                type: Number, 
+                default: 0 
+            }
+        }]
     },
     evaluation: {
         type: Schema.Types.ObjectId,

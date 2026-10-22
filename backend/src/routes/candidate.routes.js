@@ -1,11 +1,12 @@
 import { Router } from 'express';
-import { protect } from '../middlewares/auth.middleware.js';
+import { protect, optionalAuth } from '../middlewares/auth.middleware.js';
 import { 
     getCandidateDashboard, 
     getCandidateProfile,
     createMockAssessment,
     getCompanyIntelligence,
     updateCandidateResume,
+    uploadCandidateResume,
     getCandidateResume
 } from '../controllers/candidate.controller.js';
 
@@ -17,6 +18,7 @@ router.get('/company-intelligence', protect(['CANDIDATE']), getCompanyIntelligen
 router.post('/mock-assessment', protect(['CANDIDATE']), createMockAssessment);
 router.get('/resume', protect(['CANDIDATE']), getCandidateResume);
 router.post('/resume', protect(['CANDIDATE']), updateCandidateResume);
+router.post('/resume/upload', optionalAuth(), uploadCandidateResume);
 
 export default router;
 

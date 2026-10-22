@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import api from '../../services/api';
 import { 
     ArrowRight, 
@@ -8,14 +8,14 @@ import {
     ChevronLeft, 
     AlertCircle, 
     CheckCircle2, 
-    Clock, 
-    Layers, 
-    Loader2
+    Loader2,
+    FileText,
+    UploadCloud,
+    Sparkles,
+    Trash2
 } from 'lucide-react';
 
 const CreateAssessment = () => {
-    const navigate = useNavigate();
-
     // form state
     const [title, setTitle] = useState('');
     const [roleId, setRoleId] = useState('');
@@ -24,6 +24,11 @@ const CreateAssessment = () => {
     const [experienceLevel, setExperienceLevel] = useState('Mid');
     const [durationMinutes, setDurationMinutes] = useState(30);
     const [blueprint, setBlueprint] = useState('');
+    const [blueprintMode, setBlueprintMode] = useState('text'); // 'text' | 'file'
+    const [blueprintFile, setBlueprintFile] = useState(null);
+    const [blueprintAnalysis, setBlueprintAnalysis] = useState(null);
+    const [isSynthesizing, setIsSynthesizing] = useState(false);
+    const [isDragging, setIsDragging] = useState(false);
     const [openingTime, setOpeningTime] = useState('');
     const [closingTime, setClosingTime] = useState('');
     const [accessType, setAccessType] = useState('PUBLIC');
@@ -46,8 +51,8 @@ const CreateAssessment = () => {
                 const res = await api.get('/company/roles');
                 if (res.data.success) {
                     setRoles(res.data.data);
-                    if (res.data.data.length > 0 && !roleId) {
-                        setRoleId(res.data.data[0]._id);
+                    if (res.data.data.length > 0) {
+                        setRoleId(prev => prev || res.data.data[0]._id);
                     }
                 }
             } catch (err) {
@@ -72,6 +77,62 @@ const CreateAssessment = () => {
         setSkills(skills.filter(s => s !== skillToRemove));
     };
 
+    const handleBlueprintFileUpload = async (file) => {
+        if (!file) return;
+        if (file.size > 20 * 1024 * 1024) {
+            setError('File size exceeds 20MB limit. Please upload a smaller blueprint document.');
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = async () => {
+            const base64Content = reader.result;
+            const mimeType = file.type || 'application/pdf';
+            setBlueprintFile({
+                name: file.name,
+                size: (file.size / 1024).toFixed(1) + ' KB',
+                base64: base64Content,
+                mimeType
+            });
+            // Automatically synthesize format with Gemini
+            await triggerSynthesis({
+                fileBase64: base64Content,
+                mimeType,
+                fileName: file.name
+            });
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const triggerSynthesis = async ({ fileBase64 = '', mimeType = '', fileName = '', text = '' } = {}) => {
+        setIsSynthesizing(true);
+        setError('');
+        try {
+            const res = await api.post('/assessments/synthesize-blueprint', {
+                roleId,
+                title,
+                skills,
+                experienceLevel,
+                blueprintText: text || blueprint,
+                fileBase64: fileBase64 || blueprintFile?.base64 || '',
+                mimeType: mimeType || blueprintFile?.mimeType || 'application/pdf',
+                fileName: fileName || blueprintFile?.name || ''
+            });
+            if (res.data.success && res.data.data?.analysis) {
+                const analysis = res.data.data.analysis;
+                setBlueprintAnalysis(analysis);
+                if (analysis.codingRoundEnabled !== undefined) {
+                    setCodingRoundEnabled(analysis.codingRoundEnabled);
+                }
+            }
+        } catch (err) {
+            console.error('Failed to synthesize blueprint:', err);
+            setError(err.response?.data?.message || 'Failed to synthesize interview blueprint with Gemini.');
+        } finally {
+            setIsSynthesizing(false);
+        }
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
@@ -94,6 +155,9 @@ const CreateAssessment = () => {
                 experienceLevel,
                 durationMinutes,
                 blueprint: blueprint.trim(),
+                blueprintFileName: blueprintFile?.name || '',
+                blueprintAnalysis,
+                interviewFormat: blueprintAnalysis?.interviewFormat || (codingRoundEnabled ? 'FULL_INTERVIEW' : 'PROJECT_AND_TECHNICAL_ONLY'),
                 openingTime: openingTime || null,
                 closingTime: closingTime || null,
                 accessType,
@@ -209,7 +273,7 @@ const CreateAssessment = () => {
                 {/* Left Column: Configuration Form (7 Cols) */}
                 <div className="lg:col-span-7 bg-[#141419] border border-[#232330] rounded-xl p-6 sm:p-7 space-y-5">
                     <div className="border-b border-[#232330] pb-3">
-                        <h1 className="text-lg font-semibold text-[#EDEDF0]">
+                        <h1 className="text-xl font-semibold tracking-tight text-[#EDEDF0]">
                             Create Assessment
                         </h1>
                         <p className="text-xs text-[#8B8B9E] mt-0.5">
@@ -324,24 +388,224 @@ const CreateAssessment = () => {
                             </div>
                         </div>
 
-                        {/* Interviewer Blueprint Guidance */}
-                        <div className="space-y-1.5">
-                            <label className="text-xs font-medium text-[#8B8B9E] block">
-                                Custom Prompt / Interview Instructions (Optional)
-                            </label>
-                            <textarea
-                                rows={3}
-                                value={blueprint}
-                                onChange={(e) => setBlueprint(e.target.value)}
-                                placeholder="Focus on system scalability, code modularity, edge cases, and asynchronous programming."
-                                className="studio-input resize-none"
-                            />
+                        {/* AI Interview Blueprint Studio */}
+                        <div className="bg-[#0A0A0B] border border-[#232330] rounded-xl p-4 sm:p-5 space-y-4">
+                            <div className="flex items-start justify-between gap-4">
+                                <div>
+                                    <h3 className="text-xs font-semibold text-[#EDEDF0] flex items-center gap-1.5">
+                                        <Sparkles className="w-3.5 h-3.5 text-blue-400" />
+                                        <span>Interview Blueprint & Hiring Directive</span>
+                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                            LLM Directed
+                                        </span>
+                                    </h3>
+                                    <p className="text-[11px] text-[#8B8B9E] mt-0.5 leading-relaxed">
+                                        Upload your hiring document (.pdf, .docx, .txt) or paste your internal blueprint. Gemini analyzes the rubric, determines if live coding is required, and synthesizes the master directive for the AI interviewer.
+                                    </p>
+                                </div>
+
+                                <div className="segmented-pill-container flex-shrink-0 text-[11px]">
+                                    <button
+                                        type="button"
+                                        onClick={() => setBlueprintMode('text')}
+                                        className={`px-2.5 py-1 font-medium transition-all ${
+                                            blueprintMode === 'text'
+                                                ? 'segmented-pill-btn-active'
+                                                : 'segmented-pill-btn-inactive'
+                                        }`}
+                                    >
+                                        Paste Text
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setBlueprintMode('file')}
+                                        className={`px-2.5 py-1 font-medium transition-all ${
+                                            blueprintMode === 'file'
+                                                ? 'segmented-pill-btn-active'
+                                                : 'segmented-pill-btn-inactive'
+                                        }`}
+                                    >
+                                        Upload File
+                                    </button>
+                                </div>
+                            </div>
+
+                            {blueprintMode === 'file' ? (
+                                <div className="space-y-3">
+                                    {!blueprintFile ? (
+                                        <div
+                                            onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                                            onDragLeave={() => setIsDragging(false)}
+                                            onDrop={(e) => {
+                                                e.preventDefault();
+                                                setIsDragging(false);
+                                                if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                                                    handleBlueprintFileUpload(e.dataTransfer.files[0]);
+                                                }
+                                            }}
+                                            onClick={() => document.getElementById('blueprint-file-input')?.click()}
+                                            className={`border-2 border-dashed rounded-xl p-7 text-center cursor-pointer transition-all ${
+                                                isDragging
+                                                    ? 'border-blue-500 bg-blue-500/10'
+                                                    : 'border-[#232330] hover:border-[#38384A] bg-[#0A0A0B]/60'
+                                            }`}
+                                        >
+                                            <input
+                                                id="blueprint-file-input"
+                                                type="file"
+                                                accept=".pdf,.docx,.doc,.txt"
+                                                className="hidden"
+                                                onChange={(e) => {
+                                                    if (e.target.files && e.target.files[0]) {
+                                                        handleBlueprintFileUpload(e.target.files[0]);
+                                                    }
+                                                }}
+                                            />
+                                            <div className="flex flex-col items-center space-y-2">
+                                                <div className="w-11 h-11 rounded-full bg-[#1C1C24] border border-[#232330] flex items-center justify-center text-blue-400 group-hover:scale-105 transition-transform">
+                                                    <UploadCloud className="w-5 h-5" />
+                                                </div>
+                                                <p className="text-xs font-semibold text-[#EDEDF0]">
+                                                    Drop blueprint document here, or <span className="text-blue-400 hover:underline">browse</span>
+                                                </p>
+                                                <p className="text-[11px] text-[#555568]">
+                                                    Supports PDF, DOCX, or TXT • Up to 20MB
+                                                </p>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="p-3 bg-[#141419] border border-blue-500/30 rounded-xl flex items-center justify-between gap-3 text-xs">
+                                            <div className="flex items-center gap-2.5 min-w-0">
+                                                <FileText className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                                                <div className="min-w-0">
+                                                    <p className="text-[#EDEDF0] truncate font-medium">{blueprintFile.name}</p>
+                                                    <p className="text-[11px] text-[#8B8B9E]">{blueprintFile.size} • Uploaded Document</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => document.getElementById('blueprint-file-input')?.click()}
+                                                    className="studio-btn-secondary text-[11px] py-1 px-2 text-[#EDEDF0]"
+                                                >
+                                                    Replace
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setBlueprintFile(null);
+                                                        setBlueprintAnalysis(null);
+                                                    }}
+                                                    className="p-1 rounded text-[#8B8B9E] hover:text-red-400"
+                                                >
+                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                </button>
+                                                <input
+                                                    id="blueprint-file-input"
+                                                    type="file"
+                                                    accept=".pdf,.docx,.doc,.txt"
+                                                    className="hidden"
+                                                    onChange={(e) => {
+                                                        if (e.target.files && e.target.files[0]) {
+                                                            handleBlueprintFileUpload(e.target.files[0]);
+                                                        }
+                                                    }}
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="space-y-2">
+                                    <textarea
+                                        rows={4}
+                                        value={blueprint}
+                                        onChange={(e) => setBlueprint(e.target.value)}
+                                        placeholder="Paste interview round guidelines, job description, expected technical topics, or question blueprints..."
+                                        className="studio-input text-xs resize-y"
+                                    />
+                                    <div className="flex justify-end">
+                                        <button
+                                            type="button"
+                                            onClick={() => triggerSynthesis({ text: blueprint })}
+                                            disabled={isSynthesizing || !blueprint.trim()}
+                                            className="studio-btn-secondary px-3 py-1.5 text-xs flex items-center gap-1.5 text-blue-400 hover:text-blue-300 disabled:opacity-50"
+                                        >
+                                            {isSynthesizing ? (
+                                                <>
+                                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                                    <span>Synthesizing with Gemini...</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Sparkles className="w-3 h-3 text-blue-400" />
+                                                    <span>Analyze & Generate Format with AI</span>
+                                                </>
+                                            )}
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {isSynthesizing && (
+                                <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl flex items-center gap-2 text-xs text-blue-400 font-medium animate-pulse">
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin flex-shrink-0" />
+                                    <span>Gemini is analyzing your blueprint, structuring the round format, and generating interviewer persona...</span>
+                                </div>
+                            )}
+
+                            {blueprintAnalysis && (
+                                <div className="p-3.5 bg-[#141419] border border-blue-500/30 rounded-xl space-y-2.5 text-xs">
+                                    <div className="flex items-center justify-between">
+                                        <span className="font-semibold text-[#EDEDF0] flex items-center gap-1.5">
+                                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                                            <span>AI-Synthesized Round Format</span>
+                                        </span>
+                                        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                            {blueprintAnalysis.roundType}
+                                        </span>
+                                    </div>
+
+                                    <p className="text-[11px] text-[#EDEDF0] leading-relaxed">
+                                        {blueprintAnalysis.roundSummary}
+                                    </p>
+
+                                    <div className="flex items-center gap-2 pt-1 text-[11px]">
+                                        <span className="text-[#8B8B9E]">Coding Round:</span>
+                                        <span className={codingRoundEnabled ? 'text-emerald-400 font-medium' : 'text-purple-400 font-medium'}>
+                                            {codingRoundEnabled ? 'Live Coding IDE Enabled' : 'Skipped by AI (Discussion & Architecture Only)'}
+                                        </span>
+                                    </div>
+
+                                    {blueprintAnalysis.keyCompetencies && blueprintAnalysis.keyCompetencies.length > 0 && (
+                                        <div className="pt-1">
+                                            <span className="text-[#8B8B9E] text-[10px] uppercase font-semibold block mb-1">Target Competencies:</span>
+                                            <div className="flex flex-wrap gap-1">
+                                                {blueprintAnalysis.keyCompetencies.map((comp, idx) => (
+                                                    <span key={idx} className="px-2 py-0.5 rounded bg-[#0A0A0B] border border-[#232330] text-[10px] text-[#8B8B9E]">
+                                                        {comp}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {blueprintAnalysis.interviewerPersonaPrompt && (
+                                        <div className="pt-2 border-t border-[#232330]">
+                                            <span className="text-[#8B8B9E] text-[10px] uppercase font-semibold block mb-1">Generated Master Persona Directive for Rohan:</span>
+                                            <p className="text-[11px] text-[#8B8B9E] line-clamp-3 italic bg-[#0A0A0B] p-2 rounded border border-[#232330]">
+                                                "{blueprintAnalysis.interviewerPersonaPrompt}"
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
 
                         {/* Assessment Time Window & Expiry */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-1.5">
-                                <label className="text-[11px] uppercase text-[#A1A1AA] block">
+                                <label className="text-[11px] font-mono uppercase tracking-wider text-[#8B8B9E] block">
                                     Scheduled Opening Time (Optional):
                                 </label>
                                 <input
@@ -352,7 +616,7 @@ const CreateAssessment = () => {
                                 />
                             </div>
                             <div className="space-y-1.5">
-                                <label className="text-[11px] uppercase text-[#A1A1AA] block">
+                                <label className="text-[11px] font-mono uppercase tracking-wider text-[#8B8B9E] block">
                                     Closing / Expiry Time (Optional):
                                 </label>
                                 <input
@@ -366,17 +630,17 @@ const CreateAssessment = () => {
 
                         {/* Access Control & Eligibility Policy */}
                         <div className="space-y-2">
-                            <label className="text-[11px] uppercase text-[#A1A1AA] block">
+                            <label className="text-[11px] font-mono uppercase tracking-wider text-[#8B8B9E] block">
                                 Candidate Access Policy:
                             </label>
                             <div className="grid grid-cols-2 gap-2">
                                 <button
                                     type="button"
                                     onClick={() => setAccessType('PUBLIC')}
-                                    className={`py-1.5 text-xs font-mono rounded border transition-all ${
+                                    className={`py-2 text-xs font-mono rounded-lg border transition-all ${
                                         accessType === 'PUBLIC'
-                                            ? 'bg-[#18181C] text-[#FAFAFA] border-[#3F3F46]'
-                                            : 'text-[#71717A] border-[#222228] hover:text-[#FAFAFA]'
+                                            ? 'bg-[#1C1C24] text-[#EDEDF0] border-[#363645] shadow-sm'
+                                            : 'text-[#8B8B9E] border-[#232330] hover:text-[#EDEDF0] hover:bg-[#1C1C24]/40'
                                     }`}
                                 >
                                     [PUBLIC ACCESS]
@@ -384,10 +648,10 @@ const CreateAssessment = () => {
                                 <button
                                     type="button"
                                     onClick={() => setAccessType('INVITE_ONLY')}
-                                    className={`py-1.5 text-xs font-mono rounded border transition-all ${
+                                    className={`py-2 text-xs font-mono rounded-lg border transition-all ${
                                         accessType === 'INVITE_ONLY'
-                                            ? 'bg-[#18181C] text-[#FAFAFA] border-[#3F3F46]'
-                                            : 'text-[#71717A] border-[#222228] hover:text-[#FAFAFA]'
+                                            ? 'bg-[#1C1C24] text-[#EDEDF0] border-[#363645] shadow-sm'
+                                            : 'text-[#8B8B9E] border-[#232330] hover:text-[#EDEDF0] hover:bg-[#1C1C24]/40'
                                     }`}
                                 >
                                     [INVITE-ONLY RESTRICTED]
@@ -396,7 +660,7 @@ const CreateAssessment = () => {
 
                             {accessType === 'INVITE_ONLY' && (
                                 <div className="space-y-1 pt-1">
-                                    <label className="text-[10px] uppercase text-[#71717A] block font-mono">
+                                    <label className="text-[11px] uppercase text-[#8B8B9E] block font-mono">
                                         Authorized Candidate Emails (comma or newline separated):
                                     </label>
                                     <textarea
@@ -412,23 +676,23 @@ const CreateAssessment = () => {
 
                         {/* Round Flags */}
                         <div className="grid grid-cols-2 gap-2 pt-1 font-mono text-xs">
-                            <label className="flex items-center gap-2 p-2.5 rounded bg-[#111114] border border-[#222228] cursor-pointer">
+                            <label className="flex items-center gap-2 p-2.5 rounded-lg bg-[#0A0A0B] border border-[#232330] hover:border-[#363645] cursor-pointer transition-colors">
                                 <input
                                     type="checkbox"
                                     checked={voiceRoundEnabled}
                                     onChange={(e) => setVoiceRoundEnabled(e.target.checked)}
-                                    className="accent-[#10B981]"
+                                    className="accent-blue-500 rounded"
                                 />
-                                <span className="text-[#FAFAFA]">Voice Screening Round</span>
+                                <span className="text-[#EDEDF0]">Voice Screening Round</span>
                             </label>
-                            <label className="flex items-center gap-2 p-2.5 rounded bg-[#111114] border border-[#222228] cursor-pointer">
+                            <label className="flex items-center gap-2 p-2.5 rounded-lg bg-[#0A0A0B] border border-[#232330] hover:border-[#363645] cursor-pointer transition-colors">
                                 <input
                                     type="checkbox"
                                     checked={codingRoundEnabled}
                                     onChange={(e) => setCodingRoundEnabled(e.target.checked)}
-                                    className="accent-[#10B981]"
+                                    className="accent-blue-500 rounded"
                                 />
-                                <span className="text-[#FAFAFA]">Polyglot Coding Round</span>
+                                <span className="text-[#EDEDF0]">Polyglot Coding Round</span>
                             </label>
                         </div>
 
@@ -504,12 +768,27 @@ const CreateAssessment = () => {
                                     ))}
                                 </div>
                             </div>
+                            {blueprintAnalysis && (
+                                <div className="pt-1 border-t border-[#232330]">
+                                    <span className="text-[#8B8B9E] block mb-1">AI Structured Format</span>
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-medium text-blue-400">
+                                            {blueprintAnalysis.roundType}
+                                        </span>
+                                        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${codingRoundEnabled ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-purple-500/10 text-purple-400 border border-purple-500/20'}`}>
+                                            {codingRoundEnabled ? 'IDE Coding' : 'No Coding'}
+                                        </span>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         <div className="p-3 bg-[#0A0A0B] border border-[#232330] rounded-lg text-xs text-[#8B8B9E] space-y-1">
-                            <span className="text-[#EDEDF0] font-medium block">Evaluation runtime</span>
+                            <span className="text-[#EDEDF0] font-medium block">Interviewer Brain Engine</span>
                             <p>
-                                Candidates will be tested with conversational voice reasoning followed by live polyglot coding (JS, Python, C++, Java).
+                                {codingRoundEnabled 
+                                    ? 'Rohan will conduct conversational voice reasoning followed by an interviewer-initiated live coding challenge in the Monaco IDE.'
+                                    : 'Rohan will conduct an in-depth project architecture & systems reasoning deep-dive. Live coding is skipped according to company blueprint.'}
                             </p>
                         </div>
                     </div>

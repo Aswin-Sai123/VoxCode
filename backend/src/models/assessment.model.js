@@ -20,6 +20,19 @@ const assessmentSchema = new Schema({
     },
     durationMinutes: { type: Number, default: 30 },
     blueprint: { type: String, default: '' }, // interview blueprint text doc
+    blueprintFileName: { type: String, default: '' },
+    blueprintAnalysis: {
+        roundType: { type: String, default: 'TECHNICAL' },
+        roundSummary: { type: String, default: '' },
+        codingRoundEnabled: { type: Boolean, default: true },
+        keyCompetencies: [{ type: String }],
+        interviewerPersonaPrompt: { type: String, default: '' }
+    },
+    interviewFormat: {
+        type: String,
+        enum: ['FULL_INTERVIEW', 'PROJECT_AND_TECHNICAL_ONLY', 'BEHAVIORAL_ONLY'],
+        default: 'FULL_INTERVIEW'
+    },
     scrapedBlueprint: { type: String, default: '' }, // authentic web-scraped company interview blueprint
     scrapedQuestions: [{ type: String }], // authentic scraped company interview questions
     assessmentCode: { type: String, unique: true, required: true },

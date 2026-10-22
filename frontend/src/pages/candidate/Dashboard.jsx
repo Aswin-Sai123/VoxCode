@@ -1,32 +1,25 @@
-import React, { useContext, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { AuthContext } from '../../context/AuthContext';
 import api from '../../services/api';
 import { 
-    Terminal, 
     ArrowRight, 
     Clock, 
     AlertCircle, 
     Layers, 
-    FileText, 
     ExternalLink,
     Activity,
     ChevronRight,
     CheckCircle2,
-    Sparkles,
     Building2,
     Code2,
-    Brain,
     Lock,
-    Unlock,
     X,
     Loader2,
     Search,
     Globe,
-    Cpu,
     Check,
-    FolderGit2,
-    Play
+    FileText,
+    UploadCloud
 } from 'lucide-react';
 
 const POPULAR_COMPANIES = [
@@ -59,18 +52,16 @@ const LEVELS = [
 ];
 
 const SCRAPING_STEPS = [
-    'Connecting to live web intelligence (Google Search Grounding)...',
-    'Scanning recent LeetCode Discuss & Glassdoor posts for this company...',
-    'Extracting 2024-2026 real interview questions, rubrics & Big-O constraints...',
-    'Calibrating AI Tech Lead persona & Monaco IDE workspace...'
+    'Searching the web for real interview questions...',
+    'Finding recent questions from LeetCode, Glassdoor & more...',
+    'Building your personalized interview based on real data...',
+    'Setting up your interview room...'
 ];
 
 const Dashboard = () => {
-    const { user } = useContext(AuthContext);
     const navigate = useNavigate();
     const [assessmentCode, setAssessmentCode] = useState('');
     const [dashboardData, setDashboardData] = useState(null);
-    const [loading, setLoading] = useState(true);
     const [joinError, setJoinError] = useState('');
 
     // Mock assessment modal state
@@ -83,13 +74,8 @@ const Dashboard = () => {
     const [creatingMock, setCreatingMock] = useState(false);
     const [scrapingStepIndex, setScrapingStepIndex] = useState(0);
     const [mockError, setMockError] = useState('');
-
-    // Resume modal & parsed projects state
-    const [isResumeModalOpen, setIsResumeModalOpen] = useState(false);
-    const [resumeText, setResumeText] = useState('');
-    const [parsedProjects, setParsedProjects] = useState([]);
-    const [isSavingResume, setIsSavingResume] = useState(false);
-    const [resumeSaveSuccess, setResumeSaveSuccess] = useState(false);
+    const [savedResume, setSavedResume] = useState(null);
+    const [isUploadingResume, setIsUploadingResume] = useState(false);
 
     useEffect(() => {
         const fetchDashboardData = async () => {
@@ -97,74 +83,68 @@ const Dashboard = () => {
                 const res = await api.get('/candidate/dashboard');
                 if (res.data.success) {
                     setDashboardData(res.data.data);
-                }
-
-                // Fetch candidate resume & parsed projects
-                const resumeRes = await api.get('/candidate/resume');
-                if (resumeRes.data.success && resumeRes.data.data) {
-                    setResumeText(resumeRes.data.data.resumeText || '');
-                    setParsedProjects(resumeRes.data.data.parsedProjects || []);
+                    const cand = res.data.data?.candidate;
+                    if (cand && (cand.resumeFileName || cand.resumeText)) {
+                        setSavedResume({
+                            fileName: cand.resumeFileName || 'Saved_Resume.pdf',
+                            projectsCount: (cand.parsedProjects || []).length,
+                            summary: cand.resumeText?.slice(0, 200) || ''
+                        });
+                    }
                 }
             } catch (err) {
                 console.error('Failed to load candidate dashboard', err);
-            } finally {
-                setLoading(false);
             }
         };
 
         fetchDashboardData();
     }, []);
 
-    const handleSaveResume = async () => {
-        if (!resumeText.trim()) return;
-        setIsSavingResume(true);
-        setResumeSaveSuccess(false);
+    const handleDashboardResumeUpload = async (file) => {
+        if (!file) return;
+        if (file.size > 20 * 1024 * 1024) {
+            alert('File size exceeds 20MB limit. Please upload a smaller resume document.');
+            return;
+        }
+
+        setIsUploadingResume(true);
         try {
-            const res = await api.post('/candidate/resume', { resumeText: resumeText.trim() });
-            if (res.data.success) {
-                setParsedProjects(res.data.data?.parsedData?.projects || res.data.data?.candidate?.parsedProjects || []);
-                setResumeSaveSuccess(true);
-                setTimeout(() => setResumeSaveSuccess(false), 4000);
-            }
+            const reader = new FileReader();
+            reader.onload = async () => {
+                const base64Content = reader.result;
+                const mimeType = file.type || 'application/pdf';
+                const res = await api.post('/candidate/resume/upload', {
+                    fileBase64: base64Content,
+                    mimeType,
+                    fileName: file.name
+                });
+                if (res.data.success) {
+                    const data = res.data.data;
+                    setSavedResume({
+                        fileName: data.fileName || file.name,
+                        projectsCount: (data.projects || []).length,
+                        summary: data.summary
+                    });
+                }
+                setIsUploadingResume(false);
+            };
+            reader.readAsDataURL(file);
         } catch (err) {
-            console.error('Failed to save resume:', err);
-        } finally {
-            setIsSavingResume(false);
+            console.error('Failed to parse resume document:', err);
+            alert(err.response?.data?.message || 'Failed to upload and parse resume document.');
+            setIsUploadingResume(false);
         }
     };
 
     // Step cycle timer when creating mock test
     useEffect(() => {
-        let interval = null;
-        if (creatingMock) {
-            setScrapingStepIndex(0);
-            interval = setInterval(() => {
-                setScrapingStepIndex(prev => (prev < SCRAPING_STEPS.length - 1 ? prev + 1 : prev));
-            }, 1800);
-        } else {
-            setScrapingStepIndex(0);
-        }
-        return () => {
-            if (interval) clearInterval(interval);
-        };
+        if (!creatingMock) return;
+        const interval = setInterval(() => {
+            setScrapingStepIndex(prev => (prev < SCRAPING_STEPS.length - 1 ? prev + 1 : prev));
+        }, 1800);
+        return () => clearInterval(interval);
     }, [creatingMock]);
 
-    const [startingPractice, setStartingPractice] = useState(false);
-
-    const handleStartPractice = async () => {
-        setStartingPractice(true);
-        setJoinError('');
-        try {
-            const res = await api.post('/interview/practice/start');
-            if (res.data.success) {
-                navigate('/candidate/interview/PRACTICE-MOCK-SESSION');
-            }
-        } catch (err) {
-            setJoinError(err.response?.data?.message || 'Failed to start practice mock session');
-        } finally {
-            setStartingPractice(false);
-        }
-    };
     const handleJoin = (e) => {
         if (e) e.preventDefault();
         const code = assessmentCode.trim().toUpperCase();
@@ -184,6 +164,7 @@ const Dashboard = () => {
 
     const handleCreateMock = async (e) => {
         e.preventDefault();
+        setScrapingStepIndex(0);
         setCreatingMock(true);
         setMockError('');
 
@@ -240,9 +221,16 @@ const Dashboard = () => {
         bestVerdict: 'N/A'
     };
 
-    const recentReports = dashboardData?.recentReports || [];
-    const inProgressSessions = dashboardData?.inProgressSessions || [];
-    const availableAssessments = dashboardData?.availableAssessments || [];
+    const recentReports = (dashboardData?.recentReports || []).filter(
+        r => r.assessmentCode !== 'PRACTICE-MOCK-SESSION' && r.assessmentTitle !== 'Technical Practice Mock Interview'
+    );
+    const inProgressSessions = (dashboardData?.inProgressSessions || []).filter(
+        s => s.assessmentCode !== 'PRACTICE-MOCK-SESSION'
+    );
+    const availableAssessments = (dashboardData?.availableAssessments || []).filter(
+        a => a.assessmentCode !== 'PRACTICE-MOCK-SESSION'
+    );
+    const completedAssessmentCodes = dashboardData?.completedAssessmentCodes || [];
 
     const activeCompany = POPULAR_COMPANIES.find(c => c.id === selectedCompanyId);
     const activeRole = POPULAR_ROLES.find(r => r.id === selectedRoleId);
@@ -251,47 +239,7 @@ const Dashboard = () => {
 
     return (
         <div className="flex-1 p-6 sm:p-8 max-w-7xl mx-auto w-full space-y-8">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-[#232330]">
-                <div>
-                    <h1 className="text-2xl font-semibold text-[#EDEDF0] tracking-tight">
-                        Candidate Studio
-                    </h1>
-                    <p className="text-sm text-[#8B8B9E] mt-1">
-                        Welcome back, {user?.name || 'Candidate'}. Practice with live web-scraped company interview archives or join official assessments.
-                    </p>
-                </div>
 
-                <div className="flex items-center gap-3">
-                    <button
-                        onClick={() => setIsResumeModalOpen(true)}
-                        className="studio-btn-secondary text-xs flex items-center gap-1.5"
-                        title="Add and auto-parse your resume projects for AI interviews"
-                    >
-                        <FileText className="w-3.5 h-3.5 text-emerald-400" />
-                        <span>Resume & Projects {parsedProjects.length > 0 && `(${parsedProjects.length})`}</span>
-                    </button>
-                    <button
-                        onClick={() => setIsMockModalOpen(true)}
-                        className="btn-primary text-xs py-2 px-4 shadow-sm"
-                    >
-                        <Globe className="w-3.5 h-3.5" />
-                        <span>Start Mock Interview</span>
-                    </button>
-                    <button
-                        onClick={handleStartPractice}
-                        disabled={startingPractice}
-                        className="studio-btn-primary bg-[#10B981] hover:bg-[#059669] text-[#09090B] font-semibold text-xs flex items-center gap-1.5"
-                    >
-                        <Play className="w-3.5 h-3.5 fill-current" />
-                        <span>{startingPractice ? 'Starting...' : 'Practice Lab'}</span>
-                    </button>
-                    <Link to="/candidate/reports" className="studio-btn-secondary text-xs">
-                        <FileText className="w-4 h-4 text-[#8B8B9E]" />
-                        <span>My reports</span>
-                    </Link>
-                </div>
-            </div>
 
             {/* In-Progress Session Resume Banner (if any) */}
             {inProgressSessions.length > 0 && (
@@ -316,7 +264,7 @@ const Dashboard = () => {
                     </div>
                     <button
                         onClick={() => navigate(`/candidate/interview/${inProgressSessions[0].assessmentCode}`)}
-                        className="btn-primary text-xs py-2 px-4 whitespace-nowrap bg-amber-500 hover:bg-amber-600 text-black font-semibold"
+                        className="btn-warning text-xs py-2 px-4 whitespace-nowrap"
                     >
                         <span>Resume session</span>
                         <ArrowRight className="w-3.5 h-3.5" />
@@ -327,20 +275,21 @@ const Dashboard = () => {
             {/* 2 Main Action Cards: Real-Time Scraped Mock Studio vs Join Official Assessment */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 {/* 1. Real-Time Scraped Mock Assessment Studio Card */}
-                <div className="bg-[#141419] border border-blue-500/30 hover:border-blue-500/50 transition-all rounded-xl p-6 relative overflow-hidden flex flex-col justify-between space-y-4">
+                <div className="bg-[#141419] border border-blue-500/30 hover:border-blue-500/60 hover:shadow-lg hover:shadow-blue-500/5 transition-all rounded-xl p-6 relative overflow-hidden flex flex-col justify-between space-y-4">
                     <div className="space-y-2">
                         <div className="flex items-center justify-between">
                             <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20 flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
                                 <Globe className="w-3 h-3" />
-                                <span>Live Web-Scraped Interview Data</span>
+                                <span>Live Interview Questions</span>
                             </span>
                             <span className="text-[11px] font-mono text-[#8B8B9E]">Real Questions</span>
                         </div>
                         <h2 className="text-lg font-semibold text-[#EDEDF0]">
-                            Live Mock Interview Studio
+                            Mock Interview
                         </h2>
                         <p className="text-xs text-[#8B8B9E] leading-relaxed">
-                            Simulate real interviews powered by live web search across LeetCode Discuss, Glassdoor, and Blind for any company and role. Get transparent scorecards, Big-O complexity feedback, and improvement vectors.
+                            Practice with real interview questions from any company. Get detailed feedback and scores to help you improve.
                         </p>
                     </div>
 
@@ -358,16 +307,17 @@ const Dashboard = () => {
                         className="btn-primary w-full py-2.5 text-xs font-medium mt-2"
                     >
                         <Search className="w-3.5 h-3.5" />
-                        <span>Scrape & Launch Mock Assessment</span>
+                        <span>Start Mock Interview</span>
                         <ArrowRight className="w-4 h-4 ml-auto" />
                     </button>
                 </div>
 
                 {/* 2. Official Company Assessment Card */}
-                <div className="bg-[#141419] border border-[#232330] rounded-xl p-6 flex flex-col justify-between space-y-4">
+                <div className="bg-[#141419] border border-emerald-500/30 hover:border-emerald-500/60 hover:shadow-lg hover:shadow-emerald-500/5 transition-all rounded-xl p-6 relative overflow-hidden flex flex-col justify-between space-y-4">
                     <div className="space-y-2">
                         <div className="flex items-center justify-between">
                             <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
                                 <Lock className="w-3 h-3" />
                                 <span>Confidential to Recruiter</span>
                             </span>
@@ -377,7 +327,7 @@ const Dashboard = () => {
                             Join an Official Assessment
                         </h2>
                         <p className="text-xs text-[#8B8B9E] leading-relaxed">
-                            Invited by an employer or hiring team? Enter your assessment invitation code below. Official evaluations are confidential and submitted directly to the company recruiter.
+                            Got an invite code from a company? Enter it below to start your official assessment. Results go directly to the hiring team.
                         </p>
                     </div>
 
@@ -395,9 +345,10 @@ const Dashboard = () => {
                             />
                             <button
                                 type="submit"
-                                className="studio-btn-secondary px-4 py-2 text-xs font-medium whitespace-nowrap"
+                                className="btn-primary px-4 py-2 text-xs font-medium whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 flex items-center gap-1.5"
                             >
-                                Join Lobby
+                                <span>Join Lobby</span>
+                                <ArrowRight className="w-3.5 h-3.5" />
                             </button>
                         </div>
                         {joinError && (
@@ -413,7 +364,7 @@ const Dashboard = () => {
             {/* Top Telemetry Strip: 4-Column Connected Metric Bar */}
             <div className="border border-[#232330] bg-[#141419] rounded-xl grid grid-cols-2 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x divide-[#232330] overflow-hidden">
                 <div className="p-4 space-y-1">
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-[#8B8B9E] block">
+                    <span className="text-[11px] font-mono uppercase tracking-wider text-[#8B8B9E] block">
                         Interviews done
                     </span>
                     <div className="flex items-baseline gap-2 mt-2">
@@ -425,7 +376,7 @@ const Dashboard = () => {
                 </div>
 
                 <div className="p-4 space-y-1">
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-[#8B8B9E] block">
+                    <span className="text-[11px] font-mono uppercase tracking-wider text-[#8B8B9E] block">
                         Average score
                     </span>
                     <div className="flex items-baseline gap-2 mt-2">
@@ -437,7 +388,7 @@ const Dashboard = () => {
                 </div>
 
                 <div className="p-4 space-y-1">
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-[#8B8B9E] block">
+                    <span className="text-[11px] font-mono uppercase tracking-wider text-[#8B8B9E] block">
                         Best score
                     </span>
                     <div className="flex items-baseline gap-2 mt-2">
@@ -449,7 +400,7 @@ const Dashboard = () => {
                 </div>
 
                 <div className="p-4 space-y-1">
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-[#8B8B9E] block">
+                    <span className="text-[11px] font-mono uppercase tracking-wider text-[#8B8B9E] block">
                         Code runners
                     </span>
                     <div className="flex items-baseline gap-2 mt-2">
@@ -496,18 +447,20 @@ const Dashboard = () => {
                                                 {compName}
                                             </span>
                                             {isMock ? (
-                                                <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                                                    Live Mock
+                                                <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20 inline-flex items-center gap-1.5">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                                                    <span>Live Mock</span>
                                                 </span>
                                             ) : (
-                                                <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                                                    Official Test
+                                                <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 inline-flex items-center gap-1.5">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                                                    <span>Official Test</span>
                                                 </span>
                                             )}
                                         </div>
 
                                         <div className="flex items-center gap-4 text-xs text-[#8B8B9E] flex-wrap">
-                                            <span className="font-mono text-[11px] text-[#EDEDF0]">
+                                            <span className="font-mono text-xs text-[#EDEDF0] bg-[#0A0A0B] px-2 py-0.5 rounded border border-[#232330]">
                                                 {asmt.assessmentCode}
                                             </span>
                                             <span>•</span>
@@ -523,21 +476,43 @@ const Dashboard = () => {
                                     </div>
 
                                     <div className="flex items-center gap-2 flex-shrink-0">
-                                        <button
-                                            onClick={() => handleQuickFill(asmt.assessmentCode)}
-                                            className="btn-primary text-xs py-2 px-4"
-                                        >
-                                            <span>{isMock ? 'Practice now' : 'Start assessment'}</span>
-                                            <ChevronRight className="w-3.5 h-3.5" />
-                                        </button>
+                                        {completedAssessmentCodes.includes(asmt.assessmentCode) ? (
+                                            <Link
+                                                to="/candidate/reports"
+                                                className="studio-btn-secondary text-xs py-2 px-3.5 flex items-center gap-1.5 text-emerald-400 border-emerald-500/30"
+                                            >
+                                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                                <span>Completed • View Report</span>
+                                            </Link>
+                                        ) : (
+                                            <button
+                                                onClick={() => handleQuickFill(asmt.assessmentCode)}
+                                                className="btn-primary text-xs py-2 px-4"
+                                            >
+                                                <span>{isMock ? 'Practice now' : 'Start assessment'}</span>
+                                                <ChevronRight className="w-3.5 h-3.5" />
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                             );
                         })
                     ) : (
-                        <div className="p-8 text-center space-y-1">
-                            <p className="text-sm text-[#8B8B9E]">No active sessions found.</p>
-                            <p className="text-xs text-[#555568]">Click "Start Mock Interview" above to scrape and launch a practice session.</p>
+                        <div className="p-10 text-center space-y-3 flex flex-col items-center justify-center">
+                            <div className="w-11 h-11 rounded-full bg-[#1C1C24] border border-[#232330] flex items-center justify-center text-[#8B8B9E]">
+                                <Layers className="w-5 h-5 text-[#8B8B9E]" />
+                            </div>
+                            <div className="space-y-1 max-w-sm">
+                                <p className="text-sm font-semibold text-[#EDEDF0]">No assessments in queue</p>
+                                <p className="text-xs text-[#8B8B9E]">Launch an AI practice session or enter an official company code above to begin.</p>
+                            </div>
+                            <button
+                                onClick={() => setIsMockModalOpen(true)}
+                                className="btn-primary text-xs py-2 px-3.5 mt-1 inline-flex items-center gap-1.5"
+                            >
+                                <Search className="w-3.5 h-3.5" />
+                                <span>Start Mock Interview</span>
+                            </button>
                         </div>
                     )}
                 </div>
@@ -616,6 +591,7 @@ const Dashboard = () => {
                                                     </span>
                                                 ) : (
                                                     <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border text-emerald-400 bg-emerald-500/10 border-emerald-500/20">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
                                                         <span>Delivered to Recruiter</span>
                                                     </span>
                                                 )}
@@ -641,9 +617,14 @@ const Dashboard = () => {
                             </table>
                         </div>
                     ) : (
-                        <div className="p-8 text-center space-y-1">
-                            <p className="text-sm text-[#8B8B9E]">No interview records found.</p>
-                            <p className="text-xs text-[#555568]">Complete your first mock or official interview to view performance history.</p>
+                        <div className="p-10 text-center space-y-3 flex flex-col items-center justify-center">
+                            <div className="w-11 h-11 rounded-full bg-[#1C1C24] border border-[#232330] flex items-center justify-center text-[#8B8B9E]">
+                                <Activity className="w-5 h-5 text-[#8B8B9E]" />
+                            </div>
+                            <div className="space-y-1 max-w-sm">
+                                <p className="text-sm font-semibold text-[#EDEDF0]">No interview records found</p>
+                                <p className="text-xs text-[#8B8B9E]">Complete your first mock or official interview to view comprehensive evaluation scorecards.</p>
+                            </div>
                         </div>
                     )}
                 </div>
@@ -660,10 +641,10 @@ const Dashboard = () => {
                                 </div>
                                 <div>
                                     <h3 className="text-base font-semibold text-[#EDEDF0]">
-                                        Live Web-Scraped Mock Assessment
+                                        Mock Interview Setup
                                     </h3>
                                     <p className="text-xs text-[#8B8B9E]">
-                                        Searches LeetCode Discuss & Glassdoor live for authentic 2024–2026 questions
+                                        Practice with real questions from any company
                                     </p>
                                 </div>
                             </div>
@@ -689,7 +670,7 @@ const Dashboard = () => {
 
                                 <div className="space-y-2 max-w-md">
                                     <h4 className="text-base font-semibold text-[#EDEDF0] tracking-tight">
-                                        Scraping Live Interview Archives...
+                                        Finding real interview questions...
                                     </h4>
                                     <p className="text-xs text-blue-400 font-mono transition-all duration-300">
                                         {SCRAPING_STEPS[scrapingStepIndex]}
@@ -740,8 +721,8 @@ const Dashboard = () => {
                                                 onClick={() => setSelectedCompanyId(company.id)}
                                                 className={`p-3 rounded-lg border text-left transition-all ${
                                                     selectedCompanyId === company.id
-                                                        ? 'border-blue-500 bg-blue-500/10 text-white'
-                                                        : 'border-[#232330] bg-[#0A0A0B] text-[#8B8B9E] hover:border-[#383848]'
+                                                        ? 'mock-selector-btn-active'
+                                                        : 'mock-selector-btn-inactive'
                                                 }`}
                                             >
                                                 <span className="font-mono text-xs font-semibold block text-[#EDEDF0]">
@@ -759,8 +740,8 @@ const Dashboard = () => {
                                         onClick={() => setSelectedCompanyId('custom')}
                                         className={`w-full p-2.5 mt-2 rounded-lg border text-left text-xs transition-all flex items-center justify-between ${
                                             selectedCompanyId === 'custom'
-                                                ? 'border-blue-500 bg-blue-500/10 text-white'
-                                                : 'border-[#232330] bg-[#0A0A0B] text-[#8B8B9E] hover:border-[#383848]'
+                                                ? 'mock-selector-btn-active'
+                                                : 'mock-selector-btn-inactive'
                                         }`}
                                     >
                                         <span>Other / Custom Organization (e.g. Airbnb, Coinbase, Datadog)</span>
@@ -795,8 +776,8 @@ const Dashboard = () => {
                                                 }}
                                                 className={`p-3 rounded-lg border text-left transition-all ${
                                                     selectedRoleId === role.id
-                                                        ? 'border-blue-500 bg-blue-500/10 text-white'
-                                                        : 'border-[#232330] bg-[#0A0A0B] text-[#8B8B9E] hover:border-[#383848]'
+                                                        ? 'mock-selector-btn-active'
+                                                        : 'mock-selector-btn-inactive'
                                                 }`}
                                             >
                                                 <span className="font-mono text-xs font-semibold block text-[#EDEDF0]">
@@ -814,8 +795,8 @@ const Dashboard = () => {
                                         onClick={() => setSelectedRoleId('custom')}
                                         className={`w-full p-2.5 mt-2 rounded-lg border text-left text-xs transition-all flex items-center justify-between ${
                                             selectedRoleId === 'custom'
-                                                ? 'border-blue-500 bg-blue-500/10 text-white'
-                                                : 'border-[#232330] bg-[#0A0A0B] text-[#8B8B9E] hover:border-[#383848]'
+                                                ? 'mock-selector-btn-active'
+                                                : 'mock-selector-btn-inactive'
                                         }`}
                                     >
                                         <span>Other / Custom Engineering Role (e.g. iOS Developer, Data Platform, Security)</span>
@@ -848,8 +829,8 @@ const Dashboard = () => {
                                                 onClick={() => setSelectedLevel(lvl.id)}
                                                 className={`p-2.5 rounded-lg border text-left transition-all ${
                                                     selectedLevel === lvl.id
-                                                        ? 'border-blue-500 bg-blue-500/10 text-white'
-                                                        : 'border-[#232330] bg-[#0A0A0B] text-[#8B8B9E] hover:border-[#383848]'
+                                                        ? 'mock-selector-btn-active'
+                                                        : 'mock-selector-btn-inactive'
                                                 }`}
                                             >
                                                 <span className="text-xs font-medium block text-[#EDEDF0]">
@@ -863,28 +844,90 @@ const Dashboard = () => {
                                     </div>
                                 </div>
 
-                                {/* Resume Context Indicator */}
-                                <div className="bg-[#0A0A0B] border border-[#232330] rounded-lg p-3 flex items-center justify-between text-xs">
-                                    <div className="flex items-center gap-2">
-                                        <FileText className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                                        <div>
-                                            <span className="text-[#EDEDF0] font-medium block">
-                                                Resume Project Deep Dive
+                                {/* Resume / Project Context (Optional Upload) */}
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-xs font-medium text-[#EDEDF0] flex items-center gap-1.5">
+                                            <FileText className="w-3.5 h-3.5 text-emerald-400" />
+                                            <span>Resume & Project Context</span>
+                                        </label>
+                                        {savedResume?.fileName ? (
+                                            <span className="text-[10px] text-emerald-400 font-medium bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 flex items-center gap-1">
+                                                <CheckCircle2 className="w-3 h-3" />
+                                                <span>Gemini Ready</span>
                                             </span>
-                                            <span className="text-[11px] text-[#8B8B9E]">
-                                                {parsedProjects.length > 0 
-                                                    ? `${parsedProjects.length} project(s) parsed & ready for architectural probing` 
-                                                    : 'No resume attached yet (optional)'}
+                                        ) : (
+                                            <span className="text-[10px] text-[#8B8B9E] px-2 py-0.5 rounded bg-[#0A0A0B] border border-[#232330]">
+                                                Optional • Can also upload in lobby
                                             </span>
-                                        </div>
+                                        )}
                                     </div>
-                                    <button
-                                        type="button"
-                                        onClick={() => setIsResumeModalOpen(true)}
-                                        className="text-xs text-blue-400 hover:text-blue-300 font-medium px-2 py-1"
-                                    >
-                                        {parsedProjects.length > 0 ? 'Edit' : 'Add Resume'}
-                                    </button>
+
+                                    {savedResume?.fileName ? (
+                                        <div className="p-3 bg-[#0A0A0B] border border-emerald-500/30 rounded-lg flex items-center justify-between text-xs">
+                                            <div className="flex items-center gap-2.5 min-w-0">
+                                                <div className="w-8 h-8 rounded bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 flex-shrink-0">
+                                                    <FileText className="w-4 h-4" />
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <p className="text-[#EDEDF0] truncate font-medium">{savedResume.fileName}</p>
+                                                    <p className="text-[11px] text-[#8B8B9E]">
+                                                        {savedResume.projectsCount > 0 
+                                                            ? `${savedResume.projectsCount} technical project${savedResume.projectsCount > 1 ? 's' : ''} extracted` 
+                                                            : 'Extracted with Gemini for interview deep-dive'}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => document.getElementById('dashboard-modal-resume-file')?.click()}
+                                                    className="studio-btn-secondary text-[11px] py-1 px-2.5 text-emerald-400 hover:text-emerald-300"
+                                                >
+                                                    Replace
+                                                </button>
+                                                <input
+                                                    id="dashboard-modal-resume-file"
+                                                    type="file"
+                                                    accept=".pdf,.docx,.doc,.txt"
+                                                    className="hidden"
+                                                    onChange={(e) => {
+                                                        if (e.target.files && e.target.files[0]) {
+                                                            handleDashboardResumeUpload(e.target.files[0]);
+                                                        }
+                                                    }}
+                                                />
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div
+                                            onClick={() => document.getElementById('dashboard-modal-resume-file')?.click()}
+                                            className="p-3.5 border border-dashed border-[#232330] hover:border-emerald-500/40 rounded-lg bg-[#0A0A0B]/60 text-center cursor-pointer transition-all group"
+                                        >
+                                            <input
+                                                id="dashboard-modal-resume-file"
+                                                type="file"
+                                                accept=".pdf,.docx,.doc,.txt"
+                                                className="hidden"
+                                                onChange={(e) => {
+                                                    if (e.target.files && e.target.files[0]) {
+                                                        handleDashboardResumeUpload(e.target.files[0]);
+                                                    }
+                                                }}
+                                            />
+                                            {isUploadingResume ? (
+                                                <div className="flex items-center justify-center gap-2 text-xs text-emerald-400 animate-pulse">
+                                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                                    <span>Gemini is parsing resume projects & architecture...</span>
+                                                </div>
+                                            ) : (
+                                                <div className="flex items-center justify-center gap-2 text-xs text-[#8B8B9E] group-hover:text-[#EDEDF0]">
+                                                    <UploadCloud className="w-4 h-4 text-emerald-400" />
+                                                    <span>Upload resume (PDF, DOCX, TXT) to customize questions to your real projects</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Scraped Intelligence Pipeline Notice */}
@@ -892,14 +935,14 @@ const Dashboard = () => {
                                     <div className="flex items-center justify-between text-[#EDEDF0] font-medium">
                                         <span className="flex items-center gap-2">
                                             <Globe className="w-3.5 h-3.5 text-blue-400" />
-                                            <span>Real-Time Web Scraper Enabled</span>
+                                            <span>Real Questions Included</span>
                                         </span>
                                         <span className="font-mono text-[11px] text-emerald-400">
                                             2024–2026 Archive
                                         </span>
                                     </div>
                                     <p className="text-[#8B8B9E] text-[11px] leading-relaxed">
-                                        When you click launch, VoxCode queries live search grounding across LeetCode Discuss, Glassdoor, and Blind for authentic questions asked at {selectedCompanyId === 'custom' ? (customCompanyName || 'your chosen company') : activeCompany?.name} for {currentRoleLabel}.
+                                        When you start, we'll search for real interview questions asked at {selectedCompanyId === 'custom' ? (customCompanyName || 'your chosen company') : activeCompany?.name} for {currentRoleLabel}.
                                     </p>
 
                                 </div>
@@ -925,7 +968,7 @@ const Dashboard = () => {
                                         className="btn-primary text-xs py-2 px-5"
                                     >
                                         <Search className="w-3.5 h-3.5" />
-                                        <span>Scrape & Launch Mock</span>
+                                        <span>Start Mock Interview</span>
                                         <ArrowRight className="w-4 h-4" />
                                     </button>
                                 </div>
@@ -935,126 +978,7 @@ const Dashboard = () => {
                 </div>
             )}
 
-            {/* Resume & Project Context Modal */}
-            {isResumeModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
-                    <div className="bg-[#141419] border border-[#232330] rounded-xl max-w-2xl w-full p-6 space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto">
-                        <div className="flex items-start justify-between pb-3 border-b border-[#232330]">
-                            <div className="space-y-1">
-                                <h2 className="text-base font-semibold text-[#EDEDF0] flex items-center gap-2">
-                                    <FileText className="w-4 h-4 text-emerald-400" />
-                                    <span>Resume & Project Context</span>
-                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
-                                        <Sparkles className="w-3 h-3" />
-                                        <span>LLM Powered</span>
-                                    </span>
-                                </h2>
-                                <p className="text-xs text-[#8B8B9E] leading-relaxed">
-                                    Paste your resume or project highlights. The AI interviewer uses this to discuss your real-world architecture, tech stack, and trade-offs in both mock and real rounds.
-                                </p>
-                            </div>
-                            <button
-                                onClick={() => setIsResumeModalOpen(false)}
-                                className="text-[#8B8B9E] hover:text-[#EDEDF0] p-1 rounded-lg"
-                            >
-                                <X className="w-4 h-4" />
-                            </button>
-                        </div>
 
-                        <div className="space-y-3">
-                            <label className="text-xs font-medium text-[#EDEDF0] block">
-                                Resume Text or Project Highlights
-                            </label>
-                            <textarea
-                                value={resumeText}
-                                onChange={(e) => setResumeText(e.target.value)}
-                                rows={6}
-                                placeholder="Paste your resume summary, LinkedIn profile, or key project details here (e.g. 'Built an event-driven payment processing pipeline using Kafka, Node.js microservices, and PostgreSQL handling 50k transactions/sec...')"
-                                className="w-full bg-[#0A0A0B] border border-[#232330] rounded-xl p-3.5 text-xs text-[#EDEDF0] placeholder-[#555568] focus:outline-none focus:border-emerald-500/50 leading-relaxed font-sans resize-y"
-                            />
-
-                            <div className="flex items-center justify-between flex-wrap gap-2">
-                                <button
-                                    type="button"
-                                    onClick={handleSaveResume}
-                                    disabled={isSavingResume || !resumeText.trim()}
-                                    className="studio-btn-secondary px-4 py-2 text-xs flex items-center gap-2 text-emerald-400 hover:text-emerald-300 disabled:opacity-50"
-                                >
-                                    {isSavingResume ? (
-                                        <>
-                                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                            <span>Extracting Projects with Gemini...</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-                                            <span>Auto-Parse & Save Projects</span>
-                                        </>
-                                    )}
-                                </button>
-
-                                {resumeSaveSuccess && (
-                                    <span className="text-xs text-emerald-400 flex items-center gap-1.5 font-medium">
-                                        <CheckCircle2 className="w-3.5 h-3.5" />
-                                        <span>Saved & parsed successfully!</span>
-                                    </span>
-                                )}
-                            </div>
-
-                            {/* Parsed Projects Display */}
-                            {parsedProjects.length > 0 && (
-                                <div className="pt-3 space-y-2 border-t border-[#232330]">
-                                    <span className="text-[11px] font-semibold uppercase tracking-wider text-[#8B8B9E] block">
-                                        Parsed Projects for AI Discussion ({parsedProjects.length})
-                                    </span>
-                                    <div className="space-y-2">
-                                        {parsedProjects.map((p, idx) => (
-                                            <div
-                                                key={idx}
-                                                className="p-3 bg-[#0A0A0B] border border-[#232330] rounded-lg space-y-1 text-xs"
-                                            >
-                                                <div className="flex items-center justify-between">
-                                                    <span className="font-medium text-[#EDEDF0] flex items-center gap-1.5">
-                                                        <FolderGit2 className="w-3.5 h-3.5 text-emerald-400" />
-                                                        <span>{p.title}</span>
-                                                    </span>
-                                                    {p.techStack && p.techStack.length > 0 && (
-                                                        <div className="flex gap-1 flex-wrap">
-                                                            {p.techStack.slice(0, 4).map((tech, ti) => (
-                                                                <span
-                                                                    key={ti}
-                                                                    className="px-1.5 py-0.5 rounded bg-[#1C1C24] text-[10px] text-[#8B8B9E] border border-[#232330]"
-                                                                >
-                                                                    {tech}
-                                                                </span>
-                                                            ))}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                                {p.description && (
-                                                    <p className="text-[11px] text-[#8B8B9E] leading-relaxed">
-                                                        {p.description}
-                                                    </p>
-                                                )}
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#232330]">
-                            <button
-                                type="button"
-                                onClick={() => setIsResumeModalOpen(false)}
-                                className="btn-primary text-xs py-2 px-5"
-                            >
-                                Done
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };

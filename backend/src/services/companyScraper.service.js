@@ -144,7 +144,7 @@ CRITICAL RULES:
 
         // Attempt 2: Fallback to high-quota model without tool call if search quota is exhausted
         if (!text) {
-            for (const model of ['gemini-flash-lite-latest', 'gemini-3.5-flash-lite']) {
+            for (const model of ['gemini-flash-lite-latest', 'gemini-2.5-flash']) {
                 try {
                     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
                         method: 'POST',

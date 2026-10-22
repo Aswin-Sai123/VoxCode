@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { Assessment } from '../models/assessment.model.js';
+import { Company } from '../models/company.model.js';
 import { Role } from '../models/role.model.js';
 import { Candidate } from '../models/candidate.model.js';
 import { InterviewSession } from '../models/interviewSession.model.js';
@@ -7,6 +8,7 @@ import { ApiError } from '../utils/ApiError.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { sendAssessmentInvite } from '../services/email.service.js';
+import { synthesizeInterviewBlueprint } from '../services/ai.service.js';
 
 // Cryptographically secure, unguessable assessment code e.g. "ASMT-A7F2B9-8E1C4D"
 const generateCode = () => {
@@ -14,6 +16,52 @@ const generateCode = () => {
     const part2 = crypto.randomBytes(3).toString('hex').toUpperCase();
     return `ASMT-${part1}-${part2}`;
 };
+
+/**
+ * Company uploads blueprint doc or pastes hiring blueprint to synthesize structured format via Gemini
+ */
+export const synthesizeBlueprint = asyncHandler(async (req, res) => {
+    const { 
+        roleId, 
+        roleTitle: customRoleTitle,
+        title, 
+        skills = [], 
+        experienceLevel = 'Mid', 
+        blueprintText = '', 
+        fileBase64 = '', 
+        mimeType = 'application/pdf',
+        fileName = ''
+    } = req.body;
+
+    let roleTitle = customRoleTitle || 'Software Engineer';
+    if (roleId) {
+        const role = await Role.findById(roleId);
+        if (role?.title) roleTitle = role.title;
+    }
+
+    let companyName = req.user?.name;
+    if (!companyName && req.user?.id) {
+        const comp = await Company.findById(req.user.id).select('name');
+        if (comp?.name) companyName = comp.name;
+    }
+    companyName = companyName || 'Tech Organization';
+
+    const analysis = await synthesizeInterviewBlueprint({
+        companyName,
+        roleTitle,
+        experienceLevel,
+        skills,
+        blueprintText,
+        fileBase64,
+        mimeType
+    });
+
+    res.status(200).json(new ApiResponse(200, {
+        analysis,
+        fileName: fileName || '',
+        extractedText: blueprintText || ''
+    }, 'Interview blueprint synthesized successfully'));
+});
 
 // Company creates a new assessment
 export const createAssessment = asyncHandler(async (req, res) => {
@@ -65,6 +113,31 @@ export const createAssessment = asyncHandler(async (req, res) => {
             : String(eligibleEmails).split(/[\n,;]+/).map(e => e.trim().toLowerCase()).filter(Boolean);
     }
 
+    // Synthesize blueprint analysis if not pre-computed
+    let finalAnalysis = req.body.blueprintAnalysis;
+    if (!finalAnalysis) {
+        let companyName = req.user?.name;
+        if (!companyName && req.user?.id) {
+            const comp = await Company.findById(req.user.id).select('name');
+            if (comp?.name) companyName = comp.name;
+        }
+        companyName = companyName || 'Tech Organization';
+
+        finalAnalysis = await synthesizeInterviewBlueprint({
+            companyName,
+            roleTitle: role?.title || title,
+            experienceLevel: experienceLevel || 'Entry',
+            skills: skills || [],
+            blueprintText: blueprint || ''
+        });
+    }
+
+    const effectiveCoding = codingRoundEnabled !== undefined 
+        ? codingRoundEnabled 
+        : (finalAnalysis?.codingRoundEnabled !== false);
+
+    const effectiveFormat = req.body.interviewFormat || finalAnalysis?.interviewFormat || (effectiveCoding ? 'FULL_INTERVIEW' : 'PROJECT_AND_TECHNICAL_ONLY');
+
     const assessment = await Assessment.create({
         company: req.user.id,
         role: targetRoleId,
@@ -73,12 +146,15 @@ export const createAssessment = asyncHandler(async (req, res) => {
         experienceLevel: experienceLevel || 'Entry',
         durationMinutes: Number(durationMinutes) || 30,
         blueprint: blueprint || '',
+        blueprintFileName: req.body.blueprintFileName || '',
+        blueprintAnalysis: finalAnalysis,
+        interviewFormat: effectiveFormat,
         assessmentCode,
         openingTime: openingTime ? new Date(openingTime) : null,
         closingTime: closingTime ? new Date(closingTime) : null,
         accessType: accessType === 'INVITE_ONLY' ? 'INVITE_ONLY' : 'PUBLIC',
         eligibleEmails: cleanEmails,
-        codingRoundEnabled: codingRoundEnabled !== false,
+        codingRoundEnabled: effectiveCoding,
         voiceRoundEnabled: voiceRoundEnabled !== false
     });
 

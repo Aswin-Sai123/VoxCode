@@ -83,12 +83,27 @@ export function applyStateActionToMachine(stateMachine, stateAction) {
         const atFollowUpCap =
             topic.followUpsOnCurrentRoot >= sm.limits.followUpsPerRootQuestion;
         if (atFollowUpCap) {
+            // Move to next root question within this topic
             topic.rootQuestionsAsked = Math.min(
                 topic.rootQuestionsAsked + 1,
                 sm.limits.rootQuestionsPerTopic
             );
             topic.followUpsOnCurrentRoot = 0;
             topic.currentRootQuestionIndex = topic.rootQuestionsAsked;
+
+            // If all root questions for this topic are exhausted, auto-advance topic
+            if (topic.rootQuestionsAsked >= sm.limits.rootQuestionsPerTopic) {
+                topic.status = 'done';
+                const nextIdx = Math.min(idx + 1, sm.topics.length - 1);
+                if (nextIdx !== idx) {
+                    sm.activeTopicIndex = nextIdx;
+                    sm.topics.forEach((t, i) => {
+                        if (i < nextIdx) t.status = 'done';
+                        else if (i === nextIdx) t.status = 'active';
+                        else t.status = 'pending';
+                    });
+                }
+            }
         } else {
             topic.followUpsOnCurrentRoot = Math.min(
                 topic.followUpsOnCurrentRoot + 1,
@@ -96,15 +111,24 @@ export function applyStateActionToMachine(stateMachine, stateAction) {
             );
         }
     } else if (stateAction === 'ADVANCE_TOPIC') {
-        topic.status = 'done';
-        topic.followUpsOnCurrentRoot = 0;
-        const nextIdx = Math.min(idx + 1, sm.topics.length - 1);
-        sm.activeTopicIndex = nextIdx;
-        sm.topics.forEach((t, i) => {
-            if (i < nextIdx) t.status = 'done';
-            else if (i === nextIdx) t.status = 'active';
-            else t.status = 'pending';
-        });
+        // First check: are there still root questions left in this topic?
+        if (topic.rootQuestionsAsked < sm.limits.rootQuestionsPerTopic - 1) {
+            // Advance to next root question within same topic (not next topic)
+            topic.rootQuestionsAsked += 1;
+            topic.followUpsOnCurrentRoot = 0;
+            topic.currentRootQuestionIndex = topic.rootQuestionsAsked;
+        } else {
+            // All root questions exhausted — advance to next topic
+            topic.status = 'done';
+            topic.followUpsOnCurrentRoot = 0;
+            const nextIdx = Math.min(idx + 1, sm.topics.length - 1);
+            sm.activeTopicIndex = nextIdx;
+            sm.topics.forEach((t, i) => {
+                if (i < nextIdx) t.status = 'done';
+                else if (i === nextIdx) t.status = 'active';
+                else t.status = 'pending';
+            });
+        }
     }
 
     return sm;

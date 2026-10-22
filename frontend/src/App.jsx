@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { ThemeProvider, useTheme } from './context/ThemeContext';
 import Navbar from './components/Navbar';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
@@ -16,10 +17,11 @@ import ProtectedRoute from './components/ProtectedRoute';
 
 const AppContent = () => {
     const location = useLocation();
+    const { isDark } = useTheme();
     const isInterviewRoom = location.pathname.includes('/candidate/interview/');
 
     return (
-        <div className="min-h-screen bg-[#0A0A0B] text-[#EDEDF0] flex flex-col antialiased selection:bg-blue-600/30 selection:text-white">
+        <div className={`min-h-screen ${isDark ? 'bg-[#0A0A0B] text-[#EDEDF0]' : 'bg-[#F8FAFC] text-[#0F172A]'} flex flex-col antialiased selection:bg-blue-600/30 selection:text-white transition-colors duration-200`}>
             {!isInterviewRoom && <Navbar />}
             <main className={!isInterviewRoom ? "pt-14 flex-1 flex flex-col" : "flex-1 flex flex-col"}>
                 <Routes>
@@ -78,11 +80,13 @@ const AppContent = () => {
 
 const App = () => {
     return (
-        <AuthProvider>
-            <Router>
-                <AppContent />
-            </Router>
-        </AuthProvider>
+        <ThemeProvider>
+            <AuthProvider>
+                <Router>
+                    <AppContent />
+                </Router>
+            </AuthProvider>
+        </ThemeProvider>
     );
 };
 

@@ -1,5 +1,5 @@
 import React, { useContext, useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
 import api from '../../services/api';
 import { 
@@ -10,7 +10,6 @@ import {
     Pause, 
     Play, 
     Layers, 
-    Clock, 
     ChevronRight,
     AlertCircle,
     Loader2,
@@ -19,18 +18,15 @@ import {
     FileText,
     Sparkles,
     RefreshCw,
-    CheckCircle2,
-    User
+    CheckCircle2
 } from 'lucide-react';
 
 const Dashboard = () => {
     const { user } = useContext(AuthContext);
-    const navigate = useNavigate();
 
     const [roles, setRoles] = useState([]);
     const [assessments, setAssessments] = useState([]);
     const [interviews, setInterviews] = useState({ ongoing: [], completed: [] });
-    const [loadingRoles, setLoadingRoles] = useState(true);
     const [loadingAssessments, setLoadingAssessments] = useState(true);
     const [loadingInterviews, setLoadingInterviews] = useState(true);
 
@@ -49,33 +45,9 @@ const Dashboard = () => {
     // report generation state
     const [generatingReportId, setGeneratingReportId] = useState(null);
 
-    // fetch roles
-    const fetchRoles = async () => {
-        try {
-            const res = await api.get('/company/roles');
-            if (res.data.success) setRoles(res.data.data);
-        } catch (err) {
-            console.error('Failed to fetch roles', err);
-        } finally {
-            setLoadingRoles(false);
-        }
-    };
-
-    // fetch assessments
-    const fetchAssessments = async () => {
-        try {
-            const res = await api.get('/assessments');
-            if (res.data.success) setAssessments(res.data.data);
-        } catch (err) {
-            console.error('Failed to fetch assessments', err);
-        } finally {
-            setLoadingAssessments(false);
-        }
-    };
-
     // fetch interviews telemetry
-    const fetchInterviews = async () => {
-        setLoadingInterviews(true);
+    const fetchInterviews = async (showLoading = false) => {
+        if (showLoading) setLoadingInterviews(true);
         try {
             const res = await api.get('/company/interviews');
             if (res.data.success) {
@@ -89,9 +61,33 @@ const Dashboard = () => {
     };
 
     useEffect(() => {
-        fetchRoles();
-        fetchAssessments();
-        fetchInterviews();
+        let isCancelled = false;
+        const initDashboardData = async () => {
+            try {
+                const [rolesRes, asmtRes, intRes] = await Promise.allSettled([
+                    api.get('/company/roles'),
+                    api.get('/assessments'),
+                    api.get('/company/interviews')
+                ]);
+                if (isCancelled) return;
+                if (rolesRes.status === 'fulfilled' && rolesRes.value?.data?.success) {
+                    setRoles(rolesRes.value.data.data);
+                }
+                if (asmtRes.status === 'fulfilled' && asmtRes.value?.data?.success) {
+                    setAssessments(asmtRes.value.data.data);
+                }
+                if (intRes.status === 'fulfilled' && intRes.value?.data?.success) {
+                    setInterviews(intRes.value.data.data);
+                }
+            } finally {
+                if (!isCancelled) {
+                    setLoadingAssessments(false);
+                    setLoadingInterviews(false);
+                }
+            }
+        };
+        initDashboardData();
+        return () => { isCancelled = true; };
     }, []);
 
     // create role
@@ -203,7 +199,7 @@ const Dashboard = () => {
                         Recruiter Dashboard
                     </h1>
                     <p className="text-sm text-[#8B8B9E] mt-1">
-                        Manage assessments and candidate evaluations for {user?.name || 'your company'}.
+                        Manage your assessments and track candidate progress for {user?.name || 'your company'}.
                     </p>
                 </div>
 
@@ -227,7 +223,7 @@ const Dashboard = () => {
             {/* Stat Cards - 4 Column */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="bg-[#141419] border border-[#232330] rounded-xl p-5">
-                    <span className="text-xs font-medium text-[#8B8B9E] block">
+                    <span className="text-[11px] font-mono uppercase tracking-wider text-[#8B8B9E] block">
                         Active Assessments
                     </span>
                     <div className="flex items-baseline gap-2 mt-2">
@@ -239,19 +235,19 @@ const Dashboard = () => {
                 </div>
 
                 <div className="bg-[#141419] border border-[#232330] rounded-xl p-5">
-                    <span className="text-xs font-medium text-[#8B8B9E] block">
-                        Interviews in Session
+                    <span className="text-[11px] font-mono uppercase tracking-wider text-[#8B8B9E] block">
+                        Live Interviews
                     </span>
                     <div className="flex items-baseline gap-2 mt-2">
                         <span className="text-3xl font-semibold text-emerald-400 tabular-nums tracking-tight">
                             {interviews?.ongoing?.length || 0}
                         </span>
-                        <span className="text-xs text-emerald-400 font-medium">live candidates</span>
+                        <span className="text-xs text-emerald-400 font-medium">taking test now</span>
                     </div>
                 </div>
 
                 <div className="bg-[#141419] border border-[#232330] rounded-xl p-5">
-                    <span className="text-xs font-medium text-[#8B8B9E] block">
+                    <span className="text-[11px] font-mono uppercase tracking-wider text-[#8B8B9E] block">
                         Completed Sessions
                     </span>
                     <div className="flex items-baseline gap-2 mt-2">
@@ -263,14 +259,14 @@ const Dashboard = () => {
                 </div>
 
                 <div className="bg-[#141419] border border-[#232330] rounded-xl p-5">
-                    <span className="text-xs font-medium text-[#8B8B9E] block">
+                    <span className="text-[11px] font-mono uppercase tracking-wider text-[#8B8B9E] block">
                         Configured Roles
                     </span>
                     <div className="flex items-baseline gap-2 mt-2">
                         <span className="text-3xl font-semibold text-[#EDEDF0] tabular-nums tracking-tight">
                             {roles.length}
                         </span>
-                        <span className="text-xs text-[#555568]">job profiles</span>
+                        <span className="text-xs text-[#555568]">roles</span>
                     </div>
                 </div>
             </div>
@@ -336,7 +332,7 @@ const Dashboard = () => {
                     <div className="flex items-center gap-2">
                         <Activity className="w-4 h-4 text-emerald-400 animate-pulse" />
                         <h2 className="text-sm font-semibold text-[#EDEDF0]">
-                            Interviews in Progress ({interviews.ongoing.length})
+                            Live Interviews ({interviews.ongoing.length})
                         </h2>
                     </div>
                     <button
@@ -394,8 +390,8 @@ const Dashboard = () => {
                         </div>
                     ) : (
                         <div className="p-6 text-center space-y-1">
-                            <p className="text-xs text-[#8B8B9E]">No candidate interviews are currently in progress.</p>
-                            <p className="text-[11px] text-[#555568]">Candidates show up here while taking your assessment.</p>
+                            <p className="text-xs text-[#8B8B9E]">No candidates are taking a test right now.</p>
+                            <p className="text-[11px] text-[#555568]">Candidates will appear here when they start your assessment.</p>
                         </div>
                     )}
                 </div>
@@ -527,7 +523,9 @@ const Dashboard = () => {
 
                                         <div className="flex items-center gap-3 text-xs text-[#8B8B9E] flex-wrap">
                                             <div className="flex items-center gap-1.5">
-                                                <span className="text-[#EDEDF0] font-mono text-[11px]">{asmt.assessmentCode}</span>
+                                                <span className="font-mono text-xs text-[#EDEDF0] bg-[#0A0A0B] px-2 py-0.5 rounded border border-[#232330]">
+                                                    {asmt.assessmentCode}
+                                                </span>
                                                 <button
                                                     onClick={() => handleCopyCode(asmt.assessmentCode)}
                                                     className="p-1 hover:text-[#EDEDF0] transition-colors"
@@ -569,7 +567,7 @@ const Dashboard = () => {
                         </div>
                     ) : (
                         <div className="p-10 text-center space-y-3">
-                            <p className="text-sm text-[#8B8B9E]">No technical assessments configured yet.</p>
+                            <p className="text-sm text-[#8B8B9E]">No assessments created yet.</p>
                             <Link
                                 to="/company/create-assessment"
                                 className="btn-primary inline-flex text-xs py-2 px-4"
@@ -659,7 +657,7 @@ const Dashboard = () => {
                         </div>
                     ) : (
                         <div className="p-6 text-center text-xs text-[#555568]">
-                            No custom job roles configured yet.
+                            No roles created yet.
                         </div>
                     )}
                 </div>

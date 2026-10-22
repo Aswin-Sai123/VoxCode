@@ -71,17 +71,35 @@ export const getCompanyInterviews = asyncHandler(async (req, res) => {
     const ongoing = [];
     const completed = [];
 
+    const seenCompletedKeys = new Set();
+
     for (const session of sessions) {
-        const ev = evalMap.get(session._id.toString());
+        let ev = evalMap.get(session._id.toString());
+        const effectiveStatus = await reconcileInterviewSessionStatus(session);
+
+        const candId = session.candidate?._id || session.candidate;
+        const asmtId = session.assessment?._id || session.assessment;
+
+        // If session is completed but no eval was mapped directly to this sessionId,
+        // lookup any evaluation created for this session or candidate+assessment
+        if (effectiveStatus !== 'IN_PROGRESS' && !ev) {
+            ev = await Evaluation.findOne({
+                $or: [
+                    { session: session._id },
+                    { candidate: candId, assessment: asmtId }
+                ]
+            });
+        }
+
         const item = {
             _id: session._id,
             sessionId: session._id,
             candidateName: session.candidate?.name || 'Candidate',
             candidateEmail: session.candidate?.email || 'N/A',
-            assessmentId: session.assessment?._id,
+            assessmentId: asmtId,
             assessmentTitle: session.assessment?.title || session.assessment?.roleTitle || 'Assessment',
             assessmentCode: session.assessment?.assessmentCode,
-            status: session.status,
+            status: effectiveStatus,
             currentStage: session.stage,
             startedAt: session.startedAt || session.createdAt,
             updatedAt: session.updatedAt,
@@ -91,13 +109,21 @@ export const getCompanyInterviews = asyncHandler(async (req, res) => {
             score: ev?.scores?.overall ?? null
         };
 
-        const effectiveStatus = await reconcileInterviewSessionStatus(session);
-        item.status = effectiveStatus;
-
         if (effectiveStatus === 'IN_PROGRESS') {
             ongoing.push(item);
         } else {
-            completed.push(item);
+            const key = `${candId?.toString()}_${asmtId?.toString()}`;
+            // If we have seen a completed record for this candidate and assessment, keep the one with a report/higher score
+            if (!seenCompletedKeys.has(key)) {
+                seenCompletedKeys.add(key);
+                completed.push(item);
+            } else if (item.hasReport) {
+                // Replace existing entry if current item has a valid report and previous didn't
+                const existingIdx = completed.findIndex(c => `${c.candidateEmail}_${c.assessmentCode}` === `${item.candidateEmail}_${item.assessmentCode}`);
+                if (existingIdx !== -1 && !completed[existingIdx].hasReport) {
+                    completed[existingIdx] = item;
+                }
+            }
         }
     }
 
