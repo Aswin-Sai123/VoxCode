@@ -35,6 +35,7 @@ import { toast } from 'sonner';
 import confetti from 'canvas-confetti';
 import { playChime, playClick, playSuccess, playWarning } from '../../utils/soundEffects';
 import VoiceVisualizerOrb from '../../components/common/VoiceVisualizerOrb';
+import VoiceModelSelectorModal, { VOICE_MODELS } from '../../components/common/VoiceModelSelectorModal';
 
 // Live YouTube/Karaoke-style dynamic animated speech caption renderer
 const LiveCaptionsText = ({ text, isSpeaking, activeWordIndex }) => {
@@ -116,6 +117,33 @@ const InterviewRoom = () => {
     const [isSending, setIsSending] = useState(false);
     const [showTextInput, setShowTextInput] = useState(false);
     const [micError, setMicError] = useState('');
+    const [selectedVoiceModel, setSelectedVoiceModel] = useState(() => {
+        return localStorage.getItem('voxcode_voice_model') || 'edge-neural-neerja';
+    });
+    const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
+    const activeAudioRef = useRef(null);
+
+    const handleSelectVoiceModel = (modelId) => {
+        setSelectedVoiceModel(modelId);
+        try {
+            localStorage.setItem('voxcode_voice_model', modelId);
+        } catch {}
+    };
+
+    const getActiveVoiceLabel = (modelId) => {
+        switch (modelId) {
+            case 'edge-neural-neerja':
+                return 'Edge Neerja';
+            case 'edge-neural-prabhat':
+                return 'Edge Prabhat';
+            case 'browser-speech':
+                return 'Browser Local';
+            case 'google-cloud-neural':
+                return 'GCP Neural2';
+            default:
+                return 'Edge Neural';
+        }
+    };
 
     // Coding state
     const [codingChallenge, setCodingChallenge] = useState(null);
@@ -729,9 +757,9 @@ const InterviewRoom = () => {
         return () => clearInterval(timerRef.current);
     }, [session, stage]);
 
-    // 3. Audio Output (TTS) with Indian Accent Preference & Live Karaoke-style Word Tracking
-    const speakAiMessage = (text) => {
-        if (!text || isMutedRef.current || !window.speechSynthesis) return;
+    // 3. Audio Output (TTS) with Multi-Engine Support (Edge Neural, Browser Speech, Google Cloud) & Live Word Tracking
+    const speakAiMessage = async (text, overrideVoiceModel) => {
+        if (!text || isMutedRef.current) return;
 
         // Play gentle chime when interviewer begins speaking
         playChime();
@@ -747,15 +775,20 @@ const InterviewRoom = () => {
             captionTimerRef.current = null;
         }
 
-        window.speechSynthesis.cancel();
+        // Cancel previous audio playback
+        if (activeAudioRef.current) {
+            activeAudioRef.current.pause();
+            activeAudioRef.current.currentTime = 0;
+            activeAudioRef.current = null;
+        }
+        if (window.speechSynthesis) {
+            window.speechSynthesis.cancel();
+        }
 
         const cleanText = text.replace(/[*_#`]/g, '').trim();
         const words = cleanText.split(/\s+/).filter(Boolean);
         setSpeakingText(text);
         setSpokenWordIndex(0);
-
-        const utterance = new SpeechSynthesisUtterance(cleanText);
-        utteranceRef.current = utterance;
 
         // Precompute word character boundaries for exact boundary alignment
         const wordBoundaries = [];
@@ -773,18 +806,21 @@ const InterviewRoom = () => {
         let currentIdx = 0;
         let boundaryHandled = false;
 
-        // Paced word-ticker fallback in case browser speech engine doesn't emit onboundary
-        const startWordTicker = () => {
+        // Paced word-ticker fallback / duration-based karaoke sync
+        const startWordTicker = (totalDurationMs) => {
+            const estDuration = totalDurationMs || (words.length * 280);
+            const interval = Math.max(120, Math.floor(estDuration / Math.max(1, words.length)));
+
             const advanceWord = () => {
                 if (boundaryHandled) return;
                 if (currentIdx < words.length - 1) {
                     currentIdx++;
                     setSpokenWordIndex(currentIdx);
                     const word = words[currentIdx] || '';
-                    let delay = 240;
-                    if (word.endsWith('.') || word.endsWith('?') || word.endsWith('!')) delay = 450;
-                    else if (word.endsWith(',') || word.endsWith(';') || word.endsWith(':')) delay = 320;
-                    else if (word.length > 7) delay = 290;
+                    let delay = interval;
+                    if (word.endsWith('.') || word.endsWith('?') || word.endsWith('!')) delay = interval * 1.6;
+                    else if (word.endsWith(',') || word.endsWith(';') || word.endsWith(':')) delay = interval * 1.25;
+                    else if (word.length > 7) delay = interval * 1.15;
                     captionTimerRef.current = setTimeout(advanceWord, delay);
                 } else {
                     setTimeout(() => {
@@ -793,82 +829,134 @@ const InterviewRoom = () => {
                     }, 600);
                 }
             };
-            captionTimerRef.current = setTimeout(advanceWord, 240);
-        };
-
-        utterance.onboundary = (e) => {
-            if (e.name === 'word' || typeof e.charIndex === 'number') {
-                boundaryHandled = true;
-                if (captionTimerRef.current) {
-                    clearTimeout(captionTimerRef.current);
-                    captionTimerRef.current = null;
-                }
-                const charIndex = e.charIndex;
-                let foundIndex = 0;
-                for (let i = 0; i < wordBoundaries.length; i++) {
-                    if (charIndex >= wordBoundaries[i].start) {
-                        foundIndex = i;
-                    } else {
-                        break;
-                    }
-                }
-                setSpokenWordIndex(foundIndex);
-            }
+            captionTimerRef.current = setTimeout(advanceWord, interval);
         };
 
         // Activate visual captions immediately
         setIsAiSpeaking(true);
         setSpokenWordIndex(0);
-        startWordTicker();
 
-        const setVoiceAndSpeak = () => {
-            const voices = window.speechSynthesis.getVoices();
-            if (voices.length > 0) {
-                const indianVoice = voices.find(v =>
-                    (v.lang === 'en-IN' || v.lang === 'hi-IN') &&
-                    (v.name.includes('Rishi') || v.name.includes('Veena') || v.name.includes('India') || v.name.includes('Google हिन्दी'))
-                ) || voices.find(v => v.lang === 'en-IN') || voices.find(v => v.lang.startsWith('en'));
+        const voiceModelToUse = overrideVoiceModel || selectedVoiceModel;
 
-                if (indianVoice) utterance.voice = indianVoice;
-            }
+        // Mode 1: Browser Native Web Speech API
+        if (voiceModelToUse === 'browser-speech') {
+            startWordTicker();
+            if (!window.speechSynthesis) return;
 
-            utterance.rate = 1.05;
-            utterance.pitch = 0.98;
+            const utterance = new SpeechSynthesisUtterance(cleanText);
+            utteranceRef.current = utterance;
 
-            utterance.onstart = () => {
-                setIsAiSpeaking(true);
-            };
-
-            utterance.onend = () => {
-                setIsAiSpeaking(false);
-                if (captionTimerRef.current) clearTimeout(captionTimerRef.current);
-                setSpokenWordIndex(-1);
-                utteranceRef.current = null;
-            };
-
-            utterance.onerror = (e) => {
-                console.warn('TTS notice (captions continuing via ticker):', e);
-                // Keep ticker running so the candidate still gets the visual word-by-word captions
-                boundaryHandled = false;
-                if (!captionTimerRef.current && currentIdx < words.length - 1) {
-                    startWordTicker();
+            utterance.onboundary = (e) => {
+                if (e.name === 'word' || typeof e.charIndex === 'number') {
+                    boundaryHandled = true;
+                    if (captionTimerRef.current) {
+                        clearTimeout(captionTimerRef.current);
+                        captionTimerRef.current = null;
+                    }
+                    const charIndex = e.charIndex;
+                    let foundIndex = 0;
+                    for (let i = 0; i < wordBoundaries.length; i++) {
+                        if (charIndex >= wordBoundaries[i].start) {
+                            foundIndex = i;
+                        } else {
+                            break;
+                        }
+                    }
+                    setSpokenWordIndex(foundIndex);
                 }
             };
 
-            try {
-                window.speechSynthesis.speak(utterance);
-            } catch (err) {
-                console.warn('Speech synthesis dispatch fallback:', err);
-            }
-        };
+            const setVoiceAndSpeak = () => {
+                const voices = window.speechSynthesis.getVoices();
+                if (voices.length > 0) {
+                    const indianVoice = voices.find(v =>
+                        (v.lang === 'en-IN' || v.lang === 'hi-IN') &&
+                        (v.name.includes('Rishi') || v.name.includes('Veena') || v.name.includes('India') || v.name.includes('Google हिन्दी'))
+                    ) || voices.find(v => v.lang === 'en-IN') || voices.find(v => v.lang.startsWith('en'));
 
-        if (window.speechSynthesis.getVoices().length > 0) {
-            setVoiceAndSpeak();
-        } else {
-            window.speechSynthesis.onvoiceschanged = () => {
-                setVoiceAndSpeak();
-                window.speechSynthesis.onvoiceschanged = null;
+                    if (indianVoice) utterance.voice = indianVoice;
+                }
+
+                utterance.rate = 1.05;
+                utterance.pitch = 0.98;
+
+                utterance.onstart = () => {
+                    setIsAiSpeaking(true);
+                };
+
+                utterance.onend = () => {
+                    setIsAiSpeaking(false);
+                    if (captionTimerRef.current) clearTimeout(captionTimerRef.current);
+                    setSpokenWordIndex(-1);
+                    utteranceRef.current = null;
+                };
+
+                utterance.onerror = (e) => {
+                    console.warn('TTS notice (captions continuing via ticker):', e);
+                    boundaryHandled = false;
+                    if (!captionTimerRef.current && currentIdx < words.length - 1) {
+                        startWordTicker();
+                    }
+                };
+
+                try {
+                    window.speechSynthesis.speak(utterance);
+                } catch (err) {
+                    console.warn('Speech synthesis dispatch fallback:', err);
+                }
             };
+
+            if (window.speechSynthesis.getVoices().length > 0) {
+                setVoiceAndSpeak();
+            } else {
+                window.speechSynthesis.onvoiceschanged = () => {
+                    setVoiceAndSpeak();
+                    window.speechSynthesis.onvoiceschanged = null;
+                };
+            }
+            return;
+        }
+
+        // Mode 2 & 3: Microsoft Edge Online Neural / Google Cloud Neural TTS
+        try {
+            const res = await api.post('/tts/synthesize', {
+                text: cleanText,
+                voiceModel: voiceModelToUse
+            });
+
+            if (res.data.success && res.data.data?.audioBase64) {
+                const audio = new Audio(res.data.data.audioBase64);
+                activeAudioRef.current = audio;
+
+                audio.onloadedmetadata = () => {
+                    const durationMs = (audio.duration || (words.length * 0.28)) * 1000;
+                    startWordTicker(durationMs);
+                };
+
+                audio.onplay = () => {
+                    setIsAiSpeaking(true);
+                };
+
+                audio.onended = () => {
+                    setIsAiSpeaking(false);
+                    if (captionTimerRef.current) clearTimeout(captionTimerRef.current);
+                    setSpokenWordIndex(-1);
+                    activeAudioRef.current = null;
+                };
+
+                audio.onerror = (err) => {
+                    console.warn('Neural audio playback failed, falling back to browser speech:', err);
+                    speakAiMessage(text, 'browser-speech');
+                };
+
+                await audio.play();
+            } else {
+                // Fallback to browser speech if audio could not be generated
+                speakAiMessage(text, 'browser-speech');
+            }
+        } catch (err) {
+            console.warn('Neural TTS request failed, fallback to browser speech:', err);
+            speakAiMessage(text, 'browser-speech');
         }
     };
 
@@ -908,13 +996,18 @@ const InterviewRoom = () => {
 
         recognition.onresult = (event) => {
             // Barge-in: cut off AI audio immediately when candidate begins speaking
+            if (activeAudioRef.current) {
+                activeAudioRef.current.pause();
+                activeAudioRef.current.currentTime = 0;
+                activeAudioRef.current = null;
+            }
             if (window.speechSynthesis && window.speechSynthesis.speaking) {
                 window.speechSynthesis.cancel();
-                setIsAiSpeaking(false);
-                if (captionTimerRef.current) clearTimeout(captionTimerRef.current);
-                setSpokenWordIndex(-1);
-                if (utteranceRef.current) utteranceRef.current = null;
             }
+            setIsAiSpeaking(false);
+            if (captionTimerRef.current) clearTimeout(captionTimerRef.current);
+            setSpokenWordIndex(-1);
+            if (utteranceRef.current) utteranceRef.current = null;
             let finalStr = '';
             for (let i = 0; i < event.results.length; i++) {
                 if (event.results[i].isFinal) {
@@ -1417,12 +1510,31 @@ const InterviewRoom = () => {
                         {isFullscreen ? <Minimize2 className="w-4 h-4 text-emerald-400" /> : <Maximize2 className="w-4 h-4 text-[#8B8B9E]" />}
                     </button>
 
+                    {/* Voice Model Switcher Pill */}
+                    <button
+                        onClick={() => setIsVoiceModalOpen(true)}
+                        className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#141419] border border-[#232330] hover:border-blue-500/40 text-xs font-mono transition-colors active:scale-[0.98] cursor-pointer"
+                        title="Change AI Interviewer Voice Model"
+                    >
+                        <Volume2 className="w-3.5 h-3.5 text-blue-400" />
+                        <span className="text-[#EDEDF0] text-[11px]">{getActiveVoiceLabel(selectedVoiceModel)}</span>
+                        <span className="text-[10px] text-emerald-400 font-bold ml-0.5">• Free</span>
+                    </button>
+
                     {/* Mute Toggle */}
                     <button
                         onClick={() => {
                             const newMuted = !isMuted;
                             isMutedRef.current = newMuted;
-                            if (newMuted && window.speechSynthesis) window.speechSynthesis.cancel();
+                            if (newMuted) {
+                                if (activeAudioRef.current) {
+                                    activeAudioRef.current.pause();
+                                    activeAudioRef.current.currentTime = 0;
+                                    activeAudioRef.current = null;
+                                }
+                                if (window.speechSynthesis) window.speechSynthesis.cancel();
+                                setIsAiSpeaking(false);
+                            }
                             setIsMuted(newMuted);
                         }}
                         className="studio-btn-secondary p-2"
@@ -1503,15 +1615,28 @@ const InterviewRoom = () => {
                                     </span>
                                 )}
                             </div>
-                            <button
-                                id="btn-repeat-question"
-                                data-testid="repeat-question-btn"
-                                onClick={() => speakAiMessage(latestAiMessage)}
-                                className="studio-btn-secondary text-xs py-1 px-2.5"
-                            >
-                                <RotateCcw className="w-3 h-3 text-[#8B8B9E]" />
-                                <span>Repeat question</span>
-                            </button>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setIsVoiceModalOpen(true)}
+                                    className="studio-btn-secondary text-xs py-1 px-2.5 flex items-center gap-1.5 active:scale-[0.98] transition-transform cursor-pointer"
+                                    title="Choose AI Interviewer Voice Model"
+                                >
+                                    <Volume2 className="w-3 h-3 text-blue-400" />
+                                    <span className="font-mono text-[11px] text-[#EDEDF0]">{getActiveVoiceLabel(selectedVoiceModel)}</span>
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                                </button>
+
+                                <button
+                                    id="btn-repeat-question"
+                                    data-testid="repeat-question-btn"
+                                    onClick={() => speakAiMessage(latestAiMessage)}
+                                    className="studio-btn-secondary text-xs py-1 px-2.5 flex items-center gap-1.5 active:scale-[0.98] transition-transform cursor-pointer"
+                                    title="Repeat question using current voice model"
+                                >
+                                    <RotateCcw className="w-3 h-3 text-[#8B8B9E]" />
+                                    <span>Repeat question</span>
+                                </button>
+                            </div>
                         </div>
                         <div className="text-base sm:text-lg font-medium leading-relaxed min-h-[3.5rem] flex items-center">
                             <LiveCaptionsText
@@ -2392,6 +2517,14 @@ const InterviewRoom = () => {
                     </div>
                 </div>
             )}
+
+            {/* Voice Model Selector Modal */}
+            <VoiceModelSelectorModal
+                isOpen={isVoiceModalOpen}
+                onClose={() => setIsVoiceModalOpen(false)}
+                selectedVoiceModel={selectedVoiceModel}
+                onSelectVoiceModel={handleSelectVoiceModel}
+            />
         </div>
     );
 };
