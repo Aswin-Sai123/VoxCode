@@ -216,7 +216,8 @@ const AssessmentLobby = () => {
     const interviewFormat = assessment?.interviewFormat || assessment?.blueprint?.interviewFormat || 'FULL_INTERVIEW';
 
     return (
-        <div className="flex-1 p-6 sm:p-8 max-w-6xl mx-auto w-full space-y-6">
+        <div className="flex-1 w-full overflow-y-auto">
+            <div className="p-6 sm:p-8 max-w-6xl mx-auto w-full space-y-6 pb-24">
             {/* Navigation & Code pill */}
             <div className="flex items-center justify-between">
                 <Link
@@ -740,6 +741,7 @@ const AssessmentLobby = () => {
                         </div>
                     </div>
                 </div>
+            </div>
             </div>
         </div>
     );

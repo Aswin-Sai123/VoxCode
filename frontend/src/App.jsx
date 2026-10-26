@@ -40,7 +40,7 @@ const AppContent = () => {
             <CommandPalette />
 
             {!isInterviewRoom && <Navbar />}
-            <main className={!isInterviewRoom ? "pt-14 flex-1 flex flex-col relative z-10" : "flex-1 flex flex-col relative z-10"}>
+            <main className={!isInterviewRoom ? "pt-14 flex-1 flex flex-col relative z-10 min-h-0" : "flex-1 flex flex-col relative z-10"}>
                 <Routes>
                     <Route path="/" element={<Navigate to="/login" />} />
                     <Route path="/login" element={<Login />} />

@@ -4,8 +4,23 @@ import cookieParser from "cookie-parser";
 
 const app = express();
 
+const configuredFrontend = process.env.FRONTEND_URL ? process.env.FRONTEND_URL.trim().replace(/\/$/, '') : 'http://localhost:5173';
+
 app.use(cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        const cleanOrigin = origin.replace(/\/$/, '');
+        if (
+            cleanOrigin === configuredFrontend ||
+            cleanOrigin === 'http://localhost:5173' ||
+            cleanOrigin === 'http://localhost:5000' ||
+            cleanOrigin.endsWith('.onrender.com') ||
+            cleanOrigin.includes('localhost')
+        ) {
+            return callback(null, true);
+        }
+        return callback(null, true);
+    },
     credentials: true
 }));
 

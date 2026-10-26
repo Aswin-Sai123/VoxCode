@@ -230,7 +230,7 @@ const Register = () => {
                             </div>
 
                             <a
-                                href="http://localhost:5000/api/auth/google"
+                                href={`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/auth/google`}
                                 className="studio-btn-secondary w-full py-2.5 flex items-center justify-center gap-2.5 text-xs font-mono font-medium hover:border-[#3F3F46] transition-all"
                             >
                                 <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24">
