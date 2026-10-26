@@ -233,9 +233,6 @@ const Dashboard = () => {
     const recentReports = (dashboardData?.recentReports || []).filter(
         r => r.assessmentCode !== 'PRACTICE-MOCK-SESSION' && r.assessmentTitle !== 'Technical Practice Mock Interview'
     );
-    const inProgressSessions = (dashboardData?.inProgressSessions || []).filter(
-        s => s.assessmentCode !== 'PRACTICE-MOCK-SESSION'
-    );
     const availableAssessments = (dashboardData?.availableAssessments || []).filter(
         a => a.assessmentCode !== 'PRACTICE-MOCK-SESSION'
     );
@@ -266,38 +263,6 @@ const Dashboard = () => {
 
     return (
         <div className="flex-1 p-6 sm:p-8 max-w-7xl mx-auto w-full space-y-8">
-
-
-            {/* In-Progress Session Resume Banner (if any) */}
-            {inProgressSessions.length > 0 && (
-                <div className="bg-amber-500/5 border border-amber-500/30 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                        <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse flex-shrink-0"></span>
-                        <div>
-                            <div className="flex items-center gap-2">
-                                <p className="text-sm font-medium text-[#EDEDF0]">
-                                    Active Session: {inProgressSessions[0].assessmentTitle || 'Technical Interview'}
-                                </p>
-                                {inProgressSessions[0].isPractice && (
-                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                                        Practice
-                                    </span>
-                                )}
-                            </div>
-                            <p className="text-xs text-[#8B8B9E] mt-0.5">
-                                Code: {inProgressSessions[0].assessmentCode} • Current stage: {inProgressSessions[0].stage}
-                            </p>
-                        </div>
-                    </div>
-                    <button
-                        onClick={() => navigate(`/candidate/interview/${inProgressSessions[0].assessmentCode}`)}
-                        className="btn-warning text-xs py-2 px-4 whitespace-nowrap"
-                    >
-                        <span>Resume session</span>
-                        <ArrowRight className="w-3.5 h-3.5" />
-                    </button>
-                </div>
-            )}
 
             {/* 2 Main Action Cards: Real-Time Scraped Mock Studio vs Join Official Assessment */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">

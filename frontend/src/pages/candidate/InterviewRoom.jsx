@@ -629,11 +629,34 @@ const InterviewRoom = () => {
             }
         };
 
+        // Anti-Cheat Navigation Lock: Trap browser back button (HackerRank style)
+        window.history.pushState(null, null, window.location.href);
+
+        const handlePopState = () => {
+            if (stage !== 'COMPLETED') {
+                // Keep the candidate locked inside the interview room
+                window.history.pushState(null, null, window.location.href);
+                toast.warning('Back navigation is disabled during an active assessment.', {
+                    description: "To conclude your evaluation, please click 'End Interview' in the top right corner."
+                });
+            }
+        };
+
+        const handleBeforeUnload = (e) => {
+            if (stage !== 'COMPLETED') {
+                e.preventDefault();
+                e.returnValue = 'Assessment in progress. Leaving this page will disrupt your live interview.';
+                return e.returnValue;
+            }
+        };
+
         document.addEventListener('visibilitychange', handleVisibilityChange);
         window.addEventListener('blur', handleWindowBlur);
         document.addEventListener('fullscreenchange', handleFullscreenChange);
         document.addEventListener('contextmenu', handleContextMenu);
         window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('popstate', handlePopState);
+        window.addEventListener('beforeunload', handleBeforeUnload);
 
         return () => {
             document.removeEventListener('visibilitychange', handleVisibilityChange);
@@ -641,6 +664,8 @@ const InterviewRoom = () => {
             document.removeEventListener('fullscreenchange', handleFullscreenChange);
             document.removeEventListener('contextmenu', handleContextMenu);
             window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('popstate', handlePopState);
+            window.removeEventListener('beforeunload', handleBeforeUnload);
         };
     }, [session?._id, stage, recordViolation]);
 
@@ -1555,7 +1580,7 @@ const InterviewRoom = () => {
                         }`}
                         title="Submit interview assessment for evaluation"
                     >
-                        {isSubmitting ? 'Submitting...' : confirmSubmit ? 'Confirm submit?' : 'End session'}
+                        {isSubmitting ? 'Ending interview...' : confirmSubmit ? 'Confirm End Interview?' : 'End Interview'}
                     </button>
                 </div>
             </header>

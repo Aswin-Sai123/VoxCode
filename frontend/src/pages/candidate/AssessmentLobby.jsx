@@ -731,7 +731,7 @@ const AssessmentLobby = () => {
                                 onClick={handleStartInterview}
                                 className="btn-primary w-full py-3"
                             >
-                                <span>{assessment.hasInProgressSession ? 'Continue Interview' : 'Start Interview'}</span>
+                                <span>Start Interview</span>
                                 <ArrowRight className="w-4 h-4" />
                             </button>
                             <span className="text-[11px] text-[#555568] text-center block">
