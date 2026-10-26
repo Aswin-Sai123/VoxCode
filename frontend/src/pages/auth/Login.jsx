@@ -1,7 +1,7 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
-import { ArrowRight, AlertCircle, Loader2 } from 'lucide-react';
+import { ArrowRight, AlertCircle, Loader2, Sparkles, Mic, Code2, ShieldCheck } from 'lucide-react';
 
 const Login = () => {
     const [role, setRole] = useState('CANDIDATE');
@@ -58,17 +58,90 @@ const Login = () => {
     };
 
     return (
-        <div className="flex-1 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-            <div className="w-full max-w-md space-y-6">
-                {/* Brand & Heading */}
-                <div className="text-center space-y-2">
-                    <h1 className="text-2xl font-semibold tracking-tight text-[#EDEDF0]">
-                        Welcome back
-                    </h1>
-                    <p className="text-sm text-[#8B8B9E]">
-                        Sign in to your VoxCode account
-                    </p>
+        <div className="flex-1 flex items-center justify-center py-10 px-4 sm:px-6 lg:px-8">
+            <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-14 items-center">
+                {/* Left Side: Editorial Branding & Product Showcase */}
+                <div className="hidden lg:flex lg:col-span-7 flex-col justify-center space-y-8 pr-4">
+                    {/* Top Status Pill */}
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-blue-500/10 border border-blue-500/20 text-blue-400 w-fit shadow-sm">
+                        <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse"></span>
+                        <Sparkles className="w-3.5 h-3.5 text-blue-400" />
+                        <span>Autonomous Technical Interview Platform</span>
+                    </div>
+
+                    {/* Punchy Headline with Gradient Accent */}
+                    <div className="space-y-4">
+                        <h1 className="text-4xl xl:text-5xl font-bold tracking-tight text-[#EDEDF0] leading-[1.18]">
+                            Evaluate real engineering depth with{' '}
+                            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-300 to-sky-400">
+                                authentic spoken dialogue
+                            </span>
+                        </h1>
+                        <p className="text-base text-[#8B8B9E] leading-relaxed max-w-xl">
+                            VoxCode pairs candidates with an autonomous AI lead engineer. From resume architecture deep-dives to live Monaco code execution, experience technical hiring without scheduling friction.
+                        </p>
+                    </div>
+
+                    {/* 3 Value Proposition Highlight Cards */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                        <div className="p-4 rounded-xl bg-[#141419]/80 border border-[#232330] space-y-2 backdrop-blur-sm hover:border-[#38384A] transition-colors">
+                            <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+                                <Mic className="w-4 h-4" />
+                            </div>
+                            <h3 className="text-xs font-semibold text-[#EDEDF0]">Real-Time Voice</h3>
+                            <p className="text-[11px] text-[#8B8B9E] leading-snug">
+                                Natural turn-taking with instant barge-in interruption.
+                            </p>
+                        </div>
+
+                        <div className="p-4 rounded-xl bg-[#141419]/80 border border-[#232330] space-y-2 backdrop-blur-sm hover:border-[#38384A] transition-colors">
+                            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                                <Code2 className="w-4 h-4" />
+                            </div>
+                            <h3 className="text-xs font-semibold text-[#EDEDF0]">Monaco Sandbox</h3>
+                            <p className="text-[11px] text-[#8B8B9E] leading-snug">
+                                In-browser multi-language compilation with automated test suites.
+                            </p>
+                        </div>
+
+                        <div className="p-4 rounded-xl bg-[#141419]/80 border border-[#232330] space-y-2 backdrop-blur-sm hover:border-[#38384A] transition-colors">
+                            <div className="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
+                                <ShieldCheck className="w-4 h-4" />
+                            </div>
+                            <h3 className="text-xs font-semibold text-[#EDEDF0]">Objective Rubrics</h3>
+                            <p className="text-[11px] text-[#8B8B9E] leading-snug">
+                                In-depth signal breakdowns and calibrated hire recommendations.
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Testimonial / Social Proof Card */}
+                    <div className="p-4 rounded-xl bg-[#141419]/60 border border-[#232330] flex items-center gap-4">
+                        <div className="w-9 h-9 rounded-full bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 flex-shrink-0 font-bold text-xs font-mono">
+                            VC
+                        </div>
+                        <div className="space-y-0.5">
+                            <p className="text-xs text-[#EDEDF0] font-medium leading-relaxed">
+                                "The AI dialogue feels like interviewing with a real Staff Engineer. It probes deep into trade-offs instead of asking generic trivia."
+                            </p>
+                            <span className="text-[11px] text-[#555568]">
+                                Senior Engineering Candidate • Cloud Systems
+                            </span>
+                        </div>
+                    </div>
                 </div>
+
+                {/* Right Side: Login Card */}
+                <div className="lg:col-span-5 w-full max-w-md mx-auto space-y-6">
+                    {/* Brand & Heading */}
+                    <div className="text-center space-y-2">
+                        <h1 className="text-2xl font-semibold tracking-tight text-[#EDEDF0]">
+                            Welcome back
+                        </h1>
+                        <p className="text-sm text-[#8B8B9E]">
+                            Sign in to your VoxCode account
+                        </p>
+                    </div>
 
                 {/* Main Card */}
                 <div className="bg-[#141419] border border-[#232330] rounded-xl p-6 sm:p-8 space-y-5 shadow-2xl">
@@ -234,6 +307,7 @@ const Login = () => {
                         Create an account
                     </Link>
                 </p>
+                </div>
             </div>
         </div>
     );

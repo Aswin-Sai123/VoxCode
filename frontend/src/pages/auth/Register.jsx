@@ -1,7 +1,7 @@
 import React, { useState, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
-import { ArrowRight, AlertCircle, Loader2 } from 'lucide-react';
+import { ArrowRight, AlertCircle, Loader2, Sparkles, Zap, ShieldCheck } from 'lucide-react';
 
 const Register = () => {
     const [role, setRole] = useState('CANDIDATE');
@@ -32,17 +32,91 @@ const Register = () => {
     };
 
     return (
-        <div className="flex-1 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-            <div className="w-full max-w-md space-y-6">
-                {/* Brand & Heading */}
-                <div className="text-center space-y-2">
-                    <h1 className="text-2xl font-semibold tracking-tight text-[#EDEDF0]">
-                        Create your account
-                    </h1>
-                    <p className="text-sm text-[#8B8B9E]">
-                        Start taking or hosting technical assessments
-                    </p>
+        <div className="flex-1 flex items-center justify-center py-10 px-4 sm:px-6 lg:px-8">
+            <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-14 items-center">
+                {/* Left Side: Editorial Branding & Product Showcase */}
+                <div className="hidden lg:flex lg:col-span-7 flex-col justify-center space-y-8 pr-4">
+                    {/* Top Status Pill */}
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 w-fit shadow-sm">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                        <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Fast-Track Engineering Screening</span>
+                    </div>
+
+                    {/* Punchy Headline with Gradient Accent */}
+                    <div className="space-y-4">
+                        <h1 className="text-4xl xl:text-5xl font-bold tracking-tight text-[#EDEDF0] leading-[1.18]">
+                            Conduct or take technical rounds with{' '}
+                            <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-sky-400">
+                                zero recruiter fatigue
+                            </span>
+                        </h1>
+                        <p className="text-base text-[#8B8B9E] leading-relaxed max-w-xl">
+                            Join leading candidates and engineering teams using VoxCode. Experience conversational AI interviews tailored to your exact stack, architecture history, and coding level.
+                        </p>
+                    </div>
+
+                    {/* 3 Value Proposition Highlight Cards */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                        <div className="p-4 rounded-xl bg-[#141419]/80 border border-[#232330] space-y-2 backdrop-blur-sm hover:border-[#38384A] transition-colors">
+                            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                                <Sparkles className="w-4 h-4" />
+                            </div>
+                            <h3 className="text-xs font-semibold text-[#EDEDF0]">Resume Grounded</h3>
+                            <p className="text-[11px] text-[#8B8B9E] leading-snug">
+                                Gemini parses real GitHub & production architecture experience.
+                            </p>
+                        </div>
+
+                        <div className="p-4 rounded-xl bg-[#141419]/80 border border-[#232330] space-y-2 backdrop-blur-sm hover:border-[#38384A] transition-colors">
+                            <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+                                <Zap className="w-4 h-4" />
+                            </div>
+                            <h3 className="text-xs font-semibold text-[#EDEDF0]">Instant Turnaround</h3>
+                            <p className="text-[11px] text-[#8B8B9E] leading-snug">
+                                Complete scorecards, audio transcriptions, and metrics in seconds.
+                            </p>
+                        </div>
+
+                        <div className="p-4 rounded-xl bg-[#141419]/80 border border-[#232330] space-y-2 backdrop-blur-sm hover:border-[#38384A] transition-colors">
+                            <div className="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
+                                <ShieldCheck className="w-4 h-4" />
+                            </div>
+                            <h3 className="text-xs font-semibold text-[#EDEDF0]">Standardized Rubrics</h3>
+                            <p className="text-[11px] text-[#8B8B9E] leading-snug">
+                                Eliminate interviewer bias with calibrated rubric metrics.
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Metric Row */}
+                    <div className="grid grid-cols-3 gap-4 pt-1 border-t border-[#232330] pt-4">
+                        <div className="space-y-0.5">
+                            <div className="text-2xl font-bold font-mono text-[#EDEDF0]">100%</div>
+                            <div className="text-[11px] text-[#8B8B9E]">Spoken & Interactive</div>
+                        </div>
+                        <div className="space-y-0.5">
+                            <div className="text-2xl font-bold font-mono text-emerald-400">&lt; 30s</div>
+                            <div className="text-[11px] text-[#8B8B9E]">Scorecard Delivery</div>
+                        </div>
+                        <div className="space-y-0.5">
+                            <div className="text-2xl font-bold font-mono text-blue-400">0 min</div>
+                            <div className="text-[11px] text-[#8B8B9E]">Recruiter Wait Time</div>
+                        </div>
+                    </div>
                 </div>
+
+                {/* Right Side: Register Card */}
+                <div className="lg:col-span-5 w-full max-w-md mx-auto space-y-6">
+                    {/* Brand & Heading */}
+                    <div className="text-center space-y-2">
+                        <h1 className="text-2xl font-semibold tracking-tight text-[#EDEDF0]">
+                            Create your account
+                        </h1>
+                        <p className="text-sm text-[#8B8B9E]">
+                            Start taking or hosting technical assessments
+                        </p>
+                    </div>
 
                 {/* Main Card */}
                 <div className="bg-[#141419] border border-[#232330] rounded-xl p-6 sm:p-8 space-y-5 shadow-2xl">
@@ -190,6 +264,7 @@ const Register = () => {
                         Sign in
                     </Link>
                 </p>
+                </div>
             </div>
         </div>
     );
