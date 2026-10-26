@@ -11,9 +11,9 @@ const Login = () => {
         const params = new URLSearchParams(window.location.search);
         const errorMsg = params.get('error');
         if (errorMsg === 'google_not_configured') {
-            return 'Google OAuth credentials not configured on backend. Please use email/password login.';
+            return 'Google OAuth credentials not configured on backend. Please configure GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET on Render or log in with email/password.';
         } else if (errorMsg === 'google_failed') {
-            return 'Google sign-in was cancelled or failed. Please verify credentials.';
+            return 'Google sign-in was cancelled or failed. Please verify credentials or try again.';
         } else if (errorMsg) {
             return 'OAuth authentication failed. Please enter credentials directly.';
         }
@@ -242,7 +242,7 @@ const Login = () => {
                             </div>
 
                             <a
-                                href={`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/auth/google`}
+                                href={`${(import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/+$/, '')}/auth/google`}
                                 className="studio-btn-secondary w-full py-2.5 flex items-center justify-center gap-2.5 text-xs font-mono font-medium hover:border-[#3F3F46] transition-all"
                             >
                                 <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24">

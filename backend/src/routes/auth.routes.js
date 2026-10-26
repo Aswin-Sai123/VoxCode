@@ -45,20 +45,42 @@ router.post('/login', async (req, res, next) => {
     return loginCandidate(req, res, next);
 });
 
+import { getFrontendUrl } from '../utils/url.utils.js';
+
 router.get('/google', (req, res, next) => {
-    if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
-        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const frontendUrl = getFrontendUrl();
+    const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim();
+
+    if (!clientId || !clientSecret) {
+        console.warn('[Auth] Google OAuth attempted but GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET is missing. Redirecting to login with error.');
         return res.redirect(`${frontendUrl}/login?error=google_not_configured`);
     }
-    passport.authenticate('google', { scope: ['profile', 'email'], session: false })(req, res, next);
+
+    passport.authenticate('google', {
+        scope: ['profile', 'email'],
+        session: false
+    })(req, res, (err) => {
+        if (err) {
+            console.error('[Auth] passport.authenticate error:', err);
+            return res.redirect(`${frontendUrl}/login?error=google_failed`);
+        }
+        next();
+    });
 });
 
 router.get('/google/callback', (req, res, next) => {
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const frontendUrl = getFrontendUrl();
     passport.authenticate('google', {
         session: false,
         failureRedirect: `${frontendUrl}/login?error=google_failed`
-    })(req, res, next);
+    })(req, res, (err) => {
+        if (err) {
+            console.error('[Auth] Google callback authentication error:', err);
+            return res.redirect(`${frontendUrl}/login?error=google_failed`);
+        }
+        next();
+    });
 }, googleCallback);
 
 router.post('/refresh', refreshToken);

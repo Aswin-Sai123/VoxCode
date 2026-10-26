@@ -9,6 +9,7 @@ import { ApiResponse } from '../utils/ApiResponse.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { sendAssessmentInvite } from '../services/email.service.js';
 import { synthesizeInterviewBlueprint } from '../services/ai.service.js';
+import { getFrontendUrl } from '../utils/url.utils.js';
 
 // Cryptographically secure, unguessable assessment code e.g. "ASMT-A7F2B9-8E1C4D"
 const generateCode = () => {
@@ -336,7 +337,7 @@ export const inviteCandidates = asyncHandler(async (req, res) => {
     assessment.eligibleEmails = Array.from(newEligible);
     await assessment.save();
 
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const frontendUrl = getFrontendUrl();
     res.status(200).json(new ApiResponse(200, {
         assessmentCode: assessment.assessmentCode,
         magicLink: `${frontendUrl}/candidate/assessment/${assessment.assessmentCode}`,

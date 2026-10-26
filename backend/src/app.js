@@ -1,10 +1,14 @@
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import { getFrontendUrl } from "./utils/url.utils.js";
 
 const app = express();
 
-const configuredFrontend = process.env.FRONTEND_URL ? process.env.FRONTEND_URL.trim().replace(/\/$/, '') : 'http://localhost:5173';
+// Trust reverse proxy (e.g. Render, Cloudflare) so req.protocol and secure redirects work correctly
+app.set('trust proxy', 1);
+
+const configuredFrontend = getFrontendUrl();
 
 app.use(cors({
     origin: (origin, callback) => {

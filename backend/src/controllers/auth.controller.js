@@ -5,6 +5,7 @@ import jwt from 'jsonwebtoken';
 import { ApiError } from '../utils/ApiError.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
+import { getFrontendUrl } from '../utils/url.utils.js';
 
 const generateTokens = (user, role) => {
     const accessToken = jwt.sign({ id: user._id, role }, process.env.JWT_ACCESS_SECRET, { expiresIn: '15m' });
@@ -72,7 +73,7 @@ export const googleLogin = asyncHandler(async (req, res) => {
 
 export const googleCallback = asyncHandler(async (req, res) => {
     const candidate = req.user;
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const frontendUrl = getFrontendUrl();
     
     if (!candidate) {
         return res.redirect(`${frontendUrl}/login?error=google_failed`);

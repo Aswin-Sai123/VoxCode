@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import { getFrontendUrl } from '../utils/url.utils.js';
 
 let transporter = null;
 
@@ -60,7 +61,7 @@ export const sendAssessmentInvite = async ({
     durationMinutes = 45,
     customMessage = ''
 }) => {
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const frontendUrl = getFrontendUrl();
     const magicLink = `${frontendUrl}/candidate/assessment/${assessmentCode}`;
 
     const mailOptions = {
@@ -162,7 +163,7 @@ export const sendEvaluationNotification = async ({
     verdict = 'Hire',
     sessionId
 }) => {
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const frontendUrl = getFrontendUrl();
     const reportLink = `${frontendUrl}/candidate/report/${sessionId}`;
 
     const mailOptions = {

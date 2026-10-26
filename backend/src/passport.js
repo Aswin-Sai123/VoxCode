@@ -1,14 +1,22 @@
 import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { Candidate } from './models/candidate.model.js';
+import { getGoogleCallbackUrl } from './utils/url.utils.js';
 import dotenv from 'dotenv';
 dotenv.config();
 
-if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+const googleClientId = process.env.GOOGLE_CLIENT_ID?.trim();
+const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim();
+
+if (googleClientId && googleClientSecret) {
+  const callbackURL = getGoogleCallbackUrl();
+  console.log(`[Passport] Initializing Google OAuth with callback URL: ${callbackURL}`);
+
   passport.use(new GoogleStrategy({
-      clientID: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: process.env.GOOGLE_CALLBACK_URL || 'http://localhost:5000/api/auth/google/callback'
+      clientID: googleClientId,
+      clientSecret: googleClientSecret,
+      callbackURL: callbackURL,
+      proxy: true
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
