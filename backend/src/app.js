@@ -44,6 +44,119 @@ import interviewRouter from './routes/interview.routes.js';
 import evaluationRouter from './routes/evaluation.routes.js';
 import ttsRouter from './routes/tts.routes.js';
 
+// Root status endpoint
+app.get('/', (req, res) => {
+    if (req.accepts('html')) {
+        return res.send(`
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>VoxCode API • Online</title>
+            <style>
+                body {
+                    margin: 0;
+                    padding: 0;
+                    background-color: #0b0f17;
+                    color: #EDEDF0;
+                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    min-height: 100vh;
+                }
+                .card {
+                    background: #141824;
+                    border: 1px solid #1e293b;
+                    border-radius: 16px;
+                    padding: 36px 32px;
+                    max-width: 440px;
+                    width: 90%;
+                    text-align: center;
+                    box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+                }
+                .badge {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 8px;
+                    padding: 6px 14px;
+                    border-radius: 9999px;
+                    background: rgba(34, 197, 94, 0.1);
+                    border: 1px solid rgba(34, 197, 94, 0.25);
+                    color: #4ade80;
+                    font-size: 12px;
+                    font-weight: 600;
+                    margin-bottom: 20px;
+                }
+                .dot {
+                    width: 8px;
+                    height: 8px;
+                    border-radius: 50%;
+                    background: #22c55e;
+                    box-shadow: 0 0 10px #22c55e;
+                }
+                h1 {
+                    font-size: 24px;
+                    margin: 0 0 10px;
+                    font-weight: 700;
+                }
+                p {
+                    color: #8B8B9E;
+                    font-size: 14px;
+                    line-height: 1.6;
+                    margin: 0 0 24px;
+                }
+                .btn {
+                    display: inline-block;
+                    padding: 12px 24px;
+                    background: #2563eb;
+                    color: #ffffff;
+                    text-decoration: none;
+                    border-radius: 8px;
+                    font-weight: 600;
+                    font-size: 14px;
+                    transition: background 0.2s;
+                }
+                .btn:hover {
+                    background: #1d4ed8;
+                }
+                .meta {
+                    margin-top: 24px;
+                    font-size: 11px;
+                    color: #475569;
+                    font-family: monospace;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="card">
+                <div class="badge">
+                    <span class="dot"></span>
+                    <span>Backend Operational</span>
+                </div>
+                <h1>VoxCode API Server</h1>
+                <p>This service powers the AI interviewer, speech synthesis, and code evaluation engines.</p>
+                <a href="${configuredFrontend}" class="btn">Open VoxCode Web App &rarr;</a>
+                <div class="meta">Status: 200 OK • Node.js / Express</div>
+            </div>
+        </body>
+        </html>
+        `);
+    }
+    res.json({
+        service: 'VoxCode API Backend',
+        status: 'online',
+        uptime: process.uptime(),
+        frontend: configuredFrontend,
+        timestamp: new Date().toISOString()
+    });
+});
+
+app.get('/health', (req, res) => {
+    res.status(200).json({ status: 'ok', uptime: process.uptime() });
+});
+
 // Route declarations
 app.use("/api/auth", authRouter);
 app.use("/api/company", companyRouter);
