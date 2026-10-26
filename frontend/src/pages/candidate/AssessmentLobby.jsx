@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import api from '../../services/api';
 import { 
@@ -20,10 +20,15 @@ import {
     UploadCloud,
     Trash2,
     Globe,
-    Lock
+    Lock,
+    Play,
+    Square,
+    Sliders,
+    VolumeX
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { CardSkeleton } from '../../components/common/Skeleton';
+import VoiceModelSelectorModal, { VOICE_MODELS } from '../../components/common/VoiceModelSelectorModal';
 
 const AssessmentLobby = () => {
     const { code } = useParams();
@@ -42,7 +47,19 @@ const AssessmentLobby = () => {
     const [isParsingResume, setIsParsingResume] = useState(false);
     const [parseSuccess, setParseSuccess] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
-    const [uploadMode, setUploadMode] = useState('file'); // 'file' | 'text'
+    // Voice Model Selection & Audio Diagnostics
+    const [selectedVoiceModel, setSelectedVoiceModel] = useState(() => {
+        return localStorage.getItem('voxcode_preferred_voice_model') || localStorage.getItem('voxcode_voice_model') || 'edge-neural-neerja';
+    });
+    const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
+    const [isTestingVoice, setIsTestingVoice] = useState(false);
+    const [activeAudio, setActiveAudio] = useState(null);
+    const [micTesting, setMicTesting] = useState(false);
+    const [micVolume, setMicVolume] = useState(0);
+    const [micVerified, setMicVerified] = useState(false);
+    const [speakerVerified, setSpeakerVerified] = useState(false);
+    const micStreamRef = useRef(null);
+    const audioContextRef = useRef(null);
 
     useEffect(() => {
         const verifyCode = async () => {
@@ -167,14 +184,189 @@ const AssessmentLobby = () => {
         }
     };
 
+    const [uploadMode, setUploadMode] = useState('file'); // 'file' | 'text'
+
+    // Clean up audio on unmount
+    useEffect(() => {
+        return () => {
+            if (activeAudio) {
+                activeAudio.pause();
+            }
+            if (window.speechSynthesis) {
+                window.speechSynthesis.cancel();
+            }
+            if (micStreamRef.current) {
+                micStreamRef.current.getTracks().forEach(t => t.stop());
+            }
+            if (audioContextRef.current) {
+                audioContextRef.current.close().catch(() => {});
+            }
+        };
+    }, [activeAudio]);
+
+    const handleSelectVoiceModel = (modelId) => {
+        setSelectedVoiceModel(modelId);
+        try {
+            localStorage.setItem('voxcode_preferred_voice_model', modelId);
+            localStorage.setItem('voxcode_voice_model', modelId);
+            sessionStorage.setItem(`voxcode_voice_model_${code}`, modelId);
+        } catch {}
+    };
+
+    const playBrowserFallbackAudio = (text, model) => {
+        if (!window.speechSynthesis) {
+            toast.error('Browser speech synthesis is not supported in this browser.');
+            setIsTestingVoice(false);
+            return;
+        }
+        window.speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(text);
+        u.rate = 1.0;
+        u.pitch = model?.gender === 'Female' ? 1.15 : 0.95;
+        const voices = window.speechSynthesis.getVoices();
+        const matchingVoice = model?.gender === 'Female'
+            ? voices.find(v => v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('zira') || v.name.toLowerCase().includes('samantha') || v.name.toLowerCase().includes('veena'))
+            : voices.find(v => v.name.toLowerCase().includes('male') || v.name.toLowerCase().includes('david') || v.name.toLowerCase().includes('rishi') || v.name.toLowerCase().includes('george'));
+        if (matchingVoice) u.voice = matchingVoice;
+        u.onend = () => {
+            setIsTestingVoice(false);
+            setSpeakerVerified(true);
+        };
+        u.onerror = () => {
+            setIsTestingVoice(false);
+        };
+        window.speechSynthesis.speak(u);
+        toast.info(`Playing sample via Browser Voice Engine (${model?.name || 'Local'})`);
+    };
+
+    const handleTestVoiceAudio = async () => {
+        if (isTestingVoice) {
+            if (activeAudio) {
+                activeAudio.pause();
+                setActiveAudio(null);
+            }
+            if (window.speechSynthesis) {
+                window.speechSynthesis.cancel();
+            }
+            setIsTestingVoice(false);
+            return;
+        }
+
+        const model = VOICE_MODELS.find(m => m.id === selectedVoiceModel) || VOICE_MODELS[0];
+        const sampleText = model.sampleText || "Hello! I am your AI technical interviewer. Can you hear me clearly through your speakers?";
+        setIsTestingVoice(true);
+
+        try {
+            if (selectedVoiceModel === 'browser-speech') {
+                playBrowserFallbackAudio(sampleText, model);
+                return;
+            }
+
+            const res = await api.post('/tts/synthesize', {
+                text: sampleText,
+                voiceModel: selectedVoiceModel
+            });
+
+            if (res.data.success && res.data.data?.audioBase64) {
+                const audio = new Audio(res.data.data.audioBase64);
+                setActiveAudio(audio);
+                audio.onended = () => {
+                    setIsTestingVoice(false);
+                    setActiveAudio(null);
+                    setSpeakerVerified(true);
+                };
+                audio.onerror = () => {
+                    playBrowserFallbackAudio(sampleText, model);
+                };
+                await audio.play();
+            } else {
+                playBrowserFallbackAudio(sampleText, model);
+            }
+        } catch (err) {
+            console.warn('Backend audio synthesis test error, falling back:', err);
+            playBrowserFallbackAudio(sampleText, model);
+        }
+    };
+
+    const handleTestMic = async () => {
+        if (micTesting) {
+            if (micStreamRef.current) {
+                micStreamRef.current.getTracks().forEach(t => t.stop());
+                micStreamRef.current = null;
+            }
+            if (audioContextRef.current) {
+                audioContextRef.current.close().catch(() => {});
+                audioContextRef.current = null;
+            }
+            setMicTesting(false);
+            return;
+        }
+
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            micStreamRef.current = stream;
+            setMicTesting(true);
+            setMicVerified(true);
+            toast.success('Microphone connected successfully! Speak to test volume levels.');
+
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            const ctx = new AudioCtx();
+            audioContextRef.current = ctx;
+            const analyser = ctx.createAnalyser();
+            analyser.fftSize = 64;
+            const source = ctx.createMediaStreamSource(stream);
+            source.connect(analyser);
+
+            const dataArray = new Uint8Array(analyser.frequencyBinCount);
+            let frameId;
+            const checkVolume = () => {
+                if (!micStreamRef.current) return;
+                analyser.getByteFrequencyData(dataArray);
+                let sum = 0;
+                for (let i = 0; i < dataArray.length; i++) {
+                    sum += dataArray[i];
+                }
+                const avg = sum / dataArray.length;
+                setMicVolume(Math.min(100, Math.round(avg * 1.6)));
+                frameId = requestAnimationFrame(checkVolume);
+            };
+            checkVolume();
+
+            // Automatically complete test after 5 seconds
+            setTimeout(() => {
+                if (micStreamRef.current) {
+                    micStreamRef.current.getTracks().forEach(t => t.stop());
+                    micStreamRef.current = null;
+                }
+                if (audioContextRef.current) {
+                    audioContextRef.current.close().catch(() => {});
+                    audioContextRef.current = null;
+                }
+                cancelAnimationFrame(frameId);
+                setMicTesting(false);
+                setMicVolume(0);
+            }, 5000);
+        } catch (err) {
+            console.error('Microphone access denied:', err);
+            toast.error('Microphone access denied or not detected. Please enable browser microphone permission.');
+            setMicTesting(false);
+        }
+    };
+
     const handleStartInterview = () => {
-        // Persist resume to session storage so refresh or reconnection preserves context
+        // Persist resume and voice model to session storage
         sessionStorage.setItem(`voxcode_resume_${code}`, resumeText);
         sessionStorage.setItem('voxcode_resume', resumeText);
+        sessionStorage.setItem(`voxcode_voice_model_${code}`, selectedVoiceModel);
+        try {
+            localStorage.setItem('voxcode_preferred_voice_model', selectedVoiceModel);
+            localStorage.setItem('voxcode_voice_model', selectedVoiceModel);
+        } catch {}
 
         navigate(`/candidate/interview/${code}`, {
             state: {
-                resumeText
+                resumeText,
+                voiceModel: selectedVoiceModel
             }
         });
     };
@@ -216,8 +408,7 @@ const AssessmentLobby = () => {
     const interviewFormat = assessment?.interviewFormat || assessment?.blueprint?.interviewFormat || 'FULL_INTERVIEW';
 
     return (
-        <div className="flex-1 w-full overflow-y-auto">
-            <div className="p-6 sm:p-8 max-w-6xl mx-auto w-full space-y-6 pb-24">
+        <div className="flex-1 p-6 sm:p-8 max-w-6xl mx-auto w-full space-y-6 pb-32">
             {/* Navigation & Code pill */}
             <div className="flex items-center justify-between">
                 <Link
@@ -236,7 +427,7 @@ const AssessmentLobby = () => {
             </div>
 
             {/* Main Content Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                 {/* Left Column: Assessment Details, Format & Resume Context (7 Cols) */}
                 <div className="lg:col-span-7 space-y-6">
                     {/* Header Card */}
@@ -646,16 +837,123 @@ const AssessmentLobby = () => {
                             </p>
                         </div>
 
-                        {/* Checklist */}
-                        <div className="space-y-2.5">
-                            <div className="p-3 bg-[#0A0A0B] border border-[#232330] rounded-lg flex items-center justify-between">
-                                <div className="flex items-center gap-2.5 text-xs font-medium text-[#EDEDF0]">
-                                    <Mic className="w-4 h-4 text-blue-400" />
-                                    <span>Microphone Access (Voice Dialogue)</span>
+                        {/* AI Voice Model Selector Card */}
+                        <div className="p-4 bg-[#0A0A0B] border border-blue-500/30 rounded-xl space-y-3">
+                            <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                    <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 flex-shrink-0">
+                                        <Volume2 className="w-4 h-4" />
+                                    </div>
+                                    <div className="min-w-0">
+                                        <span className="text-xs font-semibold text-[#EDEDF0] block">
+                                            Interviewer Voice Model
+                                        </span>
+                                        <span className="text-[11px] text-blue-400 font-medium truncate block">
+                                            {VOICE_MODELS.find(m => m.id === selectedVoiceModel)?.name || 'Microsoft Edge Neural — Neerja'}
+                                        </span>
+                                    </div>
                                 </div>
-                                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                                <span className="text-[10px] text-emerald-400 font-semibold px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 flex-shrink-0">
+                                    100% Free
+                                </span>
                             </div>
 
+                            {/* Buttons to Test Voice & Change Voice Model */}
+                            <div className="flex items-center gap-2 pt-1">
+                                <button
+                                    type="button"
+                                    onClick={handleTestVoiceAudio}
+                                    className="flex-1 studio-btn-secondary text-xs py-2 flex items-center justify-center gap-2 text-[#EDEDF0] hover:text-white"
+                                >
+                                    {isTestingVoice ? (
+                                        <>
+                                            <Square className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+                                            <span className="text-amber-400 font-medium">Stop Audio</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Play className="w-3.5 h-3.5 text-blue-400 fill-blue-400" />
+                                            <span>Test Voice</span>
+                                        </>
+                                    )}
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setIsVoiceModalOpen(true)}
+                                    className="flex-1 studio-btn-secondary text-xs py-2 flex items-center justify-center gap-2 text-[#EDEDF0] hover:border-blue-500/40"
+                                >
+                                    <Sliders className="w-3.5 h-3.5 text-[#8B8B9E]" />
+                                    <span>Change Voice</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Checklist */}
+                        <div className="space-y-2.5">
+                            {/* Microphone Check */}
+                            <div className="p-3 bg-[#0A0A0B] border border-[#232330] rounded-lg space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2.5 text-xs font-medium text-[#EDEDF0]">
+                                        <Mic className="w-4 h-4 text-blue-400" />
+                                        <span>Microphone (Voice Dialogue)</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        {micVerified && (
+                                            <span className="text-[10px] text-emerald-400 font-semibold px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-1">
+                                                <CheckCircle2 className="w-3 h-3" />
+                                                <span>Verified</span>
+                                            </span>
+                                        )}
+                                        <button
+                                            type="button"
+                                            onClick={handleTestMic}
+                                            className="studio-btn-secondary text-[11px] py-1 px-2.5 text-[#EDEDF0]"
+                                        >
+                                            {micTesting ? 'Listening...' : 'Test Mic'}
+                                        </button>
+                                    </div>
+                                </div>
+                                {micTesting && (
+                                    <div className="space-y-1 pt-1 animate-in fade-in">
+                                        <div className="flex justify-between text-[10px] text-[#8B8B9E]">
+                                            <span>Speak into your mic:</span>
+                                            <span className="font-mono text-emerald-400">{micVolume}%</span>
+                                        </div>
+                                        <div className="h-1.5 w-full bg-[#1C1C24] rounded-full overflow-hidden">
+                                            <div
+                                                className="h-full bg-emerald-400 transition-all duration-75"
+                                                style={{ width: `${micVolume}%` }}
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Speaker Check */}
+                            <div className="p-3 bg-[#0A0A0B] border border-[#232330] rounded-lg flex items-center justify-between">
+                                <div className="flex items-center gap-2.5 text-xs font-medium text-[#EDEDF0]">
+                                    <Volume2 className="w-4 h-4 text-blue-400" />
+                                    <span>Audio Output & Speaker</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    {speakerVerified && (
+                                        <span className="text-[10px] text-emerald-400 font-semibold px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-1">
+                                            <CheckCircle2 className="w-3 h-3" />
+                                            <span>Working</span>
+                                        </span>
+                                    )}
+                                    <button
+                                        type="button"
+                                        onClick={handleTestVoiceAudio}
+                                        className="studio-btn-secondary text-[11px] py-1 px-2.5 text-[#EDEDF0]"
+                                    >
+                                        {isTestingVoice ? 'Playing...' : 'Test Speaker'}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Webcam Proctoring */}
                             <div className="p-3 bg-[#0A0A0B] border border-[#232330] rounded-lg flex items-center justify-between">
                                 <div className="flex items-center gap-2.5 text-xs font-medium text-[#EDEDF0]">
                                     <Camera className="w-4 h-4 text-blue-400" />
@@ -667,14 +965,7 @@ const AssessmentLobby = () => {
                                 </span>
                             </div>
 
-                            <div className="p-3 bg-[#0A0A0B] border border-[#232330] rounded-lg flex items-center justify-between">
-                                <div className="flex items-center gap-2.5 text-xs font-medium text-[#EDEDF0]">
-                                    <Volume2 className="w-4 h-4 text-blue-400" />
-                                    <span>Audio Output & Speaker</span>
-                                </div>
-                                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                            </div>
-
+                            {/* Sandbox Engine */}
                             <div className="p-3 bg-[#0A0A0B] border border-[#232330] rounded-lg flex items-center justify-between">
                                 <div className="flex items-center gap-2.5 text-xs font-medium text-[#EDEDF0]">
                                     <Cpu className="w-4 h-4 text-blue-400" />
@@ -687,6 +978,7 @@ const AssessmentLobby = () => {
                                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                             </div>
 
+                            {/* Resume Context */}
                             <div className="p-3 bg-[#0A0A0B] border border-[#232330] rounded-lg flex items-center justify-between">
                                 <div className="flex items-center gap-2.5 text-xs font-medium text-[#EDEDF0]">
                                     <FileText className="w-4 h-4 text-emerald-400" />
@@ -713,9 +1005,9 @@ const AssessmentLobby = () => {
                                 </span>
                             </div>
                             <div className="flex items-center justify-between">
-                                <span className="text-[#8B8B9E]">Evaluation Style:</span>
-                                <span className="text-blue-400 font-medium">
-                                    Adaptive Spoken Dialogue
+                                <span className="text-[#8B8B9E]">Selected Voice:</span>
+                                <span className="text-blue-400 font-medium font-mono text-[11px]">
+                                    {selectedVoiceModel === 'edge-neural-neerja' ? 'Neerja (Female)' : selectedVoiceModel === 'edge-neural-prabhat' ? 'Prabhat (Male)' : selectedVoiceModel === 'browser-speech' ? 'Browser Native' : 'Google Neural'}
                                 </span>
                             </div>
                             <div className="flex items-center justify-between">
@@ -742,7 +1034,14 @@ const AssessmentLobby = () => {
                     </div>
                 </div>
             </div>
-            </div>
+
+            {/* Voice Model Selector Modal */}
+            <VoiceModelSelectorModal
+                isOpen={isVoiceModalOpen}
+                onClose={() => setIsVoiceModalOpen(false)}
+                selectedVoiceModel={selectedVoiceModel}
+                onSelectVoiceModel={handleSelectVoiceModel}
+            />
         </div>
     );
 };

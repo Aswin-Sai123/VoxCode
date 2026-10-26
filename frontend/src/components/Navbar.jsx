@@ -2,7 +2,7 @@ import React, { useContext, useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { LogOut, FileText, Plus, LayoutDashboard, Sun, Moon, Menu, X, Search } from 'lucide-react';
+import { LogOut, FileText, Plus, LayoutDashboard, Sun, Moon, Menu, X } from 'lucide-react';
 
 const Navbar = () => {
     const { user, logout } = useContext(AuthContext);
@@ -93,17 +93,6 @@ const Navbar = () => {
 
                 {/* Right: User Profile & Actions */}
                 <div className="flex items-center gap-2 sm:gap-2.5">
-                    {/* Quick Command Palette Button */}
-                    <button
-                        onClick={() => window.dispatchEvent(new CustomEvent('open-command-palette'))}
-                        aria-label="Open Command Palette (⌘K)"
-                        title="Open Command Palette (⌘K / Ctrl+K)"
-                        className="hidden sm:flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-[#232330] hover:border-[#363645] bg-[#141419] hover:bg-[#1C1C24] text-[#8B8B9E] hover:text-[#EDEDF0] text-xs font-mono transition-colors cursor-pointer"
-                    >
-                        <Search className="w-3.5 h-3.5" />
-                        <span className="text-[11px]">Command</span>
-                        <kbd className="px-1 py-0.5 rounded text-[10px] bg-[#0A0A0B] border border-[#232330] text-[#8B8B9E]">⌘K</kbd>
-                    </button>
 
                     {/* Theme Mode Toggle (Dark / White) */}
                     <button

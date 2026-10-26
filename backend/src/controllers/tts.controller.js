@@ -86,10 +86,14 @@ export const synthesizeSpeech = async (req, res) => {
             }
         });
     } catch (err) {
-        console.error("Speech synthesis controller error:", err);
-        return res.status(500).json({
-            success: false,
-            message: err.message || "Failed to synthesize speech"
+        console.warn("Speech synthesis fallback to browser TTS:", err.message);
+        return res.status(200).json({
+            success: true,
+            data: {
+                useBrowserTts: true,
+                text: req.body?.text || "",
+                voiceModel: req.body?.voiceModel || "browser-speech"
+            }
         });
     }
 };

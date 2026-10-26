@@ -14,7 +14,6 @@ import Reports from './pages/candidate/Reports';
 import ReportDetail from './pages/candidate/ReportDetail';
 import AssessmentResults from './pages/company/AssessmentResults';
 import ProtectedRoute from './components/ProtectedRoute';
-import CommandPalette from './components/common/CommandPalette';
 import { Toaster } from 'sonner';
 
 const AppContent = () => {
@@ -36,8 +35,6 @@ const AppContent = () => {
                 closeButton 
             />
 
-            {/* Global Command Palette (Cmd+K / Ctrl+K) */}
-            <CommandPalette />
 
             {!isInterviewRoom && <Navbar />}
             <main className={!isInterviewRoom ? "pt-14 flex-1 flex flex-col relative z-10 min-h-0" : "flex-1 flex flex-col relative z-10"}>

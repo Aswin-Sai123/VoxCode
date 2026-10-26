@@ -93,6 +93,27 @@ const VoiceModelSelectorModal = ({
         setTestingModelId(null);
     };
 
+    const playBrowserFallback = (model) => {
+        if (window.speechSynthesis) {
+            window.speechSynthesis.cancel();
+            const u = new SpeechSynthesisUtterance(model.sampleText);
+            u.rate = 1.0;
+            u.pitch = model.gender === 'Female' ? 1.15 : 0.95;
+            const voices = window.speechSynthesis.getVoices();
+            const matchingVoice = model.gender === 'Female' 
+                ? voices.find(v => v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('zira') || v.name.toLowerCase().includes('samantha') || v.name.toLowerCase().includes('veena'))
+                : voices.find(v => v.name.toLowerCase().includes('male') || v.name.toLowerCase().includes('david') || v.name.toLowerCase().includes('rishi') || v.name.toLowerCase().includes('george'));
+            if (matchingVoice) u.voice = matchingVoice;
+            u.onend = () => setTestingModelId(null);
+            u.onerror = () => setTestingModelId(null);
+            window.speechSynthesis.speak(u);
+            toast.info(`Playing sample via Browser Voice Engine (${model.name})`);
+        } else {
+            toast.error('Voice playback not supported by browser');
+            setTestingModelId(null);
+        }
+    };
+
     const handleTestVoice = async (model) => {
         stopCurrentAudio();
         setTestingModelId(model.id);
@@ -101,16 +122,8 @@ const VoiceModelSelectorModal = ({
             if (model.id === 'browser-speech') {
                 if (onTestBrowserVoice) {
                     onTestBrowserVoice(model.sampleText);
-                } else if (window.speechSynthesis) {
-                    const u = new SpeechSynthesisUtterance(model.sampleText);
-                    u.rate = 1.05;
-                    u.pitch = 0.98;
-                    const voices = window.speechSynthesis.getVoices();
-                    const indianVoice = voices.find(v => v.lang === 'en-IN' || v.name.includes('Rishi') || v.name.includes('Veena')) || voices[0];
-                    if (indianVoice) u.voice = indianVoice;
-                    u.onend = () => setTestingModelId(null);
-                    u.onerror = () => setTestingModelId(null);
-                    window.speechSynthesis.speak(u);
+                } else {
+                    playBrowserFallback(model);
                 }
                 return;
             }
@@ -128,19 +141,15 @@ const VoiceModelSelectorModal = ({
                     setAudioElement(null);
                 };
                 audio.onerror = () => {
-                    toast.error('Failed to play sample voice');
-                    setTestingModelId(null);
-                    setAudioElement(null);
+                    playBrowserFallback(model);
                 };
                 await audio.play();
             } else {
-                toast.error('Could not synthesize sample voice');
-                setTestingModelId(null);
+                playBrowserFallback(model);
             }
         } catch (err) {
-            console.error('Test voice error:', err);
-            toast.error(err.response?.data?.message || 'Error testing voice model');
-            setTestingModelId(null);
+            console.warn('Test voice fallback:', err);
+            playBrowserFallback(model);
         }
     };
 

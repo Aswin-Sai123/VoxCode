@@ -118,7 +118,7 @@ const InterviewRoom = () => {
     const [showTextInput, setShowTextInput] = useState(false);
     const [micError, setMicError] = useState('');
     const [selectedVoiceModel, setSelectedVoiceModel] = useState(() => {
-        return localStorage.getItem('voxcode_voice_model') || 'edge-neural-neerja';
+        return location.state?.voiceModel || sessionStorage.getItem(`voxcode_voice_model_${code}`) || localStorage.getItem('voxcode_voice_model') || localStorage.getItem('voxcode_preferred_voice_model') || 'edge-neural-neerja';
     });
     const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
     const activeAudioRef = useRef(null);
@@ -2523,10 +2523,6 @@ const InterviewRoom = () => {
                             <div className="flex justify-between items-center py-1 border-b border-[#232330]/60">
                                 <span className="text-[#8B8B9E]">Prettier Format Code</span>
                                 <kbd className="px-2 py-0.5 rounded bg-[#0A0A0B] border border-[#232330] text-[#EDEDF0] font-mono">Shift + Alt + F</kbd>
-                            </div>
-                            <div className="flex justify-between items-center py-1 border-b border-[#232330]/60">
-                                <span className="text-[#8B8B9E]">Global Command Palette</span>
-                                <kbd className="px-2 py-0.5 rounded bg-[#0A0A0B] border border-[#232330] text-[#EDEDF0] font-mono">⌘K / Ctrl+K</kbd>
                             </div>
                             <div className="flex justify-between items-center py-1 border-b border-[#232330]/60">
                                 <span className="text-[#8B8B9E]">Toggle Shortcuts Modal</span>

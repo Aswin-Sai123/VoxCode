@@ -250,8 +250,7 @@ const Dashboard = () => {
                     <CardSkeleton className="h-64" />
                     <CardSkeleton className="h-64" />
                 </div>
-                <div className="border border-[#232330] bg-[#141419] rounded-xl grid grid-cols-2 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x divide-[#232330] p-4 gap-4">
-                    <CardSkeleton className="h-20" />
+                <div className="border border-[#232330] bg-[#141419] rounded-xl grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-[#232330] p-4 gap-4">
                     <CardSkeleton className="h-20" />
                     <CardSkeleton className="h-20" />
                     <CardSkeleton className="h-20" />
@@ -359,8 +358,8 @@ const Dashboard = () => {
                 </SpotlightCard>
             </div>
 
-            {/* Top Telemetry Strip: 4-Column Connected Metric Bar */}
-            <div className="border border-[#232330] bg-[#141419] rounded-xl grid grid-cols-2 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x divide-[#232330] overflow-hidden light-catch">
+            {/* Top Stat Strip: 3-Column Connected Metric Bar */}
+            <div className="border border-[#232330] bg-[#141419] rounded-xl grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-[#232330] overflow-hidden light-catch">
                 <div className="p-4 space-y-1">
                     <span className="text-[11px] font-mono uppercase tracking-wider text-[#8B8B9E] block">
                         Interviews done
@@ -394,18 +393,6 @@ const Dashboard = () => {
                             {stats.highestScore}%
                         </span>
                         <span className="text-xs text-[#555568]">top score</span>
-                    </div>
-                </div>
-
-                <div className="p-4 space-y-1">
-                    <span className="text-[11px] font-mono uppercase tracking-wider text-[#8B8B9E] block">
-                        Code runners
-                    </span>
-                    <div className="flex items-baseline gap-2 mt-2">
-                        <span className="text-sm font-mono font-medium text-emerald-400">
-                            Ready
-                        </span>
-                        <span className="text-[11px] font-mono text-[#555568]">0.18s</span>
                     </div>
                 </div>
             </div>
