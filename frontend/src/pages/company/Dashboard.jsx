@@ -15,10 +15,7 @@ import {
     Loader2,
     Activity,
     Edit3,
-    FileText,
-    Sparkles,
-    RefreshCw,
-    CheckCircle2
+    RefreshCw
 } from 'lucide-react';
 import { toast } from 'sonner';
 import EmptyState from '../../components/common/EmptyState';
@@ -45,9 +42,6 @@ const Dashboard = () => {
     const [editingRoleId, setEditingRoleId] = useState(null);
     const [editRoleTitle, setEditRoleTitle] = useState('');
     const [editRoleDesc, setEditRoleDesc] = useState('');
-
-    // report generation state
-    const [generatingReportId, setGeneratingReportId] = useState(null);
 
     // fetch interviews telemetry
     const fetchInterviews = async (showLoading = false) => {
@@ -167,22 +161,6 @@ const Dashboard = () => {
             }
         } catch (err) {
             console.error('Failed to toggle status', err);
-        }
-    };
-
-    // trigger report generation manually
-    const handleTriggerEvaluation = async (sessionId) => {
-        setGeneratingReportId(sessionId);
-        try {
-            const res = await api.post(`/evaluation/trigger/${sessionId}`);
-            if (res.data.success) {
-                await fetchInterviews();
-            }
-        } catch (err) {
-            console.error('Failed to trigger evaluation', err);
-            toast.error(err.response?.data?.message || 'Failed to generate evaluation report');
-        } finally {
-            setGeneratingReportId(null);
         }
     };
 
@@ -400,85 +378,6 @@ const Dashboard = () => {
                     )}
                 </div>
             </div>
-
-            {/* Completed Interviews & Evaluation Reports */}
-            {interviews.completed.length > 0 && (
-                <div className="space-y-3">
-                    <div className="flex items-center justify-between px-1">
-                        <div className="flex items-center gap-2">
-                            <CheckCircle2 className="w-4 h-4 text-[#8B8B9E]" />
-                            <h2 className="text-sm font-semibold text-[#EDEDF0]">
-                                Completed Interviews ({interviews.completed.length})
-                            </h2>
-                        </div>
-                    </div>
-
-                    <div className="border border-[#232330] bg-[#141419] rounded-xl overflow-hidden">
-                        <div className="divide-y divide-[#232330]">
-                            {interviews.completed.map((session) => (
-                                <div
-                                    key={session.sessionId}
-                                    className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-[#1C1C24]/60 transition-colors"
-                                >
-                                    <div className="space-y-1.5 flex-1 min-w-0">
-                                        <div className="flex items-center gap-2 flex-wrap">
-                                            <span className="text-sm font-medium text-[#EDEDF0]">
-                                                {session.candidateName}
-                                            </span>
-                                            <span className="text-xs text-[#8B8B9E]">
-                                                &lt;{session.candidateEmail}&gt;
-                                            </span>
-                                            <span className="px-2 py-0.5 rounded-full text-xs font-medium text-[#8B8B9E] bg-[#0A0A0B] border border-[#232330]">
-                                                FINISHED
-                                            </span>
-                                            {session.score !== null && (
-                                                <span className="px-2 py-0.5 rounded-full text-xs font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/20">
-                                                    Score: {session.score}%
-                                                </span>
-                                            )}
-                                        </div>
-                                        <div className="flex items-center gap-3 text-xs text-[#8B8B9E] flex-wrap">
-                                            <span>Assessment: <strong className="text-[#EDEDF0]">{session.assessmentTitle}</strong></span>
-                                            <span>•</span>
-                                            <span>Finished: {new Date(session.updatedAt).toLocaleDateString()} {new Date(session.updatedAt).toLocaleTimeString()}</span>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex items-center gap-2 flex-shrink-0">
-                                        {session.hasReport ? (
-                                            <Link
-                                                to={`/candidate/report/${session.sessionId}`}
-                                                className="btn-primary text-xs py-1.5 px-3 flex items-center gap-1.5"
-                                            >
-                                                <FileText className="w-3.5 h-3.5" />
-                                                <span>View report</span>
-                                            </Link>
-                                        ) : (
-                                            <button
-                                                onClick={() => handleTriggerEvaluation(session.sessionId)}
-                                                disabled={generatingReportId === session.sessionId}
-                                                className="studio-btn-secondary text-xs py-1.5 px-3 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10 flex items-center gap-1.5"
-                                            >
-                                                {generatingReportId === session.sessionId ? (
-                                                    <>
-                                                        <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" />
-                                                        <span>Generating...</span>
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <Sparkles className="w-3.5 h-3.5" />
-                                                        <span>Generate Report</span>
-                                                    </>
-                                                )}
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {/* Assessment Pipeline Directory */}
             <div className="space-y-3">
