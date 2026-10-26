@@ -171,5 +171,16 @@ const interviewSessionSchema = new Schema({
     }
 }, { timestamps: true });
 
+// Prevent duplicate IN_PROGRESS sessions per candidate per assessment (RACE-START-SESSION)
+interviewSessionSchema.index(
+    { candidate: 1, assessment: 1 },
+    { 
+        unique: true, 
+        partialFilterExpression: { 
+            status: 'IN_PROGRESS' 
+        } 
+    }
+);
 
 export const InterviewSession = mongoose.model('InterviewSession', interviewSessionSchema);
+

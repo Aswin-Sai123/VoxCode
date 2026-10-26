@@ -5,6 +5,7 @@ const evaluationSchema = new Schema({
         type: Schema.Types.ObjectId, 
         ref: 'InterviewSession', 
         required: true,
+        unique: true,
         index: true
     },
     candidate: { 

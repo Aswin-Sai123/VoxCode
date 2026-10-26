@@ -44,23 +44,54 @@ export const getCandidateDashboard = asyncHandler(async (req, res) => {
             isMock,
             scores: ev.scores,
             verdict: ev.verdict,
+            strengths: ev.strengths || [],
+            areasForImprovement: ev.areasForImprovement || [],
             createdAt: ev.createdAt,
             // For company assessments, note confidentiality
             confidentialNotice: !isMock ? 'Confidential — delivered directly to company recruiting team' : null
         };
     });
 
-    // Calculate aggregated stats (based primarily on mock assessments & candidate practice)
+    // Calculate aggregated stats and domain readiness breakdown
     const mockEvaluations = evaluations.filter(e => e.assessment?.assessmentType === 'MOCK' || !e.assessment?.assessmentType);
     const totalInterviews = evaluations.length;
     let avgScore = 0;
     let highestScore = 0;
     let bestVerdict = 'N/A';
+    let competencies = {
+        systemArchitecture: 0,
+        codingAlgorithms: 0,
+        codeHygiene: 0,
+        communication: 0,
+        readinessIndex: 0
+    };
+    let allStrengths = [];
+    let allImprovements = [];
 
     if (evaluations.length > 0) {
         const sumScores = evaluations.reduce((acc, curr) => acc + (curr.scores?.overall || 0), 0);
         avgScore = Math.round(sumScores / evaluations.length);
         highestScore = Math.max(...evaluations.map(e => e.scores?.overall || 0));
+
+        const conceptualAvg = Math.round(evaluations.reduce((acc, c) => acc + (c.scores?.conceptual || 0), 0) / evaluations.length);
+        const codingAvg = Math.round(evaluations.reduce((acc, c) => acc + (c.scores?.coding || 0), 0) / evaluations.length);
+        const codeQualityAvg = Math.round(evaluations.reduce((acc, c) => acc + (c.scores?.codeQuality || 0), 0) / evaluations.length);
+        const communicationAvg = Math.round(evaluations.reduce((acc, c) => acc + (c.scores?.communication || 0), 0) / evaluations.length);
+
+        const readinessIndex = Math.round(
+            (conceptualAvg * 0.3 + codingAvg * 0.3 + codeQualityAvg * 0.2 + communicationAvg * 0.2) || avgScore
+        );
+
+        competencies = {
+            systemArchitecture: conceptualAvg,
+            codingAlgorithms: codingAvg,
+            codeHygiene: codeQualityAvg,
+            communication: communicationAvg,
+            readinessIndex
+        };
+
+        allStrengths = Array.from(new Set(evaluations.flatMap(e => e.strengths || []))).slice(0, 5);
+        allImprovements = Array.from(new Set(evaluations.flatMap(e => e.areasForImprovement || []))).slice(0, 5);
 
         const verdictPriority = ['Strong Hire', 'Hire', 'Needs Improvement', 'Reject'];
         for (const v of verdictPriority) {
@@ -100,13 +131,19 @@ export const getCandidateDashboard = asyncHandler(async (req, res) => {
     }
 
     // 3. Recommended / Available Assessments (exclude Practice Lab dummy assessment)
+    // Only return mock practice assessments or official assessments where candidate was explicitly invited
+    const candidateEmail = candidate.email?.trim().toLowerCase();
     const availableAssessments = await Assessment.find({ 
         status: 'ACTIVE',
-        assessmentCode: { $ne: 'PRACTICE-MOCK-SESSION' }
+        assessmentCode: { $ne: 'PRACTICE-MOCK-SESSION' },
+        $or: [
+            { assessmentType: 'MOCK' },
+            { eligibleEmails: candidateEmail }
+        ]
     })
-        .select('title roleTitle companyName targetCompanyName targetRoleTitle assessmentType skills experienceLevel durationMinutes assessmentCode')
+        .select('title roleTitle companyName targetCompanyName targetRoleTitle assessmentType skills experienceLevel durationMinutes assessmentCode accessType')
         .sort({ createdAt: -1 })
-        .limit(4);
+        .limit(6);
 
     const completedAssessmentCodes = Array.from(new Set(
         evaluations.map(e => e.assessment?.assessmentCode).filter(Boolean)
@@ -118,7 +155,10 @@ export const getCandidateDashboard = asyncHandler(async (req, res) => {
             totalInterviews,
             avgScore,
             highestScore,
-            bestVerdict
+            bestVerdict,
+            competencies,
+            strengths: allStrengths,
+            areasForImprovement: allImprovements
         },
         recentReports: processedReports.slice(0, 5),
         inProgressSessions,
@@ -235,6 +275,9 @@ export const updateCandidateResume = asyncHandler(async (req, res) => {
  */
 export const uploadCandidateResume = asyncHandler(async (req, res) => {
     const candidateId = req.user?._id || req.user?.id;
+    if (!candidateId) {
+        throw new ApiError(401, 'Unauthorized: Candidate authentication required');
+    }
     const { fileBase64, mimeType, fileName, resumeText } = req.body;
 
     if (!fileBase64 && (!resumeText || !resumeText.trim())) {

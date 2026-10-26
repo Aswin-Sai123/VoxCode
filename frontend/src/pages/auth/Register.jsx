@@ -1,7 +1,8 @@
 import React, { useState, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
-import { ArrowRight, AlertCircle, Loader2, Sparkles, Zap, ShieldCheck } from 'lucide-react';
+import { ArrowRight, AlertCircle, Loader2 } from 'lucide-react';
+import { InteractiveWorkflowShowcase } from '../../components/common/InteractiveWorkflowShowcase';
 
 const Register = () => {
     const [role, setRole] = useState('CANDIDATE');
@@ -35,73 +36,41 @@ const Register = () => {
         <div className="flex-1 flex items-center justify-center py-10 px-4 sm:px-6 lg:px-8">
             <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-14 items-center">
                 {/* Left Side: Editorial Branding & Product Showcase */}
-                <div className="hidden lg:flex lg:col-span-7 flex-col justify-center space-y-8 pr-4">
-                    {/* Top Status Pill */}
-                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 w-fit shadow-sm">
-                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                        <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-                        <span>Fast-Track Engineering Screening</span>
+                <div className="hidden lg:flex lg:col-span-7 flex-col justify-center space-y-6 pr-4">
+                    {/* Top Status Pill - Micro badge / illuminated status dot */}
+                    <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md text-[11px] font-mono tracking-wide bg-[#15151B] border border-[#272736] text-[#A1A1AA] w-fit shadow-sm">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.7)] animate-pulse" />
+                        <span className="text-[#EDEDF0] font-semibold">VOXCODE RUNTIME</span>
+                        <span className="text-[#3F3F4E]">/</span>
+                        <span className="text-[#8B8B9E]">TECHNICAL ROUND PIPELINE</span>
                     </div>
 
-                    {/* Punchy Headline with Gradient Accent */}
-                    <div className="space-y-4">
-                        <h1 className="text-4xl xl:text-5xl font-bold tracking-tight text-[#EDEDF0] leading-[1.18]">
-                            Conduct or take technical rounds with{' '}
-                            <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-sky-400">
-                                zero recruiter fatigue
-                            </span>
+                    {/* Editorial Grotesque Headline in Solid #EDEDF0 */}
+                    <div className="space-y-3">
+                        <h1 className="text-4xl xl:text-5xl font-bold tracking-tight text-[#EDEDF0] leading-[1.12]">
+                            Conduct or take technical rounds with zero recruiter fatigue.
                         </h1>
-                        <p className="text-base text-[#8B8B9E] leading-relaxed max-w-xl">
+                        <p className="text-sm xl:text-base text-[#8B8B9E] leading-relaxed max-w-xl">
                             Join leading candidates and engineering teams using VoxCode. Experience conversational AI interviews tailored to your exact stack, architecture history, and coding level.
                         </p>
                     </div>
 
-                    {/* 3 Value Proposition Highlight Cards */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-                        <div className="p-4 rounded-xl bg-[#141419]/80 border border-[#232330] space-y-2 backdrop-blur-sm hover:border-[#38384A] transition-colors">
-                            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-                                <Sparkles className="w-4 h-4" />
-                            </div>
-                            <h3 className="text-xs font-semibold text-[#EDEDF0]">Resume Grounded</h3>
-                            <p className="text-[11px] text-[#8B8B9E] leading-snug">
-                                Gemini parses real GitHub & production architecture experience.
-                            </p>
-                        </div>
+                    {/* Interactive Miniature Product Slice (Replaces predictable 3-card bento) */}
+                    <InteractiveWorkflowShowcase />
 
-                        <div className="p-4 rounded-xl bg-[#141419]/80 border border-[#232330] space-y-2 backdrop-blur-sm hover:border-[#38384A] transition-colors">
-                            <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
-                                <Zap className="w-4 h-4" />
-                            </div>
-                            <h3 className="text-xs font-semibold text-[#EDEDF0]">Instant Turnaround</h3>
-                            <p className="text-[11px] text-[#8B8B9E] leading-snug">
-                                Complete scorecards, audio transcriptions, and metrics in seconds.
-                            </p>
-                        </div>
-
-                        <div className="p-4 rounded-xl bg-[#141419]/80 border border-[#232330] space-y-2 backdrop-blur-sm hover:border-[#38384A] transition-colors">
-                            <div className="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
-                                <ShieldCheck className="w-4 h-4" />
-                            </div>
-                            <h3 className="text-xs font-semibold text-[#EDEDF0]">Standardized Rubrics</h3>
-                            <p className="text-[11px] text-[#8B8B9E] leading-snug">
-                                Eliminate interviewer bias with calibrated rubric metrics.
-                            </p>
-                        </div>
-                    </div>
-
-                    {/* Metric Row */}
-                    <div className="grid grid-cols-3 gap-4 pt-1 border-t border-[#232330] pt-4">
+                    {/* Engineering Metric Row */}
+                    <div className="grid grid-cols-3 gap-4 pt-1 border-t border-[#232330]">
                         <div className="space-y-0.5">
-                            <div className="text-2xl font-bold font-mono text-[#EDEDF0]">100%</div>
+                            <div className="text-xl font-bold font-mono text-[#EDEDF0]">100%</div>
                             <div className="text-[11px] text-[#8B8B9E]">Spoken & Interactive</div>
                         </div>
                         <div className="space-y-0.5">
-                            <div className="text-2xl font-bold font-mono text-emerald-400">&lt; 30s</div>
+                            <div className="text-xl font-bold font-mono text-emerald-400">&lt; 30s</div>
                             <div className="text-[11px] text-[#8B8B9E]">Scorecard Delivery</div>
                         </div>
                         <div className="space-y-0.5">
-                            <div className="text-2xl font-bold font-mono text-blue-400">0 min</div>
-                            <div className="text-[11px] text-[#8B8B9E]">Recruiter Wait Time</div>
+                            <div className="text-xl font-bold font-mono text-blue-400">0 min</div>
+                            <div className="text-[11px] text-[#8B8B9E]">Scheduling Lag</div>
                         </div>
                     </div>
                 </div>

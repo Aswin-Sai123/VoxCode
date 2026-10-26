@@ -4,8 +4,6 @@ import { AuthContext } from '../../context/AuthContext';
 import api from '../../services/api';
 import { 
     Plus, 
-    Copy, 
-    Check, 
     Trash2, 
     Pause, 
     Play, 
@@ -20,7 +18,6 @@ import {
 import { toast } from 'sonner';
 import EmptyState from '../../components/common/EmptyState';
 import CopyButton from '../../components/common/CopyButton';
-import { CardSkeleton, TableSkeleton } from '../../components/common/Skeleton';
 
 const Dashboard = () => {
     const { user } = useContext(AuthContext);
@@ -36,7 +33,6 @@ const Dashboard = () => {
     const [roleTitle, setRoleTitle] = useState('');
     const [roleDesc, setRoleDesc] = useState('');
     const [roleError, setRoleError] = useState('');
-    const [copiedCode, setCopiedCode] = useState(null);
 
     // role editing state
     const [editingRoleId, setEditingRoleId] = useState(null);
@@ -164,11 +160,6 @@ const Dashboard = () => {
         }
     };
 
-    const handleCopyCode = (code) => {
-        navigator.clipboard.writeText(code);
-        setCopiedCode(code);
-        setTimeout(() => setCopiedCode(null), 2000);
-    };
 
     const activeCount = assessments.filter(a => a.status === 'ACTIVE').length;
 
@@ -202,33 +193,41 @@ const Dashboard = () => {
                 </div>
             </div>
 
-            {/* Stat Cards - 4 Column */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-[#141419] border border-[#232330] rounded-xl p-5 light-catch">
-                    <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#8B8B9E] block">
-                        Active Assessments
-                    </span>
+            {/* Connected Engineering Talent Pipeline Strip */}
+            <div className="border border-[#232330] bg-[#141419] rounded-xl grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-[#232330] overflow-hidden light-catch">
+                <div className="p-5 space-y-1">
+                    <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#8B8B9E] block">
+                            Active Assessments
+                        </span>
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    </div>
                     <div className="flex items-baseline gap-2 mt-2">
                         <span className="text-3xl font-semibold text-[#EDEDF0] tabular-nums tracking-tight">
                             {activeCount}
                         </span>
-                        <span className="text-xs text-emerald-400 font-medium">live</span>
+                        <span className="text-xs text-emerald-400 font-medium">live pipelines</span>
                     </div>
                 </div>
 
-                <div className="bg-[#141419] border border-[#232330] rounded-xl p-5 light-catch">
-                    <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#8B8B9E] block">
-                        Live Interviews
-                    </span>
+                <div className="p-5 space-y-1">
+                    <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#8B8B9E] block">
+                            Live Candidates
+                        </span>
+                        {(interviews?.ongoing?.length || 0) > 0 && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-ping" />
+                        )}
+                    </div>
                     <div className="flex items-baseline gap-2 mt-2">
-                        <span className="text-3xl font-semibold text-emerald-400 tabular-nums tracking-tight">
+                        <span className="text-3xl font-semibold text-blue-400 tabular-nums tracking-tight">
                             {interviews?.ongoing?.length || 0}
                         </span>
-                        <span className="text-xs text-emerald-400 font-medium">taking test now</span>
+                        <span className="text-xs text-blue-400/80 font-medium">in live round</span>
                     </div>
                 </div>
 
-                <div className="bg-[#141419] border border-[#232330] rounded-xl p-5 light-catch">
+                <div className="p-5 space-y-1">
                     <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#8B8B9E] block">
                         Completed Sessions
                     </span>
@@ -236,19 +235,19 @@ const Dashboard = () => {
                         <span className="text-3xl font-semibold text-[#EDEDF0] tabular-nums tracking-tight">
                             {interviews?.completed?.length || 0}
                         </span>
-                        <span className="text-xs text-[#555568]">finished</span>
+                        <span className="text-xs text-[#555568]">scorecards delivered</span>
                     </div>
                 </div>
 
-                <div className="bg-[#141419] border border-[#232330] rounded-xl p-5 light-catch">
+                <div className="p-5 space-y-1">
                     <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#8B8B9E] block">
-                        Configured Roles
+                        Engineering Roles
                     </span>
                     <div className="flex items-baseline gap-2 mt-2">
                         <span className="text-3xl font-semibold text-[#EDEDF0] tabular-nums tracking-tight">
                             {roles.length}
                         </span>
-                        <span className="text-xs text-[#555568]">roles</span>
+                        <span className="text-xs text-[#555568]">rubric profiles</span>
                     </div>
                 </div>
             </div>

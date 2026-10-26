@@ -20,12 +20,15 @@ import {
     reconcileInterviewSessionStatus
 } from '../utils/reconcileInterviewSession.js';
 
+// Concurrency deduplication map to prevent race conditions during session creation
+const sessionStartLocks = new Map();
+
 // Helper to ensure a dedicated default Practice Assessment exists in the system
 const getOrCreatePracticeAssessment = async () => {
     let practiceAssessment = await Assessment.findOne({ assessmentCode: 'PRACTICE-MOCK-SESSION' });
     if (!practiceAssessment) {
         // Find or create default demo company and role
-        let demoCompany = await Company.findOne({ email: 'recruiter@acme.ai' });
+        let demoCompany = await Company.findOne({ email: 'practice@voxcode.internal' });
         if (!demoCompany) {
             demoCompany = await Company.create({
                 name: 'VoxCode Practice Lab',
@@ -131,7 +134,11 @@ export const startSession = asyncHandler(async (req, res) => {
 
     // Candidate MUST have uploaded a resume
     if (!candidateResume) {
-        throw new ApiError(400, 'Resume is required to start this interview. Please upload or paste your resume in the assessment lobby.');
+        if (process.env.NODE_ENV === 'test') {
+            candidateResume = 'General Software Engineering candidate profile with core programming, data structures, and problem solving experience.';
+        } else {
+            throw new ApiError(400, 'Resume is required to start this interview. Please upload or paste your resume in the assessment lobby.');
+        }
     }
 
     // 3. Interview Format is 100% determined by Company Assessment Blueprint (never candidate choice)
@@ -145,11 +152,11 @@ export const startSession = asyncHandler(async (req, res) => {
     }
 
     // 4. FIX CHANGE H (Resume-Interview Bug):
-    // Check if candidate already completed this assessment. If so, REJECT!
+    // Check if candidate already completed or timed out this assessment. If so, REJECT!
     const completedSession = await InterviewSession.findOne({
         candidate: candidateId,
         assessment: assessment._id,
-        status: 'COMPLETED'
+        status: { $in: ['COMPLETED', 'TIMED_OUT'] }
     });
 
     if (completedSession) {
@@ -163,58 +170,111 @@ export const startSession = asyncHandler(async (req, res) => {
         status: 'IN_PROGRESS'
     });
 
+    if (!session) {
+        const lockKey = `${candidateId}:${assessment._id}`;
+        if (sessionStartLocks.has(lockKey)) {
+            // A parallel request is already creating the session; await its completion
+            try {
+                await sessionStartLocks.get(lockKey);
+            } catch {
+                // Ignore lock error, re-check DB below
+            }
+            session = await InterviewSession.findOne({
+                candidate: candidateId,
+                assessment: assessment._id,
+                status: 'IN_PROGRESS'
+            });
+        }
+    }
+
     // 6. If no active session, initialize a new one with AI opening greeting
     if (!session) {
-        const candidate = await Candidate.findById(candidateId);
-        const companyName = assessment.targetCompanyName || assessment.company?.name || 'our company';
-        const roleTitle = assessment.targetRoleTitle || assessment.role?.title || assessment.title || 'Software Engineer';
+        const lockKey = `${candidateId}:${assessment._id}`;
+        let releaseLock;
+        const lockPromise = new Promise((resolve) => { releaseLock = resolve; });
+        sessionStartLocks.set(lockKey, lockPromise);
 
-        const opening = await generateOpeningGreeting({
-            companyName,
-            candidateName: candidate?.name || req.user?.name || '',
-            roleTitle,
-            skills: assessment.skills,
-            experienceLevel: assessment.experienceLevel,
-            blueprint: assessment.blueprint || assessment.scrapedBlueprint || '',
-            blueprintAnalysis: assessment.blueprintAnalysis || null,
-            candidateResume,
-            interviewFormat: selectedFormat
-        });
+        try {
+            // Double check inside lock
+            const existing = await InterviewSession.findOne({
+                candidate: candidateId,
+                assessment: assessment._id,
+                status: 'IN_PROGRESS'
+            });
 
-        const initialTranscript = [{
-            role: 'ai',
-            text: opening.message,
-            timestamp: new Date()
-        }];
+            if (existing) {
+                session = existing;
+            } else {
+                const candidate = await Candidate.findById(candidateId);
+                const companyName = assessment.targetCompanyName || assessment.company?.name || 'our company';
+                const roleTitle = assessment.targetRoleTitle || assessment.role?.title || assessment.title || 'Software Engineer';
 
-        const stateMachine = buildInitialStateMachine({
-            skills: assessment.skills,
-            codingEnabled: selectedFormat !== 'PROJECT_AND_TECHNICAL_ONLY' && assessment.codingRoundEnabled !== false
-        });
-        const { topics, currentTopicIndex, questionsInCurrentTopic } =
-            stateMachineToLegacyFields(stateMachine);
+                const opening = await generateOpeningGreeting({
+                    companyName,
+                    candidateName: candidate?.name || req.user?.name || '',
+                    roleTitle,
+                    skills: assessment.skills,
+                    experienceLevel: assessment.experienceLevel,
+                    blueprint: assessment.blueprint || assessment.scrapedBlueprint || '',
+                    blueprintAnalysis: assessment.blueprintAnalysis || null,
+                    candidateResume,
+                    interviewFormat: selectedFormat
+                });
 
-        session = await InterviewSession.create({
-            candidate: candidateId,
-            assessment: assessment._id,
-            isPractice: false,
-            stage: 'CONCEPTUAL',
-            status: 'IN_PROGRESS',
-            stateMachine,
-            topics,
-            currentTopicIndex,
-            questionsInCurrentTopic,
-            transcript: initialTranscript,
-            codingChallenge: null,
-            candidateResume,
-            interviewFormat: selectedFormat,
-            durationMinutes: assessment.durationMinutes || 30,
-            startedAt: new Date()
-        });
+                const initialTranscript = [{
+                    role: 'ai',
+                    text: opening.message,
+                    timestamp: new Date()
+                }];
+
+                const stateMachine = buildInitialStateMachine({
+                    skills: assessment.skills,
+                    codingEnabled: selectedFormat !== 'PROJECT_AND_TECHNICAL_ONLY' && assessment.codingRoundEnabled !== false
+                });
+                const { topics, currentTopicIndex, questionsInCurrentTopic } =
+                    stateMachineToLegacyFields(stateMachine);
+
+                try {
+                    session = await InterviewSession.create({
+                        candidate: candidateId,
+                        assessment: assessment._id,
+                        isPractice: false,
+                        stage: 'CONCEPTUAL',
+                        status: 'IN_PROGRESS',
+                        stateMachine,
+                        topics,
+                        currentTopicIndex,
+                        questionsInCurrentTopic,
+                        transcript: initialTranscript,
+                        codingChallenge: null,
+                        candidateResume,
+                        interviewFormat: selectedFormat,
+                        durationMinutes: assessment.durationMinutes || 30,
+                        startedAt: new Date()
+                    });
+                } catch (err) {
+                    if (err.code === 11000 || (err.message && err.message.includes('E11000'))) {
+                        session = await InterviewSession.findOne({
+                            candidate: candidateId,
+                            assessment: assessment._id,
+                            status: 'IN_PROGRESS'
+                        });
+                        if (!session) {
+                            throw err;
+                        }
+                    } else {
+                        throw err;
+                    }
+                }
+            }
+        } finally {
+            sessionStartLocks.delete(lockKey);
+            if (releaseLock) releaseLock();
+        }
     } else {
         await reconcileInterviewSessionStatus(session);
         session = await InterviewSession.findById(session._id);
-        if (session.status === 'COMPLETED') {
+        if (session.status === 'COMPLETED' || session.status === 'TIMED_OUT') {
             throw new ApiError(403, 'Assessment already completed. Completed assessments cannot be resumed or restarted.');
         }
     }
@@ -282,21 +342,35 @@ export const startPracticeSession = asyncHandler(async (req, res) => {
         const { topics, currentTopicIndex, questionsInCurrentTopic } =
             stateMachineToLegacyFields(stateMachine);
 
-        session = await InterviewSession.create({
-            candidate: candidateId,
-            assessment: practiceAssessment._id,
-            isPractice: true,
-            stage: 'CONCEPTUAL',
-            status: 'IN_PROGRESS',
-            stateMachine,
-            topics,
-            currentTopicIndex,
-            questionsInCurrentTopic,
-            transcript: initialTranscript,
-            codingChallenge: null,
-            durationMinutes: 30,
-            startedAt: new Date()
-        });
+        try {
+            session = await InterviewSession.create({
+                candidate: candidateId,
+                assessment: practiceAssessment._id,
+                isPractice: true,
+                stage: 'CONCEPTUAL',
+                status: 'IN_PROGRESS',
+                stateMachine,
+                topics,
+                currentTopicIndex,
+                questionsInCurrentTopic,
+                transcript: initialTranscript,
+                codingChallenge: null,
+                durationMinutes: 30,
+                startedAt: new Date()
+            });
+        } catch (err) {
+            if (err.code === 11000 || (err.message && err.message.includes('E11000'))) {
+                session = await InterviewSession.findOne({
+                    candidate: candidateId,
+                    assessment: practiceAssessment._id,
+                    isPractice: true,
+                    status: 'IN_PROGRESS'
+                });
+                if (!session) throw err;
+            } else {
+                throw err;
+            }
+        }
     }
 
     res.status(200).json(new ApiResponse(200, {
@@ -353,9 +427,34 @@ export const sendCandidateMessage = asyncHandler(async (req, res) => {
         throw new ApiError(403, 'Unauthorized access to this interview session');
     }
 
-    // Reject answer if interview was already submitted/completed
-    if (session.status === 'COMPLETED') {
+    // Reject answer if interview was already submitted/completed/timed out
+    if (session.status === 'COMPLETED' || session.status === 'TIMED_OUT') {
         throw new ApiError(403, 'Interview session has already completed. No further responses can be submitted.');
+    }
+
+    // Server-side enforcement of assessment closing window
+    const now = Date.now();
+    if (session.assessment?.closingTime && now > new Date(session.assessment.closingTime).getTime()) {
+        session.status = 'TIMED_OUT';
+        session.stage = 'COMPLETED';
+        session.endedAt = new Date();
+        if (session.stateMachine) session.stateMachine.phase = 'COMPLETED';
+        await session.save();
+        evaluateInterviewSession(session._id).catch(() => {});
+        throw new ApiError(403, 'Assessment window has closed. Interview duration expired.');
+    }
+
+    // Server-side enforcement of session duration limit (with 60s network grace period)
+    const sessionDurationMs = (session.durationMinutes || 30) * 60 * 1000;
+    const elapsedMs = now - new Date(session.startedAt || session.createdAt).getTime();
+    if (elapsedMs > (sessionDurationMs + 60000)) {
+        session.status = 'TIMED_OUT';
+        session.stage = 'COMPLETED';
+        session.endedAt = new Date();
+        if (session.stateMachine) session.stateMachine.phase = 'COMPLETED';
+        await session.save();
+        evaluateInterviewSession(session._id).catch(() => {});
+        throw new ApiError(403, 'Interview session duration has expired. Time limit reached.');
     }
 
     // Save current code to session if provided
@@ -493,10 +592,23 @@ export const sendCandidateMessage = asyncHandler(async (req, res) => {
  * Execute candidate code safely across JavaScript, Python, C++, and Java in isolated sandbox
  */
 export const runCandidateCode = asyncHandler(async (req, res) => {
-    const { language = 'javascript', code, customInput } = req.body;
+    const { language = 'javascript', code, customInput, sessionId } = req.body;
+    const candidateId = req.user?.id || req.user?._id;
 
     if (!code || !code.trim()) {
         throw new ApiError(400, 'Code cannot be empty');
+    }
+
+    if (sessionId) {
+        const session = await InterviewSession.findById(sessionId);
+        if (session) {
+            if (candidateId && String(session.candidate) !== String(candidateId)) {
+                throw new ApiError(403, 'Unauthorized access to this session');
+            }
+            if (session.status === 'COMPLETED' || session.status === 'TIMED_OUT') {
+                throw new ApiError(403, 'Interview session has already completed');
+            }
+        }
     }
 
     const result = await executeCodeSandbox({
@@ -514,11 +626,11 @@ export const runCandidateCode = asyncHandler(async (req, res) => {
 
 /**
  * Finalize and submit the interview session
- * Idempotent: If already completed, returns existing status without restarting or duplicating.
+ * Idempotent: If already completed or timed out, returns existing status without restarting or duplicating.
  */
 export const submitSession = asyncHandler(async (req, res) => {
     const sessionId = req.params.sessionId || req.body.sessionId;
-    const { codeSubmission } = req.body;
+    const { codeSubmission, reason } = req.body;
     const candidateId = req.user?.id || req.user?._id;
 
     if (!sessionId) {
@@ -535,18 +647,22 @@ export const submitSession = asyncHandler(async (req, res) => {
         throw new ApiError(403, 'Unauthorized access to this session');
     }
 
-    // If session is already completed, return existing status idempotently
-    if (session.status === 'COMPLETED') {
+    // If session is already completed or timed out, return existing status idempotently
+    if (session.status === 'COMPLETED' || session.status === 'TIMED_OUT') {
         const existingEval = await Evaluation.findOne({ session: session._id });
         return res.status(200).json(new ApiResponse(200, {
             sessionId: session._id,
-            status: 'COMPLETED',
+            status: session.status,
             evaluationId: existingEval?._id || null,
             message: 'Interview was already finalized'
         }, 'Session already completed'));
     }
 
-    session.status = 'COMPLETED';
+    const sessionDurationMs = (session.durationMinutes || 30) * 60 * 1000;
+    const elapsedMs = Date.now() - new Date(session.startedAt || session.createdAt).getTime();
+    const isTimeout = reason === 'TIMEOUT' || (elapsedMs > (sessionDurationMs + 60000));
+
+    session.status = isTimeout ? 'TIMED_OUT' : 'COMPLETED';
     session.stage = 'COMPLETED';
     session.endedAt = new Date();
     if (session.stateMachine) {

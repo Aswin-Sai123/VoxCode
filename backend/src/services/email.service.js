@@ -49,6 +49,8 @@ const getTransporter = async () => {
     return transporter;
 };
 
+const cleanHeader = (val) => String(val || '').replace(/[\r\n]+/g, ' ').trim();
+
 /**
  * Sends a candidate invitation email with a 1-click magic link
  */
@@ -62,12 +64,16 @@ export const sendAssessmentInvite = async ({
     customMessage = ''
 }) => {
     const frontendUrl = getFrontendUrl();
-    const magicLink = `${frontendUrl}/candidate/assessment/${assessmentCode}`;
+    const safeCode = cleanHeader(assessmentCode);
+    const safeCompany = cleanHeader(companyName);
+    const safeRole = cleanHeader(roleTitle);
+    const safeEmail = cleanHeader(candidateEmail);
+    const magicLink = `${frontendUrl}/candidate/assessment/${safeCode}`;
 
     const mailOptions = {
-        from: `"${companyName} Recruiting via VoxCode" <no-reply@voxcode.ai>`,
-        to: candidateEmail,
-        subject: `Interview Invitation: ${roleTitle} at ${companyName} (${assessmentCode})`,
+        from: `"${safeCompany} Recruiting via VoxCode" <no-reply@voxcode.ai>`,
+        to: safeEmail,
+        subject: `Interview Invitation: ${safeRole} at ${safeCompany} (${safeCode})`,
         html: `
         <!DOCTYPE html>
         <html>
@@ -164,12 +170,15 @@ export const sendEvaluationNotification = async ({
     sessionId
 }) => {
     const frontendUrl = getFrontendUrl();
+    const safeRole = cleanHeader(roleTitle);
+    const safeCompany = cleanHeader(companyName);
+    const safeEmail = cleanHeader(candidateEmail);
     const reportLink = `${frontendUrl}/candidate/report/${sessionId}`;
 
     const mailOptions = {
         from: `"VoxCode Reports" <evaluations@voxcode.ai>`,
-        to: candidateEmail,
-        subject: `Performance Report Ready: ${roleTitle} at ${companyName}`,
+        to: safeEmail,
+        subject: `Performance Report Ready: ${safeRole} at ${safeCompany}`,
         html: `
         <div style="background-color: #0b0f17; color: #e2e8f0; font-family: sans-serif; padding: 24px;">
           <div style="max-width: 540px; margin: 0 auto; background-color: #121824; border: 1px solid #1e293b; border-radius: 16px; padding: 28px;">

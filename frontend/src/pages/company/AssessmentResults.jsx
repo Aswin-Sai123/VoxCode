@@ -13,7 +13,6 @@ import {
     Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { CardSkeleton, TableSkeleton } from '../../components/common/Skeleton';
 import EmptyState from '../../components/common/EmptyState';
 
 const AssessmentResults = () => {

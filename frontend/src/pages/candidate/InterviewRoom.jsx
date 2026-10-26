@@ -27,15 +27,13 @@ import {
     AlertTriangle,
     Move,
     HelpCircle,
-    Code,
-    Settings2,
-    Check
+    Code
 } from 'lucide-react';
 import { toast } from 'sonner';
 import confetti from 'canvas-confetti';
 import { playChime, playClick, playSuccess, playWarning } from '../../utils/soundEffects';
 import VoiceVisualizerOrb from '../../components/common/VoiceVisualizerOrb';
-import VoiceModelSelectorModal, { VOICE_MODELS } from '../../components/common/VoiceModelSelectorModal';
+import VoiceModelSelectorModal from '../../components/common/VoiceModelSelectorModal';
 
 // Live YouTube/Karaoke-style dynamic animated speech caption renderer
 const LiveCaptionsText = ({ text, isSpeaking, activeWordIndex }) => {
@@ -149,11 +147,36 @@ const InterviewRoom = () => {
     const [codingChallenge, setCodingChallenge] = useState(null);
     const [selectedLanguage, setSelectedLanguage] = useState('javascript');
     const [editorCode, setEditorCode] = useState('// Write your solution here\n');
+    const [codeByLanguage, setCodeByLanguage] = useState({});
     const [executionOutput, setExecutionOutput] = useState('');
     const [isRunningCode, setIsRunningCode] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [confirmSubmit, setConfirmSubmit] = useState(false);
     const [transitionBanner, setTransitionBanner] = useState(false);
+
+    const handleLanguageChange = (newLang) => {
+        // Preserve current code under the outgoing language
+        setCodeByLanguage(prev => ({
+            ...prev,
+            [selectedLanguage]: editorCode
+        }));
+        setSelectedLanguage(newLang);
+
+        // If candidate already wrote or switched to this language, restore it
+        if (codeByLanguage[newLang] !== undefined) {
+            setEditorCode(codeByLanguage[newLang]);
+        } else {
+            if (newLang === 'python') {
+                setEditorCode("# Write your Python 3 solution below\ndef solution(data):\n    # TODO: Implement logic\n    return data\n\nif __name__ == '__main__':\n    import sys\n    inp = sys.stdin.read().strip()\n    print(solution(inp) or 'Execution completed')\n");
+            } else if (newLang === 'cpp') {
+                setEditorCode("// Write your C++ solution below\n#include <iostream>\n#include <string>\nusing namespace std;\n\nint main() {\n    // TODO: Implement logic\n    cout << \"C++ Solution Output\" << endl;\n    return 0;\n}\n");
+            } else if (newLang === 'java') {
+                setEditorCode("// Write your Java solution below\nimport java.util.*;\n\npublic class Solution {\n    public static void main(String[] args) {\n        // TODO: Implement logic\n        System.out.println(\"Java Solution Output\");\n    }\n}\n");
+            } else {
+                setEditorCode(codingChallenge?.starterCode || "// Write your JavaScript solution below\nfunction solution(input) {\n    return input;\n}\n");
+            }
+        }
+    };
 
     // HackerRank IDE Tabs & Console state
     const [leftTab, setLeftTab] = useState('problem'); // 'problem' | 'guidance'
@@ -187,7 +210,9 @@ const InterviewRoom = () => {
     const [faceStatus, setFaceStatus] = useState('INITIALIZING'); // 'INITIALIZING' | 'VERIFIED' | 'ABSENT' | 'MULTIPLE'
 
     // Monaco IDE Pro Bar & Customization state
-    const [editorTheme, setEditorTheme] = useState('vs-dark'); // 'vs-dark' | 'vs' | 'hc-black'
+    const [themeOverride, setThemeOverride] = useState(null); // null | 'vs-dark' | 'vs' | 'hc-black'
+    const editorTheme = themeOverride || (isDark ? 'vs-dark' : 'vs');
+    const setEditorTheme = (t) => setThemeOverride(t);
     const [editorFontSize, setEditorFontSize] = useState(13); // 12 | 13 | 14 | 16
     const [showCheatsheet, setShowCheatsheet] = useState(false);
     const monacoEditorRef = useRef(null);
@@ -723,7 +748,13 @@ const InterviewRoom = () => {
                     setAssessment(data.assessment);
                     setStage(data.session.stage || 'CONCEPTUAL');
                     setTranscript(data.session.transcript || []);
-                    setTimeLeftSeconds((data.assessment.durationMinutes || 30) * 60);
+
+                    // True server-authoritative elapsed time calculation
+                    const totalDurationSec = (data.session.durationMinutes || data.assessment.durationMinutes || 30) * 60;
+                    const startedTimeMs = new Date(data.session.startedAt || data.session.createdAt).getTime();
+                    const elapsedSec = Math.max(0, Math.floor((Date.now() - startedTimeMs) / 1000));
+                    const remainingSec = Math.max(0, totalDurationSec - elapsedSec);
+                    setTimeLeftSeconds(remainingSec);
 
                     // Find latest AI message
                     const aiMsgs = data.session.transcript.filter(t => t.role === 'ai');
@@ -735,7 +766,11 @@ const InterviewRoom = () => {
 
                     if (data.session.codingChallenge) {
                         setCodingChallenge(data.session.codingChallenge);
-                        setEditorCode(data.session.codingChallenge.starterCode || '// Write your code here');
+                        const initialLang = data.session.language || 'javascript';
+                        setSelectedLanguage(initialLang);
+                        const initialCode = data.session.code || data.session.codingChallenge.starterCode || '// Write your code here';
+                        setEditorCode(initialCode);
+                        setCodeByLanguage({ [initialLang]: initialCode });
                     }
 
                     // Adaptive Curriculum State
@@ -762,25 +797,30 @@ const InterviewRoom = () => {
         };
     }, [code, location.state]);
 
-    // 2. Countdown Timer
+    // 2. Countdown Timer (Calculates true remaining time from server startedAt on every tick)
     useEffect(() => {
         if (!session || stage === 'COMPLETED') return;
 
         if (timerRef.current) clearInterval(timerRef.current);
 
-        timerRef.current = setInterval(() => {
-            setTimeLeftSeconds(prev => {
-                if (prev <= 1) {
-                    clearInterval(timerRef.current);
-                    handleAutoSubmitRef.current?.();
-                    return 0;
-                }
-                return prev - 1;
-            });
-        }, 1000);
+        const totalDurationSec = (session.durationMinutes || assessment?.durationMinutes || 30) * 60;
+        const startedTimeMs = new Date(session.startedAt || session.createdAt).getTime();
+
+        const updateTimer = () => {
+            const elapsedSec = Math.max(0, Math.floor((Date.now() - startedTimeMs) / 1000));
+            const remainingSec = Math.max(0, totalDurationSec - elapsedSec);
+            setTimeLeftSeconds(remainingSec);
+            if (remainingSec <= 0) {
+                if (timerRef.current) clearInterval(timerRef.current);
+                handleAutoSubmitRef.current?.();
+            }
+        };
+
+        updateTimer();
+        timerRef.current = setInterval(updateTimer, 1000);
 
         return () => clearInterval(timerRef.current);
-    }, [session, stage]);
+    }, [session, stage, assessment]);
 
     // 3. Audio Output (TTS) with Multi-Engine Support (Edge Neural, Browser Speech, Google Cloud) & Live Word Tracking
     const speakAiMessage = async (text, overrideVoiceModel) => {
@@ -1072,52 +1112,6 @@ const InterviewRoom = () => {
         }
     };
 
-    // Push-to-Talk (Hold Spacebar to speak) and Enter-to-transmit
-    useEffect(() => {
-        let spaceActive = false;
-
-        const handleKeyDown = (e) => {
-            const target = e.target;
-            const isEditing = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.closest('.monaco-editor');
-
-            if (e.code === 'Space' && !isEditing && !e.repeat && !isAiSpeaking) {
-                e.preventDefault();
-                if (!isListening && !spaceActive) {
-                    spaceActive = true;
-                    toggleSpeechRecognition();
-                }
-            } else if (e.key === 'Enter' && !isEditing && !e.shiftKey) {
-                if (candidateText.trim() || interimSpeech.trim()) {
-                    e.preventDefault();
-                    handleSendMessage();
-                }
-            } else if (e.key === '?' && !isEditing && !e.metaKey && !e.ctrlKey) {
-                e.preventDefault();
-                setShowCheatsheet(prev => !prev);
-            }
-        };
-
-        const handleKeyUp = (e) => {
-            const target = e.target;
-            const isEditing = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.closest('.monaco-editor');
-
-            if (e.code === 'Space' && !isEditing && spaceActive) {
-                e.preventDefault();
-                spaceActive = false;
-                if (isListening) {
-                    toggleSpeechRecognition();
-                }
-            }
-        };
-
-        window.addEventListener('keydown', handleKeyDown);
-        window.addEventListener('keyup', handleKeyUp);
-        return () => {
-            window.removeEventListener('keydown', handleKeyDown);
-            window.removeEventListener('keyup', handleKeyUp);
-        };
-    }, [isListening, isAiSpeaking, candidateText, interimSpeech]);
-
     // 5. Send Candidate Answer to Backend + Gemini
     const handleSendMessage = async (customText) => {
         // Only submit finalized text or explicit customText (never send stray unreviewed interim fragments alone)
@@ -1189,6 +1183,57 @@ const InterviewRoom = () => {
             setIsSending(false);
         }
     };
+
+    const handleSendMessageRef = useRef(handleSendMessage);
+    useEffect(() => {
+        handleSendMessageRef.current = handleSendMessage;
+    });
+
+    // Push-to-Talk (Hold Spacebar to speak) and Enter-to-transmit
+    useEffect(() => {
+        let spaceActive = false;
+
+        const handleKeyDown = (e) => {
+            const target = e.target;
+            const isEditing = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.closest('.monaco-editor');
+
+            if (e.code === 'Space' && !isEditing && !e.repeat && !isAiSpeaking) {
+                e.preventDefault();
+                if (!isListening && !spaceActive) {
+                    spaceActive = true;
+                    toggleSpeechRecognition();
+                }
+            } else if (e.key === 'Enter' && !isEditing && !e.shiftKey) {
+                if (candidateText.trim() || interimSpeech.trim()) {
+                    e.preventDefault();
+                    handleSendMessageRef.current();
+                }
+            } else if (e.key === '?' && !isEditing && !e.metaKey && !e.ctrlKey) {
+                e.preventDefault();
+                setShowCheatsheet(prev => !prev);
+            }
+        };
+
+        const handleKeyUp = (e) => {
+            const target = e.target;
+            const isEditing = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.closest('.monaco-editor');
+
+            if (e.code === 'Space' && !isEditing && spaceActive) {
+                e.preventDefault();
+                spaceActive = false;
+                if (isListening) {
+                    toggleSpeechRecognition();
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('keyup', handleKeyUp);
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('keyup', handleKeyUp);
+        };
+    }, [isListening, isAiSpeaking, candidateText, interimSpeech]);
 
     // 6. Run Code (Sub-second Native Sandbox Runner)
     const handleRunCode = async () => {
@@ -2002,21 +2047,7 @@ const InterviewRoom = () => {
                                 <span className="text-[11px] text-[#8B8B9E] font-mono uppercase tracking-wider">Language:</span>
                                 <select
                                     value={selectedLanguage}
-                                    onChange={(e) => {
-                                        const newLang = e.target.value;
-                                        setSelectedLanguage(newLang);
-                                        if (!editorCode.trim() || editorCode.includes('// Starter template') || editorCode.includes('Write your')) {
-                                            if (newLang === 'python') {
-                                                setEditorCode("# Write your Python 3 solution below\ndef solution(data):\n    # TODO: Implement logic\n    return data\n\nif __name__ == '__main__':\n    import sys\n    inp = sys.stdin.read().strip()\n    print(solution(inp) or 'Execution completed')\n");
-                                            } else if (newLang === 'cpp') {
-                                                setEditorCode("// Write your C++ solution below\n#include <iostream>\n#include <string>\nusing namespace std;\n\nint main() {\n    // TODO: Implement logic\n    cout << \"C++ Solution Output\" << endl;\n    return 0;\n}\n");
-                                            } else if (newLang === 'java') {
-                                                setEditorCode("// Write your Java solution below\nimport java.util.*;\n\npublic class Solution {\n    public static void main(String[] args) {\n        // TODO: Implement logic\n        System.out.println(\"Java Solution Output\");\n    }\n}\n");
-                                            } else {
-                                                setEditorCode(codingChallenge?.starterCode || "// Write your JavaScript solution below\nfunction solution(input) {\n    return input;\n}\n");
-                                            }
-                                        }
-                                    }}
+                                    onChange={(e) => handleLanguageChange(e.target.value)}
                                     className="bg-[#0A0A0B] border border-[#232330] text-xs text-[#EDEDF0] px-2 py-1 rounded-md focus:outline-none focus:border-blue-500 font-mono"
                                 >
                                     <option value="javascript">JavaScript (Node.js 24)</option>

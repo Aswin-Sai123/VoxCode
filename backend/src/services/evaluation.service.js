@@ -11,15 +11,20 @@ const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-flash-latest', 'gemini-flash-
  * Resilient multi-model Gemini caller with automatic fallback
  */
 const callGemini = async (body) => {
+    if (process.env.NODE_ENV === 'test') return null;
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) return null;
 
     for (const model of GEMINI_MODELS) {
         try {
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'x-goog-api-key': apiKey
+                },
+                body: JSON.stringify(body),
+                signal: AbortSignal.timeout(20000)
             });
 
             const data = await response.json();
@@ -60,9 +65,10 @@ def __run_test__():
             print("No function defined")
             return
         fn = candidates[-1]
-        raw_input = """${(tc.input || '').replace(/"/g, '\\"')}"""
+        raw_input = ${JSON.stringify(tc.input || '')}
         try:
-            val = eval(f"fn({raw_input})")
+            parsed = json.loads(raw_input)
+            val = fn(*parsed) if isinstance(parsed, list) else fn(parsed)
         except Exception:
             val = fn(raw_input)
         print(json.dumps(val) if isinstance(val, (dict, list)) else str(val))
@@ -75,7 +81,7 @@ __run_test__()
                 const actualOutput = res.output || '';
                 const cleanExpected = (tc.expectedOutput || '').trim().replace(/\s+/g, '');
                 const cleanActual = actualOutput.trim().replace(/\s+/g, '');
-                const passed = cleanActual === cleanExpected || cleanActual.includes(cleanExpected);
+                const passed = !res.hasError && cleanActual.length > 0 && cleanActual === cleanExpected;
                 results.push({
                     input: tc.input || '',
                     expectedOutput: tc.expectedOutput || '',
@@ -83,13 +89,13 @@ __run_test__()
                     passed,
                     executionTime: res.executionTime || '0.05s'
                 });
-            } catch {
+            } catch (err) {
                 results.push({
                     input: tc.input || '',
                     expectedOutput: tc.expectedOutput || '',
-                    actualOutput: 'Evaluated via static analysis',
-                    passed: true,
-                    executionTime: '0.02s'
+                    actualOutput: `Execution Error: ${err.message}`,
+                    passed: false,
+                    executionTime: '0.00s'
                 });
             }
         }
@@ -121,9 +127,13 @@ ${code}
         if (fn) {
             let parsedInput;
             try {
-                parsedInput = eval(${JSON.stringify(tc.input || '')});
+                parsedInput = JSON.parse(${JSON.stringify(tc.input || '')});
             } catch(e) {
-                parsedInput = ${JSON.stringify(tc.input || '')};
+                try {
+                    parsedInput = eval(${JSON.stringify(tc.input || '')});
+                } catch(e2) {
+                    parsedInput = ${JSON.stringify(tc.input || '')};
+                }
             }
             const res = Array.isArray(parsedInput) ? fn(...parsedInput) : fn(parsedInput);
             if (res !== undefined) {
@@ -139,7 +149,7 @@ ${code}
                 const actualOutput = res.output || '';
                 const cleanExpected = (tc.expectedOutput || '').trim().replace(/\s+/g, '');
                 const cleanActual = actualOutput.trim().replace(/\s+/g, '');
-                const passed = !res.hasError && (cleanActual === cleanExpected || cleanActual.includes(cleanExpected));
+                const passed = !res.hasError && cleanActual.length > 0 && cleanActual === cleanExpected;
                 results.push({
                     input: tc.input || '',
                     expectedOutput: tc.expectedOutput || '',
@@ -173,7 +183,7 @@ ${code}
             const actualOutput = res.output || '';
             const cleanExpected = (tc.expectedOutput || '').trim().replace(/\s+/g, '');
             const cleanActual = actualOutput.trim().replace(/\s+/g, '');
-            const passed = !res.hasError && (cleanActual === cleanExpected || cleanActual.includes(cleanExpected));
+            const passed = !res.hasError && cleanActual.length > 0 && cleanActual === cleanExpected;
             results.push({
                 input: tc.input || '',
                 expectedOutput: tc.expectedOutput || '',
@@ -526,14 +536,24 @@ export const evaluateInterviewSession = async (sessionId) => {
 
     // Check if evaluation already exists
     let evaluation = await Evaluation.findOne({ session: session._id });
+    if (evaluation && evaluation.status === 'COMPLETED') {
+        return evaluation;
+    }
+
     if (!evaluation) {
-        evaluation = new Evaluation({
-            session: session._id,
-            candidate: session.candidate?._id || session.candidate,
-            assessment: session.assessment?._id || session.assessment,
-            status: 'PENDING'
-        });
-        await evaluation.save();
+        try {
+            evaluation = await Evaluation.create({
+                session: session._id,
+                candidate: session.candidate?._id || session.candidate,
+                assessment: session.assessment?._id || session.assessment,
+                status: 'PENDING'
+            });
+        } catch (dupErr) {
+            evaluation = await Evaluation.findOne({ session: session._id });
+            if (evaluation && evaluation.status === 'COMPLETED') {
+                return evaluation;
+            }
+        }
     }
 
     // 1. Run test cases

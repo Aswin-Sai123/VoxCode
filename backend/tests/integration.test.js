@@ -20,6 +20,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 dotenv.config({ path: path.resolve(__dirname, '..', '.env') });
+process.env.NODE_ENV = 'test';
 
 import mongoose from 'mongoose';
 import { app } from '../src/app.js';
@@ -34,7 +35,7 @@ const request = async (method, urlPath, body = null, token = null) => {
     const url = `${BASE}${PORT}${urlPath}`;
     const headers = { 'Content-Type': 'application/json' };
     if (token) headers['Authorization'] = `Bearer ${token}`;
-    const options = { method, headers };
+    const options = { method, headers, redirect: 'manual' };
     if (body) options.body = JSON.stringify(body);
     const res = await fetch(url, options);
     const text = await res.text();
@@ -106,7 +107,8 @@ async function testAuthSuite() {
 
     // 2. Candidate registration
     const regCandidate = await request('POST', '/api/auth/register', {
-        name: 'Alice Dev', email: 'alice@test.com', password: 'Alice1234!', role: 'CANDIDATE'
+        name: 'Alice Dev', email: 'alice@test.com', password: 'Alice1234!', role: 'CANDIDATE',
+        resumeText: 'Full Stack Engineer with 3 years Node.js and MongoDB experience.'
     });
     assert('Candidate registration returns 201', regCandidate.status === 201);
     candidateToken = regCandidate.body?.data?.accessToken;
@@ -172,7 +174,8 @@ async function testAssessmentSuite() {
     const createRes = await request('POST', '/api/assessments', {
         title: 'Backend Coding Test', role: roleId, skills: ['Node.js', 'MongoDB'],
         experienceLevel: 'Mid', durationMinutes: 45,
-        codingRoundEnabled: true, voiceRoundEnabled: true
+        codingRoundEnabled: true, voiceRoundEnabled: true,
+        blueprintAnalysis: { interviewFormat: 'FULL_INTERVIEW' }
     }, companyToken);
     assert('Create assessment returns 201', createRes.status === 201);
     assert('Assessment has assessmentCode starting with ASMT-', createRes.body?.data?.assessmentCode?.startsWith('ASMT-'));
@@ -182,7 +185,8 @@ async function testAssessmentSuite() {
     // 3. Assessment code is unique
     const createRes2 = await request('POST', '/api/assessments', {
         title: 'Frontend Test', role: roleId, skills: ['React'],
-        experienceLevel: 'Entry', durationMinutes: 30
+        experienceLevel: 'Entry', durationMinutes: 30,
+        blueprintAnalysis: { interviewFormat: 'FULL_INTERVIEW' }
     }, companyToken);
     assert('Second assessment also created', createRes2.status === 201);
     assert('Second assessment code differs from first', createRes2.body?.data?.assessmentCode !== assessmentCode);
@@ -212,26 +216,38 @@ async function testAssessmentSuite() {
     // 8. Assessment not yet open (future opening time) rejects candidate with 403
     const futureAsmt = await request('POST', '/api/assessments', {
         title: 'Future Assessment', role: roleId,
+        durationMinutes: 30,
+        blueprintAnalysis: { interviewFormat: 'FULL_INTERVIEW' },
         openingTime: new Date(Date.now() + 86400000).toISOString(),
         closingTime: new Date(Date.now() + 172800000).toISOString()
     }, companyToken);
     const futureCode = futureAsmt.body?.data?.assessmentCode;
-    const futureEntry = await request('GET', `/api/assessments/code/${futureCode}`, null, candidateToken);
+    const futureEntry = await request('POST', `/api/interview/start/${futureCode}`, {
+        resumeText: 'Full Stack Engineer with 3 years Node.js and MongoDB experience.'
+    }, candidateToken);
     assert('Not-yet-open assessment rejects candidate (403)', futureEntry.status === 403);
 
     // 9. Expired assessment (past closing time) rejects candidate with 403
     const expiredAsmt = await request('POST', '/api/assessments', {
         title: 'Expired Assessment', role: roleId,
-        openingTime: new Date(Date.now() - 172800000).toISOString(),
-        closingTime: new Date(Date.now() - 86400000).toISOString()
+        durationMinutes: 30,
+        blueprintAnalysis: { interviewFormat: 'FULL_INTERVIEW' },
+        openingTime: new Date(Date.now() + 1000).toISOString(),
+        closingTime: new Date(Date.now() + 86400000).toISOString()
     }, companyToken);
     const expiredCode = expiredAsmt.body?.data?.assessmentCode;
+    // Fast forward closing time into the past to simulate an expired assessment
+    await mongoose.model('Assessment').findByIdAndUpdate(expiredAsmt.body?.data?._id, {
+        closingTime: new Date(Date.now() - 3600000)
+    });
     const expiredEntry = await request('GET', `/api/assessments/code/${expiredCode}`, null, candidateToken);
     assert('Expired assessment rejects candidate (403)', expiredEntry.status === 403);
 
     // 10. Invite-only assessment rejects uninvited candidate with 403
     const inviteAsmt = await request('POST', '/api/assessments', {
         title: 'Private Assessment', role: roleId,
+        durationMinutes: 30,
+        blueprintAnalysis: { interviewFormat: 'FULL_INTERVIEW' },
         accessType: 'INVITE_ONLY',
         eligibleEmails: ['exclusive@vip.com']
     }, companyToken);
@@ -245,7 +261,8 @@ async function testInterviewSuite() {
 
     // 1. Start a session
     const startRes = await request('POST', '/api/interview/start', {
-        assessmentCode
+        assessmentCode,
+        resumeText: 'Full Stack Engineer with 3 years Node.js and MongoDB experience.'
     }, candidateToken);
     assert('Start session returns 200/201', startRes.status === 200 || startRes.status === 201);
     sessionId = startRes.body?.data?._id || startRes.body?.data?.session?._id;

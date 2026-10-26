@@ -23,8 +23,7 @@ import {
     Lock,
     Play,
     Square,
-    Sliders,
-    VolumeX
+    Sliders
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { CardSkeleton } from '../../components/common/Skeleton';
@@ -60,6 +59,12 @@ const AssessmentLobby = () => {
     const [speakerVerified, setSpeakerVerified] = useState(false);
     const micStreamRef = useRef(null);
     const audioContextRef = useRef(null);
+    const [currentTime, setCurrentTime] = useState(() => Date.now());
+
+    useEffect(() => {
+        const timer = setInterval(() => setCurrentTime(Date.now()), 1000);
+        return () => clearInterval(timer);
+    }, []);
 
     useEffect(() => {
         const verifyCode = async () => {
@@ -360,7 +365,7 @@ const AssessmentLobby = () => {
             return;
         }
 
-        if (assessment?.openingTime && new Date() < new Date(assessment.openingTime)) {
+        if (assessment?.openingTime && (new Date(assessment.openingTime).getTime() - Date.now()) > 60000) {
             toast.error(`Assessment is not open yet. Scheduled opening time is: ${new Date(assessment.openingTime).toLocaleString()}`);
             return;
         }
@@ -417,7 +422,18 @@ const AssessmentLobby = () => {
     }
 
     const interviewFormat = assessment?.interviewFormat || assessment?.blueprint?.interviewFormat || 'FULL_INTERVIEW';
-    const isNotOpenYet = assessment?.openingTime && new Date() < new Date(assessment.openingTime);
+    const openingTimeMs = assessment?.openingTime ? new Date(assessment.openingTime).getTime() : 0;
+    const isNotOpenYet = openingTimeMs > 0 && (openingTimeMs - currentTime) > 60000;
+    const timeUntilOpenSec = Math.max(0, Math.floor((openingTimeMs - currentTime) / 1000));
+
+    const formatCountdown = (totalSec) => {
+        if (totalSec <= 0) return 'Opening now';
+        const h = Math.floor(totalSec / 3600);
+        const m = Math.floor((totalSec % 3600) / 60);
+        const s = totalSec % 60;
+        if (h > 0) return `${h}h ${m}m ${s}s`;
+        return `${m}m ${s < 10 ? '0' : ''}${s}s`;
+    };
 
     return (
         <div className="flex-1 p-6 sm:p-8 max-w-6xl mx-auto w-full space-y-6 pb-32">
@@ -440,16 +456,23 @@ const AssessmentLobby = () => {
 
             {/* Scheduled Assessment Banner */}
             {isNotOpenYet && (
-                <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-start gap-3.5 animate-in fade-in duration-200">
-                    <div className="w-8 h-8 rounded-lg bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-blue-400 flex-shrink-0 mt-0.5">
-                        <Clock className="w-4 h-4" />
-                    </div>
-                    <div className="space-y-1">
-                        <h3 className="text-sm font-semibold text-[#EDEDF0]">Scheduled Assessment</h3>
-                        <p className="text-xs text-[#8B8B9E] leading-relaxed">
-                            This assessment is scheduled to open on <strong className="text-[#EDEDF0]">{new Date(assessment.openingTime).toLocaleString()}</strong>.
-                            You can test your microphone, audio, and upload your resume below right now so you are completely prepared to start when it opens.
-                        </p>
+                <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-start justify-between gap-4 animate-in fade-in duration-200">
+                    <div className="flex items-start gap-3.5">
+                        <div className="w-9 h-9 rounded-lg bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-blue-400 flex-shrink-0 mt-0.5">
+                            <Clock className="w-5 h-5 animate-pulse" />
+                        </div>
+                        <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                                <h3 className="text-sm font-semibold text-[#EDEDF0]">Scheduled Assessment</h3>
+                                <span className="px-2 py-0.5 rounded-full text-[11px] font-mono bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                                    Opens in {formatCountdown(timeUntilOpenSec)}
+                                </span>
+                            </div>
+                            <p className="text-xs text-[#8B8B9E] leading-relaxed">
+                                This assessment is scheduled to open on <strong className="text-[#EDEDF0]">{new Date(assessment.openingTime).toLocaleString()}</strong>.
+                                You can test your microphone, audio, and upload your resume below right now so you are completely prepared to start as soon as it opens.
+                            </p>
+                        </div>
                     </div>
                 </div>
             )}
@@ -1074,7 +1097,7 @@ const AssessmentLobby = () => {
                                 {isNotOpenYet ? (
                                     <>
                                         <Clock className="w-4 h-4 text-blue-400" />
-                                        <span>Opens at {new Date(assessment.openingTime).toLocaleTimeString()}</span>
+                                        <span>Opens in {formatCountdown(timeUntilOpenSec)} ({new Date(assessment.openingTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})</span>
                                     </>
                                 ) : !resumeText.trim() ? (
                                     <>

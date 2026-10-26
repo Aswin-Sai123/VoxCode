@@ -16,30 +16,46 @@ api.interceptors.request.use(config => {
     return config;
 });
 
-// Response interceptor to handle token refresh (basic version)
+// Response interceptor to handle token refresh
 api.interceptors.response.use(
     response => response,
     async error => {
         const originalRequest = error.config;
         
-        // If 401 Unauthorized and we haven't already retried
-        if (error.response?.status === 401 && !originalRequest._retry) {
+        // Do not attempt token refresh for login, register, oauth exchange, or refresh itself
+        const isAuthRequest = originalRequest?.url?.includes('/auth/login') ||
+            originalRequest?.url?.includes('/auth/register') ||
+            originalRequest?.url?.includes('/auth/refresh') ||
+            originalRequest?.url?.includes('/auth/oauth/exchange');
+
+        // If 401 Unauthorized and not an auth request and we haven't already retried
+        if (error.response?.status === 401 && !originalRequest._retry && !isAuthRequest) {
             originalRequest._retry = true;
             try {
                 const refreshToken = localStorage.getItem('refreshToken');
                 if (!refreshToken) throw new Error('No refresh token');
                 
                 const res = await axios.post(`${API_BASE_URL}/auth/refresh`, { token: refreshToken });
-                localStorage.setItem('accessToken', res.data.data.accessToken);
+                const newAccess = res.data?.data?.accessToken;
+                const newRefresh = res.data?.data?.refreshToken;
+                
+                if (newAccess) {
+                    localStorage.setItem('accessToken', newAccess);
+                    originalRequest.headers.Authorization = `Bearer ${newAccess}`;
+                }
+                if (newRefresh) {
+                    localStorage.setItem('refreshToken', newRefresh);
+                }
                 
                 // Retry original request with new token
-                originalRequest.headers.Authorization = `Bearer ${res.data.data.accessToken}`;
                 return api(originalRequest);
             } catch (refreshError) {
-                // If refresh fails, log out
+                // If refresh fails, clear tokens and redirect to login if not already on auth page
                 localStorage.removeItem('accessToken');
                 localStorage.removeItem('refreshToken');
-                window.location.href = '/login';
+                if (window.location.pathname !== '/login' && window.location.pathname !== '/register') {
+                    window.location.href = '/login';
+                }
                 return Promise.reject(refreshError);
             }
         }

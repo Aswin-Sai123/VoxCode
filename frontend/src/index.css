@@ -129,7 +129,15 @@ html[data-theme="light"] .bg-\[\#0A0A0B\]\/60 {
 }
 
 html.light .bg-\[\#141419\],
-html[data-theme="light"] .bg-\[\#141419\] {
+html[data-theme="light"] .bg-\[\#141419\],
+html.light .bg-\[\#141419\]\/95,
+html[data-theme="light"] .bg-\[\#141419\]\/95,
+html.light .bg-\[\#141419\]\/90,
+html[data-theme="light"] .bg-\[\#141419\]\/90,
+html.light .bg-\[\#141419\]\/80,
+html[data-theme="light"] .bg-\[\#141419\]\/80,
+html.light .bg-\[\#141419\]\/60,
+html[data-theme="light"] .bg-\[\#141419\]\/60 {
   background-color: #FFFFFF !important;
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
 }
@@ -601,15 +609,23 @@ html[data-theme="light"] ::-webkit-scrollbar-thumb {
   background: rgba(0, 0, 0, 0.15) !important;
 }
 
-/* Subtle Isometric / Dot-Grid Backdrop */
-.bg-dot-grid {
-  background-image: radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px);
-  background-size: 24px 24px;
+/* Bespoke Architectural Engineering Grid (Linear / Vercel style) */
+.bg-architectural-grid {
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: radial-gradient(ellipse at 50% 25%, black 45%, transparent 85%);
+  -webkit-mask-image: radial-gradient(ellipse at 50% 25%, black 45%, transparent 85%);
 }
-html.light .bg-dot-grid,
-html[data-theme="light"] .bg-dot-grid {
-  background-image: radial-gradient(rgba(15, 23, 42, 0.08) 1px, transparent 1px) !important;
-  background-size: 24px 24px;
+html.light .bg-architectural-grid,
+html[data-theme="light"] .bg-architectural-grid {
+  background-image: 
+    linear-gradient(to right, rgba(15, 23, 42, 0.045) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(15, 23, 42, 0.045) 1px, transparent 1px) !important;
+  background-size: 32px 32px;
+  mask-image: radial-gradient(ellipse at 50% 25%, black 45%, transparent 85%);
+  -webkit-mask-image: radial-gradient(ellipse at 50% 25%, black 45%, transparent 85%);
 }
 
 /* 1px Inner Highlight Edge ("Light Catch") */

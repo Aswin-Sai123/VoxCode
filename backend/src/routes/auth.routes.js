@@ -8,6 +8,7 @@ import {
     loginCandidate,
     googleLogin,
     googleCallback,
+    oauthExchange,
     refreshToken,
     logout,
     getMe
@@ -52,37 +53,48 @@ router.get('/google', (req, res, next) => {
     const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim();
 
-    if (!clientId || !clientSecret) {
-        console.warn('[Auth] Google OAuth attempted but GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET is missing. Redirecting to login with error.');
+    if (!clientId || !clientSecret || !passport._strategy('google')) {
+        console.warn('[Auth] Google OAuth attempted but GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET is missing or strategy not registered. Redirecting to login with error.');
         return res.redirect(`${frontendUrl}/login?error=google_not_configured`);
     }
 
-    passport.authenticate('google', {
-        scope: ['profile', 'email'],
-        session: false
-    })(req, res, (err) => {
-        if (err) {
-            console.error('[Auth] passport.authenticate error:', err);
-            return res.redirect(`${frontendUrl}/login?error=google_failed`);
-        }
-        next();
-    });
+    try {
+        passport.authenticate('google', {
+            scope: ['profile', 'email'],
+            session: false
+        })(req, res, (err) => {
+            if (err) {
+                console.error('[Auth] passport.authenticate error:', err);
+                return res.redirect(`${frontendUrl}/login?error=google_failed`);
+            }
+            next();
+        });
+    } catch (err) {
+        console.error('[Auth] passport.authenticate invocation error:', err);
+        return res.redirect(`${frontendUrl}/login?error=google_failed`);
+    }
 });
 
 router.get('/google/callback', (req, res, next) => {
     const frontendUrl = getFrontendUrl();
-    passport.authenticate('google', {
-        session: false,
-        failureRedirect: `${frontendUrl}/login?error=google_failed`
-    })(req, res, (err) => {
+    if (!passport._strategy('google')) {
+        return res.redirect(`${frontendUrl}/login?error=google_not_configured`);
+    }
+    passport.authenticate('google', { session: false }, (err, user, info) => {
         if (err) {
             console.error('[Auth] Google callback authentication error:', err);
             return res.redirect(`${frontendUrl}/login?error=google_failed`);
         }
+        if (!user) {
+            const reason = info?.message || 'google_failed';
+            return res.redirect(`${frontendUrl}/login?error=${encodeURIComponent(reason)}`);
+        }
+        req.user = user;
         next();
-    });
+    })(req, res, next);
 }, googleCallback);
 
+router.post('/oauth/exchange', oauthExchange);
 router.post('/refresh', refreshToken);
 router.post('/logout', logout);
 router.get('/me', protect(['COMPANY', 'CANDIDATE']), getMe);

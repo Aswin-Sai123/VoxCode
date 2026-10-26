@@ -88,8 +88,33 @@ export const createAssessment = asyncHandler(async (req, res) => {
         throw new ApiError(400, 'Role and title are required');
     }
 
-    if (openingTime && closingTime && new Date(openingTime) >= new Date(closingTime)) {
-        throw new ApiError(400, 'Assessment closing time must be strictly after opening time');
+    const parsedDuration = (durationMinutes !== undefined && durationMinutes !== null) ? parseInt(durationMinutes, 10) : 30;
+    if (isNaN(parsedDuration) || parsedDuration < 5 || parsedDuration > 240) {
+        throw new ApiError(400, 'Assessment duration must be an integer between 5 and 240 minutes');
+    }
+
+    if (openingTime && isNaN(new Date(openingTime).getTime())) {
+        throw new ApiError(400, 'Invalid opening time format');
+    }
+
+    if (closingTime && isNaN(new Date(closingTime).getTime())) {
+        throw new ApiError(400, 'Invalid closing time format');
+    }
+
+    if (closingTime && new Date(closingTime) <= new Date()) {
+        throw new ApiError(400, 'Assessment closing time cannot be in the past');
+    }
+
+    if (openingTime && closingTime) {
+        const openDate = new Date(openingTime);
+        const closeDate = new Date(closingTime);
+        if (openDate >= closeDate) {
+            throw new ApiError(400, 'Assessment closing time must be strictly after opening time');
+        }
+        const windowMinutes = (closeDate.getTime() - openDate.getTime()) / (60 * 1000);
+        if (windowMinutes < parsedDuration) {
+            throw new ApiError(400, `Assessment access window (${Math.round(windowMinutes)} mins) must be at least as long as the test duration (${parsedDuration} mins)`);
+        }
     }
 
     // make sure the role actually belongs to this company
@@ -145,7 +170,7 @@ export const createAssessment = asyncHandler(async (req, res) => {
         title: title.trim(),
         skills: skills || [],
         experienceLevel: experienceLevel || 'Entry',
-        durationMinutes: Number(durationMinutes) || 30,
+        durationMinutes: parsedDuration,
         blueprint: blueprint || '',
         blueprintFileName: req.body.blueprintFileName || '',
         blueprintAnalysis: finalAnalysis,

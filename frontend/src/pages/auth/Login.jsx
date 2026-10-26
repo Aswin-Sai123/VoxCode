@@ -1,7 +1,9 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
-import { ArrowRight, AlertCircle, Loader2, Sparkles, Mic, Code2, ShieldCheck } from 'lucide-react';
+import api from '../../services/api';
+import { ArrowRight, AlertCircle, Loader2 } from 'lucide-react';
+import { InteractiveWorkflowShowcase } from '../../components/common/InteractiveWorkflowShowcase';
 
 const Login = () => {
     const [role, setRole] = useState('CANDIDATE');
@@ -12,6 +14,8 @@ const Login = () => {
         const errorMsg = params.get('error');
         if (errorMsg === 'google_not_configured') {
             return 'Google OAuth credentials not configured on backend. Please configure GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET on Render or log in with email/password.';
+        } else if (errorMsg === 'account_exists_with_password') {
+            return 'An account with this email already exists using password login. Please log in with your email and password.';
         } else if (errorMsg === 'google_failed') {
             return 'Google sign-in was cancelled or failed. Please verify credentials or try again.';
         } else if (errorMsg) {
@@ -25,12 +29,30 @@ const Login = () => {
     const navigate = useNavigate();
     const location = useLocation();
 
-    // Catch Google OAuth redirect tokens
+    // Catch Google OAuth redirect code or fallback tokens
     useEffect(() => {
         const params = new URLSearchParams(location.search);
+        const code = params.get('code');
         const access = params.get('accessToken');
         const refresh = params.get('refreshToken');
         const roleParam = params.get('role') || 'CANDIDATE';
+
+        if (code) {
+            setIsSubmitting(true);
+            api.post('/auth/oauth/exchange', { code })
+                .then(res => {
+                    const { accessToken, refreshToken, role: returnedRole } = res.data.data;
+                    localStorage.setItem('accessToken', accessToken);
+                    localStorage.setItem('refreshToken', refreshToken);
+                    localStorage.setItem('userRole', returnedRole || roleParam);
+                    window.location.href = (returnedRole || roleParam) === 'COMPANY' ? '/company/dashboard' : '/candidate/dashboard';
+                })
+                .catch(err => {
+                    setError(err.response?.data?.message || 'OAuth verification failed. Please try again.');
+                    setIsSubmitting(false);
+                });
+            return;
+        }
 
         if (access && refresh) {
             localStorage.setItem('accessToken', access);
@@ -61,73 +83,35 @@ const Login = () => {
         <div className="flex-1 flex items-center justify-center py-10 px-4 sm:px-6 lg:px-8">
             <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-14 items-center">
                 {/* Left Side: Editorial Branding & Product Showcase */}
-                <div className="hidden lg:flex lg:col-span-7 flex-col justify-center space-y-8 pr-4">
-                    {/* Top Status Pill */}
-                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-blue-500/10 border border-blue-500/20 text-blue-400 w-fit shadow-sm">
-                        <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse"></span>
-                        <Sparkles className="w-3.5 h-3.5 text-blue-400" />
-                        <span>Autonomous Technical Interview Platform</span>
+                <div className="hidden lg:flex lg:col-span-7 flex-col justify-center space-y-6 pr-4">
+                    {/* Top Status Pill - Micro badge / illuminated status dot */}
+                    <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md text-[11px] font-mono tracking-wide bg-[#15151B] border border-[#272736] text-[#A1A1AA] w-fit shadow-sm">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.7)] animate-pulse" />
+                        <span className="text-[#EDEDF0] font-semibold">VOXCODE ENGINE v2.4</span>
+                        <span className="text-[#3F3F4E]">/</span>
+                        <span className="text-[#8B8B9E]">REAL-TIME AUDIO & MONACO SYNTHESIS</span>
                     </div>
 
-                    {/* Punchy Headline with Gradient Accent */}
-                    <div className="space-y-4">
-                        <h1 className="text-4xl xl:text-5xl font-bold tracking-tight text-[#EDEDF0] leading-[1.18]">
-                            Evaluate real engineering depth with{' '}
-                            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-300 to-sky-400">
-                                authentic spoken dialogue
-                            </span>
+                    {/* Editorial Grotesque Headline in Solid #EDEDF0 */}
+                    <div className="space-y-3">
+                        <h1 className="text-4xl xl:text-5xl font-bold tracking-tight text-[#EDEDF0] leading-[1.12]">
+                            Evaluate real engineering depth with authentic spoken dialogue.
                         </h1>
-                        <p className="text-base text-[#8B8B9E] leading-relaxed max-w-xl">
-                            VoxCode pairs candidates with an autonomous AI lead engineer. From resume architecture deep-dives to live Monaco code execution, experience technical hiring without scheduling friction.
+                        <p className="text-sm xl:text-base text-[#8B8B9E] leading-relaxed max-w-xl">
+                            VoxCode pairs candidates with an autonomous lead engineer. From architecture defense to live Monaco execution, experience technical vetting without scheduling bottlenecks.
                         </p>
                     </div>
 
-                    {/* 3 Value Proposition Highlight Cards */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-                        <div className="p-4 rounded-xl bg-[#141419]/80 border border-[#232330] space-y-2 backdrop-blur-sm hover:border-[#38384A] transition-colors">
-                            <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
-                                <Mic className="w-4 h-4" />
-                            </div>
-                            <h3 className="text-xs font-semibold text-[#EDEDF0]">Real-Time Voice</h3>
-                            <p className="text-[11px] text-[#8B8B9E] leading-snug">
-                                Natural turn-taking with instant barge-in interruption.
-                            </p>
-                        </div>
+                    {/* Interactive Miniature Product Slice (Replaces predictable 3-card bento) */}
+                    <InteractiveWorkflowShowcase />
 
-                        <div className="p-4 rounded-xl bg-[#141419]/80 border border-[#232330] space-y-2 backdrop-blur-sm hover:border-[#38384A] transition-colors">
-                            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-                                <Code2 className="w-4 h-4" />
-                            </div>
-                            <h3 className="text-xs font-semibold text-[#EDEDF0]">Monaco Sandbox</h3>
-                            <p className="text-[11px] text-[#8B8B9E] leading-snug">
-                                In-browser multi-language compilation with automated test suites.
-                            </p>
-                        </div>
-
-                        <div className="p-4 rounded-xl bg-[#141419]/80 border border-[#232330] space-y-2 backdrop-blur-sm hover:border-[#38384A] transition-colors">
-                            <div className="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
-                                <ShieldCheck className="w-4 h-4" />
-                            </div>
-                            <h3 className="text-xs font-semibold text-[#EDEDF0]">Objective Rubrics</h3>
-                            <p className="text-[11px] text-[#8B8B9E] leading-snug">
-                                In-depth signal breakdowns and calibrated hire recommendations.
-                            </p>
-                        </div>
-                    </div>
-
-                    {/* Testimonial / Social Proof Card */}
-                    <div className="p-4 rounded-xl bg-[#141419]/60 border border-[#232330] flex items-center gap-4">
-                        <div className="w-9 h-9 rounded-full bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 flex-shrink-0 font-bold text-xs font-mono">
-                            VC
-                        </div>
-                        <div className="space-y-0.5">
-                            <p className="text-xs text-[#EDEDF0] font-medium leading-relaxed">
-                                "The AI dialogue feels like interviewing with a real Staff Engineer. It probes deep into trade-offs instead of asking generic trivia."
-                            </p>
-                            <span className="text-[11px] text-[#555568]">
-                                Senior Engineering Candidate • Cloud Systems
-                            </span>
-                        </div>
+                    {/* Engineering Attribution Footer */}
+                    <div className="pt-1 flex items-center justify-between text-[11px] font-mono text-[#555568] border-t border-[#232330]">
+                        <span className="flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-blue-500/60 inline-block" />
+                            LATENCY OPTIMIZED (WEBSOCKET &lt; 90ms)
+                        </span>
+                        <span>MULTI-LANGUAGE SANDBOX READY</span>
                     </div>
                 </div>
 

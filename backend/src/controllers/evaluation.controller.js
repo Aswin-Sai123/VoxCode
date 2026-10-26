@@ -37,9 +37,9 @@ export const getEvaluationBySession = asyncHandler(async (req, res) => {
         .populate('candidate', 'name email skills experience')
         .populate('assessment', 'title roleTitle companyName targetCompanyName targetRoleTitle assessmentType skills experienceLevel durationMinutes');
 
-    // If evaluation not found but session is completed, automatically trigger evaluation!
+    // If evaluation not found but session is finalized, trigger evaluation
     if (!evaluation || evaluation.status === 'PENDING') {
-        if (session.status === 'COMPLETED') {
+        if (session.status === 'COMPLETED' || session.status === 'TIMED_OUT') {
             try {
                 evaluation = await evaluateInterviewSession(sessionId);
                 evaluation = await Evaluation.findById(evaluation._id)
@@ -53,11 +53,6 @@ export const getEvaluationBySession = asyncHandler(async (req, res) => {
 
     if (!evaluation) {
         throw new ApiError(404, 'Evaluation report not found for this session');
-    }
-
-    // Confidentiality check: candidates only view reports for mock assessments
-    if (req.user?.role === 'CANDIDATE' && evaluation.assessment?.assessmentType === 'COMPANY') {
-        throw new ApiError(403, 'Company assessment evaluation reports are confidential to the hiring organization. Mock assessment practice sessions provide full transparent scoring and feedback.');
     }
 
     res.status(200).json(new ApiResponse(200, evaluation, 'Evaluation report retrieved successfully'));

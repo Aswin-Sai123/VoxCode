@@ -13,7 +13,9 @@ import InterviewRoom from './pages/candidate/InterviewRoom';
 import Reports from './pages/candidate/Reports';
 import ReportDetail from './pages/candidate/ReportDetail';
 import AssessmentResults from './pages/company/AssessmentResults';
+import NotFound from './pages/NotFound';
 import ProtectedRoute from './components/ProtectedRoute';
+import ErrorBoundary from './components/common/ErrorBoundary';
 import { Toaster } from 'sonner';
 
 const AppContent = () => {
@@ -23,9 +25,8 @@ const AppContent = () => {
 
     return (
         <div className={`min-h-screen ${isDark ? 'bg-[#0A0A0B] text-[#EDEDF0]' : 'bg-[#F8FAFC] text-[#0F172A]'} flex flex-col antialiased selection:bg-blue-600/30 selection:text-white transition-colors duration-200 relative`}>
-            {/* Ambient Canvas Lighting Mesh */}
-            <div className="fixed inset-0 bg-dot-grid pointer-events-none opacity-40 z-0" />
-            <div className="fixed -top-40 left-1/2 -translate-x-1/2 w-[700px] h-[350px] bg-blue-600/10 blur-[130px] rounded-full pointer-events-none z-0" />
+            {/* Architectural Engineering Grid Texture */}
+            <div className="fixed inset-0 bg-architectural-grid pointer-events-none z-0" />
 
             {/* Global Stacked Toast Notifications */}
             <Toaster 
@@ -72,7 +73,12 @@ const AppContent = () => {
                         </ProtectedRoute>
                     } />
                     <Route path="/candidate/report/:sessionId" element={
-                        <ProtectedRoute>
+                        <ProtectedRoute allowedRole="CANDIDATE">
+                            <ReportDetail />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="/candidate/reports/:sessionId" element={
+                        <ProtectedRoute allowedRole="CANDIDATE">
                             <ReportDetail />
                         </ProtectedRoute>
                     } />
@@ -86,6 +92,9 @@ const AppContent = () => {
                             <InterviewRoom />
                         </ProtectedRoute>
                     } />
+
+                    {/* 404 Catch-All Route */}
+                    <Route path="*" element={<NotFound />} />
                 </Routes>
             </main>
         </div>
@@ -94,13 +103,15 @@ const AppContent = () => {
 
 const App = () => {
     return (
-        <ThemeProvider>
-            <AuthProvider>
-                <Router>
-                    <AppContent />
-                </Router>
-            </AuthProvider>
-        </ThemeProvider>
+        <ErrorBoundary>
+            <ThemeProvider>
+                <AuthProvider>
+                    <Router>
+                        <AppContent />
+                    </Router>
+                </AuthProvider>
+            </ThemeProvider>
+        </ErrorBoundary>
     );
 };
 

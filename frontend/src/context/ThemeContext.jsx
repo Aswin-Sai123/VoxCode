@@ -33,6 +33,17 @@ export const ThemeProvider = ({ children }) => {
         }
     }, [theme]);
 
+    // Cross-tab theme synchronization
+    useEffect(() => {
+        const handleStorageChange = (e) => {
+            if (e.key === 'voxcode_theme' && (e.newValue === 'light' || e.newValue === 'dark')) {
+                setTheme(e.newValue);
+            }
+        };
+        window.addEventListener('storage', handleStorageChange);
+        return () => window.removeEventListener('storage', handleStorageChange);
+    }, []);
+
     const toggleTheme = () => {
         setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
     };

@@ -20,10 +20,11 @@ if (googleClientId && googleClientSecret) {
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
-        const email = profile.emails && profile.emails[0] ? profile.emails[0].value : null;
-        if (!email) {
+        const rawEmail = profile.emails && profile.emails[0] ? profile.emails[0].value : null;
+        if (!rawEmail) {
           return done(new Error('No email found in Google profile'), null);
         }
+        const email = rawEmail.trim().toLowerCase();
 
         // Check if candidate exists by googleId or email
         let candidate = await Candidate.findOne({ 
@@ -42,7 +43,11 @@ if (googleClientId && googleClientSecret) {
             role: 'CANDIDATE'
           });
         } else if (!candidate.googleId) {
-          // Link google account to existing email if they signed up manually before
+          // Prevent pre-account takeover: if account was registered with email/password,
+          // reject silent linking to protect the user's account.
+          if (candidate.password) {
+            return done(null, false, { message: 'account_exists_with_password' });
+          }
           candidate.googleId = profile.id;
           await candidate.save();
         }

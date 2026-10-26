@@ -25,6 +25,7 @@ import SpotlightCard from '../../components/common/SpotlightCard';
 import { CardSkeleton, TableSkeleton } from '../../components/common/Skeleton';
 import EmptyState from '../../components/common/EmptyState';
 import CopyButton from '../../components/common/CopyButton';
+import CandidateReadinessIndex from '../../components/candidate/CandidateReadinessIndex';
 import { toast } from 'sonner';
 
 const POPULAR_COMPANIES = [
@@ -358,44 +359,8 @@ const Dashboard = () => {
                 </SpotlightCard>
             </div>
 
-            {/* Top Stat Strip: 3-Column Connected Metric Bar */}
-            <div className="border border-[#232330] bg-[#141419] rounded-xl grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-[#232330] overflow-hidden light-catch">
-                <div className="p-4 space-y-1">
-                    <span className="text-[11px] font-mono uppercase tracking-wider text-[#8B8B9E] block">
-                        Interviews done
-                    </span>
-                    <div className="flex items-baseline gap-2 mt-2">
-                        <span className="text-3xl font-semibold text-[#EDEDF0] tabular-nums tracking-tight">
-                            {stats.totalInterviews}
-                        </span>
-                        <span className="text-xs text-[#555568]">total</span>
-                    </div>
-                </div>
-
-                <div className="p-4 space-y-1">
-                    <span className="text-[11px] font-mono uppercase tracking-wider text-[#8B8B9E] block">
-                        Average score
-                    </span>
-                    <div className="flex items-baseline gap-2 mt-2">
-                        <span className="text-3xl font-semibold text-[#EDEDF0] tabular-nums tracking-tight">
-                            {stats.avgScore}%
-                        </span>
-                        <span className="text-xs text-emerald-400 font-medium">overall</span>
-                    </div>
-                </div>
-
-                <div className="p-4 space-y-1">
-                    <span className="text-[11px] font-mono uppercase tracking-wider text-[#8B8B9E] block">
-                        Best score
-                    </span>
-                    <div className="flex items-baseline gap-2 mt-2">
-                        <span className="text-3xl font-semibold text-[#EDEDF0] tabular-nums tracking-tight">
-                            {stats.highestScore}%
-                        </span>
-                        <span className="text-xs text-[#555568]">top score</span>
-                    </div>
-                </div>
-            </div>
+            {/* Bespoke Candidate Readiness Index (Replaces generic 3-card number strip) */}
+            <CandidateReadinessIndex stats={stats} recentReports={recentReports} />
 
             {/* Active Assessment Queue */}
             <div className="space-y-3">
@@ -417,6 +382,8 @@ const Dashboard = () => {
                             const isMock = asmt.assessmentType === 'MOCK';
                             const compName = asmt.targetCompanyName || asmt.companyName || asmt.company?.name || 'Company';
                             const rTitle = asmt.targetRoleTitle || asmt.roleTitle || asmt.role?.title || 'Software Engineer';
+
+                            const isScheduled = asmt.openingTime ? new Date(asmt.openingTime).getTime() > Date.now() : false;
 
                             return (
                                 <div
@@ -440,6 +407,12 @@ const Dashboard = () => {
                                                 <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 inline-flex items-center gap-1.5">
                                                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
                                                     <span>Official Test</span>
+                                                </span>
+                                            )}
+                                            {isScheduled && (
+                                                <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20 inline-flex items-center gap-1.5">
+                                                    <Clock className="w-3 h-3" />
+                                                    <span>Opens {new Date(asmt.openingTime).toLocaleDateString()} {new Date(asmt.openingTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                                 </span>
                                             )}
                                         </div>
@@ -472,7 +445,7 @@ const Dashboard = () => {
                                                 onClick={() => handleQuickFill(asmt.assessmentCode)}
                                                 className="btn-primary text-xs py-2 px-4"
                                             >
-                                                <span>{isMock ? 'Practice now' : 'Start assessment'}</span>
+                                                <span>{isMock ? 'Practice now' : (isScheduled ? 'Enter lobby & setup' : 'Start assessment')}</span>
                                                 <ChevronRight className="w-3.5 h-3.5" />
                                             </button>
                                         )}

@@ -10,20 +10,38 @@ app.set('trust proxy', 1);
 
 const configuredFrontend = getFrontendUrl();
 
+// Security headers middleware
+app.use((req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader('Permissions-Policy', 'camera=(self), microphone=(self), geolocation=()');
+    res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https: http:; media-src 'self' blob: data: https:;");
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    next();
+});
+
+const allowedOrigins = [
+    configuredFrontend?.replace(/\/$/, ''),
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'http://localhost:5000',
+    'http://127.0.0.1:5173',
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:5000'
+].filter(Boolean);
+
 app.use(cors({
     origin: (origin, callback) => {
         if (!origin) return callback(null, true);
         const cleanOrigin = origin.replace(/\/$/, '');
         if (
-            cleanOrigin === configuredFrontend ||
-            cleanOrigin === 'http://localhost:5173' ||
-            cleanOrigin === 'http://localhost:5000' ||
-            cleanOrigin.endsWith('.onrender.com') ||
-            cleanOrigin.includes('localhost')
+            allowedOrigins.includes(cleanOrigin) ||
+            /^https:\/\/[a-z0-9-]+\.onrender\.com$/.test(cleanOrigin)
         ) {
             return callback(null, true);
         }
-        return callback(null, true);
+        return callback(null, false);
     },
     credentials: true
 }));
@@ -166,12 +184,30 @@ app.use("/api/interview", interviewRouter);
 app.use("/api/evaluation", evaluationRouter);
 app.use("/api/tts", ttsRouter);
 
+// Catch-all 404 handler for unknown API endpoints
+app.use('/api', (req, res) => {
+    res.status(404).json({
+        success: false,
+        message: `API endpoint not found: ${req.method} ${req.originalUrl}`
+    });
+});
+
 // Global error handler — catches ApiError thrown by controllers
 app.use((err, req, res, next) => {
-    const statusCode = err.statusCode || 500;
+    let statusCode = err.statusCode || 500;
+    let message = err.message || 'Something went wrong';
+
+    if (err.name === 'CastError') {
+        statusCode = 404;
+        message = `Resource not found with specified identifier`;
+    } else if (err.name === 'ValidationError') {
+        statusCode = 400;
+        message = Object.values(err.errors || {}).map(val => val.message).join(', ');
+    }
+
     res.status(statusCode).json({
         success: false,
-        message: err.message || 'Something went wrong',
+        message,
         errors: err.errors || []
     });
 });

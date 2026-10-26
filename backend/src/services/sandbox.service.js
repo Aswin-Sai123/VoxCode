@@ -8,8 +8,27 @@ if (!fs.existsSync(BASE_SANDBOX_DIR)) {
     fs.mkdirSync(BASE_SANDBOX_DIR, { recursive: true });
 }
 
+// Strictly isolated environment: strips all application secrets (Mongo, JWT, Gemini, Google)
+const getSafeEnv = () => ({
+    PATH: process.env.PATH || '',
+    TEMP: os.tmpdir(),
+    TMP: os.tmpdir(),
+    NODE_ENV: 'sandbox',
+    ...(process.platform === 'win32' ? {
+        SYSTEMROOT: process.env.SYSTEMROOT || 'C:\\Windows',
+        WINDIR: process.env.WINDIR || 'C:\\Windows',
+        COMSPEC: process.env.COMSPEC || 'C:\\Windows\\system32\\cmd.exe',
+        PATHEXT: process.env.PATHEXT || '.COM;.EXE;.BAT;.CMD'
+    } : {
+        HOME: '/tmp',
+        USER: 'nobody'
+    })
+});
+
+const MAX_OUTPUT_BYTES = 512 * 1024; // 512 KB maximum buffer cap
+
 /**
- * Spawns a child process safely with stdin and timeout
+ * Spawns a child process safely with stdin, timeout, isolated env, and buffer bounds
  */
 const runProcess = (cmd, args, options = {}, input = '', timeoutMs = 8000) => {
     return new Promise((resolve) => {
@@ -17,10 +36,17 @@ const runProcess = (cmd, args, options = {}, input = '', timeoutMs = 8000) => {
         let stdout = '';
         let stderr = '';
         let killed = false;
+        let truncated = false;
+
+        const safeOptions = {
+            ...options,
+            env: getSafeEnv(),
+            detached: process.platform !== 'win32'
+        };
 
         let proc;
         try {
-            proc = spawn(cmd, args, options);
+            proc = spawn(cmd, args, safeOptions);
         } catch (err) {
             return resolve({
                 output: `Failed to spawn ${cmd}: ${err.message}`,
@@ -30,19 +56,25 @@ const runProcess = (cmd, args, options = {}, input = '', timeoutMs = 8000) => {
             });
         }
 
-        const timer = setTimeout(() => {
-            killed = true;
+        const killProcessTree = () => {
+            if (!proc || !proc.pid) return;
             try {
-                if (process.platform === 'win32' && proc.pid) {
+                if (process.platform === 'win32') {
                     spawn('taskkill', ['/pid', proc.pid.toString(), '/f', '/t']);
                 } else {
-                    proc.kill('SIGKILL');
+                    // Kill process group on Unix
+                    process.kill(-proc.pid, 'SIGKILL');
                 }
             } catch {
-                // Ignore kill errors
+                try { proc.kill('SIGKILL'); } catch {}
             }
+        };
+
+        const timer = setTimeout(() => {
+            killed = true;
+            killProcessTree();
             resolve({
-                output: 'Execution Timed Out (Limit: 8 seconds exceeded)',
+                output: `Execution Timed Out (Limit: ${(timeoutMs / 1000).toFixed(0)} seconds exceeded)`,
                 hasError: true,
                 executionTime: `${((Date.now() - startTime) / 1000).toFixed(2)}s`,
                 exitCode: 124
@@ -59,11 +91,23 @@ const runProcess = (cmd, args, options = {}, input = '', timeoutMs = 8000) => {
         }
 
         proc.stdout?.on('data', (data) => {
-            stdout += data.toString();
+            if (stdout.length + data.length <= MAX_OUTPUT_BYTES) {
+                stdout += data.toString();
+            } else if (!truncated) {
+                truncated = true;
+                stdout += '\n[Output truncated: maximum limit of 512KB exceeded]';
+                killProcessTree();
+            }
         });
 
         proc.stderr?.on('data', (data) => {
-            stderr += data.toString();
+            if (stderr.length + data.length <= MAX_OUTPUT_BYTES) {
+                stderr += data.toString();
+            } else if (!truncated) {
+                truncated = true;
+                stderr += '\n[Error output truncated: maximum limit exceeded]';
+                killProcessTree();
+            }
         });
 
         proc.on('close', (code) => {
@@ -93,10 +137,6 @@ const runProcess = (cmd, args, options = {}, input = '', timeoutMs = 8000) => {
 
 /**
  * Execute candidate code in a temporary isolated workspace
- * @param {string} language - 'javascript', 'python', 'cpp', or 'java'
- * @param {string} code - The source code to execute
- * @param {string} customInput - Custom input to supply via stdin
- * @param {number} timeoutMs - Timeout in milliseconds (default 8000)
  */
 export const executeCodeSandbox = async ({ language, code, customInput = '', timeoutMs = 8000 }) => {
     if (!code || !code.trim()) {
@@ -116,14 +156,18 @@ export const executeCodeSandbox = async ({ language, code, customInput = '', tim
             case 'javascript':
             case 'node':
             case 'js': {
-                // Execute JavaScript using Node.js
                 const jsFile = path.join(runDir, 'solution.js');
-                // Wrap code with custom console wrapper to capture output or stdout
+                // Clean wrapper: injects input without declaring conflicting top-level const fs or input variables
                 const wrappedCode = `
-                    const fs = require('fs');
-                    const input = ${JSON.stringify(customInput || '')};
-                    ${code}
-                `;
+// Sandbox environment preparation
+global.__customInput = ${JSON.stringify(customInput || '')};
+try {
+${code}
+} catch (err) {
+    console.error(err.stack || err.message);
+    process.exit(1);
+}
+`;
                 fs.writeFileSync(jsFile, wrappedCode);
                 return await runProcess('node', ['solution.js'], { cwd: runDir }, customInput, timeoutMs);
             }
@@ -131,7 +175,6 @@ export const executeCodeSandbox = async ({ language, code, customInput = '', tim
             case 'python':
             case 'python3':
             case 'py': {
-                // Execute Python using python / py
                 const pyFile = path.join(runDir, 'solution.py');
                 fs.writeFileSync(pyFile, code);
                 const pyCmd = process.platform === 'win32' ? 'python' : 'python3';
@@ -141,14 +184,21 @@ export const executeCodeSandbox = async ({ language, code, customInput = '', tim
             case 'cpp':
             case 'c++':
             case 'c': {
-                // Compile and execute C++ using g++
-                const cppFile = path.join(runDir, 'solution.cpp');
+                const isC = language.toLowerCase() === 'c';
+                const sourceFile = path.join(runDir, isC ? 'solution.c' : 'solution.cpp');
                 const exeFile = process.platform === 'win32' ? path.join(runDir, 'solution.exe') : path.join(runDir, 'solution.out');
-                fs.writeFileSync(cppFile, code);
+                fs.writeFileSync(sourceFile, code);
 
-                // Compile step (10s compilation allowance)
-                const compileRes = await runProcess('g++', ['solution.cpp', '-o', exeFile], { cwd: runDir }, '', 10000);
+                const compiler = isC ? 'gcc' : 'g++';
+                const compileRes = await runProcess(compiler, [path.basename(sourceFile), '-o', exeFile], { cwd: runDir }, '', 10000);
                 if (compileRes.hasError || !fs.existsSync(exeFile)) {
+                    // Fallback to g++ if gcc is missing on system
+                    if (isC) {
+                        const fallbackCompile = await runProcess('g++', [path.basename(sourceFile), '-o', exeFile], { cwd: runDir }, '', 10000);
+                        if (!fallbackCompile.hasError && fs.existsSync(exeFile)) {
+                            return await runProcess(exeFile, [], { cwd: runDir }, customInput, timeoutMs);
+                        }
+                    }
                     return {
                         output: `Compilation Error:\n${compileRes.output}`,
                         hasError: true,
@@ -156,12 +206,10 @@ export const executeCodeSandbox = async ({ language, code, customInput = '', tim
                     };
                 }
 
-                // Run compiled binary
                 return await runProcess(exeFile, [], { cwd: runDir }, customInput, timeoutMs);
             }
 
             case 'java': {
-                // Extract public class name or default to Solution / Main
                 const classMatch = code.match(/public\s+class\s+([A-Za-z0-9_]+)/);
                 const className = classMatch ? classMatch[1] : 'Solution';
 
@@ -173,7 +221,6 @@ export const executeCodeSandbox = async ({ language, code, customInput = '', tim
                 const javaFile = path.join(runDir, `${className}.java`);
                 fs.writeFileSync(javaFile, finalCode);
 
-                // Compile step
                 const compileRes = await runProcess('javac', [`${className}.java`], { cwd: runDir }, '', 10000);
                 if (compileRes.hasError) {
                     return {
@@ -183,7 +230,6 @@ export const executeCodeSandbox = async ({ language, code, customInput = '', tim
                     };
                 }
 
-                // Run compiled bytecode in JVM
                 return await runProcess('java', [className], { cwd: runDir }, customInput, timeoutMs);
             }
 
@@ -195,7 +241,6 @@ export const executeCodeSandbox = async ({ language, code, customInput = '', tim
                 };
         }
     } finally {
-        // Asynchronously clean up sandbox directory
         setTimeout(() => {
             try {
                 if (fs.existsSync(runDir)) {

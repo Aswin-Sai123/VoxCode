@@ -122,13 +122,17 @@ CRITICAL RULES:
 
         // Attempt 1: Query with live Google Search Grounding tool
         try {
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key=${apiKey}`, {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'x-goog-api-key': apiKey
+                },
                 body: JSON.stringify({
                     contents: [{ parts: [{ text: prompt }] }],
                     tools: [{ googleSearch: {} }]
-                })
+                }),
+                signal: AbortSignal.timeout(20000)
             });
             const data = await response.json();
             if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
@@ -146,13 +150,17 @@ CRITICAL RULES:
         if (!text) {
             for (const model of ['gemini-flash-lite-latest', 'gemini-2.5-flash']) {
                 try {
-                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'x-goog-api-key': apiKey
+                        },
                         body: JSON.stringify({
                             contents: [{ parts: [{ text: prompt }] }],
                             generationConfig: { responseMimeType: 'application/json' }
-                        })
+                        }),
+                        signal: AbortSignal.timeout(20000)
                     });
                     const data = await response.json();
                     if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
@@ -160,7 +168,7 @@ CRITICAL RULES:
                         break;
                     }
                 } catch (e) {
-                    console.warn(`[LIVE SCRAPER] Fallback model ${model} failed:`, e.message);
+                    console.warn(`[LIVE SCRAPER] Model ${model} fallback error:`, e.message);
                 }
             }
         }

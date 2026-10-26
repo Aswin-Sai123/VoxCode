@@ -8,7 +8,6 @@ import {
     AlertCircle, 
     Code2, 
     Cpu, 
-    Loader2,
     ShieldCheck
 } from 'lucide-react';
 

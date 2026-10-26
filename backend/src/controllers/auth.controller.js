@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { Company } from '../models/company.model.js';
 import { Candidate } from '../models/candidate.model.js';
 import { RefreshToken } from '../models/refreshToken.model.js';
@@ -7,14 +8,34 @@ import { ApiResponse } from '../utils/ApiResponse.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { getFrontendUrl } from '../utils/url.utils.js';
 
+const sanitizeString = (val) => typeof val === 'string' ? val.trim() : '';
+
 const generateTokens = (user, role) => {
     const accessToken = jwt.sign({ id: user._id, role }, process.env.JWT_ACCESS_SECRET, { expiresIn: '15m' });
-    const refreshToken = jwt.sign({ id: user._id, role }, process.env.JWT_REFRESH_SECRET, { expiresIn: '7d' });
+    const refreshToken = jwt.sign({ id: user._id, role, jti: crypto.randomUUID() }, process.env.JWT_REFRESH_SECRET, { expiresIn: '7d' });
     return { accessToken, refreshToken };
 };
 
+// In-memory store for short-lived (60s) single-use OAuth exchange codes
+const oauthCodeStore = new Map();
+setInterval(() => {
+    const now = Date.now();
+    for (const [code, data] of oauthCodeStore.entries()) {
+        if (data.expiresAt < now) {
+            oauthCodeStore.delete(code);
+        }
+    }
+}, 60000);
+
 export const registerCompany = asyncHandler(async (req, res) => {
-    const { name, email, password } = req.body;
+    const name = sanitizeString(req.body.name);
+    const email = sanitizeString(req.body.email).toLowerCase();
+    const password = typeof req.body.password === 'string' ? req.body.password : '';
+
+    if (!name || !email || !password) {
+        throw new ApiError(400, 'Name, email, and password are required');
+    }
+
     const exists = await Company.findOne({ email });
     if (exists) {
         throw new ApiError(400, 'Company already exists');
@@ -28,7 +49,13 @@ export const registerCompany = asyncHandler(async (req, res) => {
 });
 
 export const loginCompany = asyncHandler(async (req, res) => {
-    const { email, password } = req.body;
+    const email = sanitizeString(req.body.email).toLowerCase();
+    const password = typeof req.body.password === 'string' ? req.body.password : '';
+
+    if (!email || !password) {
+        throw new ApiError(400, 'Email and password are required');
+    }
+
     const company = await Company.findOne({ email });
     if (!company || !(await company.matchPassword(password))) {
         throw new ApiError(401, 'Invalid email or password');
@@ -41,7 +68,14 @@ export const loginCompany = asyncHandler(async (req, res) => {
 });
 
 export const registerCandidate = asyncHandler(async (req, res) => {
-    const { name, email, password } = req.body;
+    const name = sanitizeString(req.body.name);
+    const email = sanitizeString(req.body.email).toLowerCase();
+    const password = typeof req.body.password === 'string' ? req.body.password : '';
+
+    if (!name || !email || !password) {
+        throw new ApiError(400, 'Name, email, and password are required');
+    }
+
     const exists = await Candidate.findOne({ email });
     if (exists) {
         throw new ApiError(400, 'Candidate already exists');
@@ -55,7 +89,13 @@ export const registerCandidate = asyncHandler(async (req, res) => {
 });
 
 export const loginCandidate = asyncHandler(async (req, res) => {
-    const { email, password } = req.body;
+    const email = sanitizeString(req.body.email).toLowerCase();
+    const password = typeof req.body.password === 'string' ? req.body.password : '';
+
+    if (!email || !password) {
+        throw new ApiError(400, 'Email and password are required');
+    }
+
     const candidate = await Candidate.findOne({ email });
     if (!candidate || !(await candidate.matchPassword(password))) {
         throw new ApiError(401, 'Invalid email or password');
@@ -68,7 +108,7 @@ export const loginCandidate = asyncHandler(async (req, res) => {
 });
 
 export const googleLogin = asyncHandler(async (req, res) => {
-    // This is now handled entirely by passport middleware in the route
+    // Handled by passport middleware
 });
 
 export const googleCallback = asyncHandler(async (req, res) => {
@@ -82,14 +122,44 @@ export const googleCallback = asyncHandler(async (req, res) => {
     const { accessToken, refreshToken } = generateTokens(candidate, 'CANDIDATE');
     await RefreshToken.create({ token: refreshToken, userId: candidate._id, role: 'CANDIDATE' });
     
-    // Redirect back to frontend with tokens and role in the URL
-    res.redirect(`${frontendUrl}/login?accessToken=${accessToken}&refreshToken=${refreshToken}&role=CANDIDATE`);
+    // Store in short-lived code store to prevent token leakage in URL history/referrers
+    const code = crypto.randomBytes(24).toString('hex');
+    oauthCodeStore.set(code, {
+        accessToken,
+        refreshToken,
+        role: 'CANDIDATE',
+        expiresAt: Date.now() + 60000
+    });
+
+    res.redirect(`${frontendUrl}/login?code=${code}&role=CANDIDATE`);
+});
+
+export const oauthExchange = asyncHandler(async (req, res) => {
+    const code = sanitizeString(req.body.code);
+    if (!code) {
+        throw new ApiError(400, 'OAuth exchange code is required');
+    }
+
+    const data = oauthCodeStore.get(code);
+    if (!data || data.expiresAt < Date.now()) {
+        oauthCodeStore.delete(code);
+        throw new ApiError(400, 'OAuth exchange code has expired or is invalid. Please sign in again.');
+    }
+
+    // Invalidate code immediately after first use
+    oauthCodeStore.delete(code);
+
+    res.json(new ApiResponse(200, {
+        accessToken: data.accessToken,
+        refreshToken: data.refreshToken,
+        role: data.role
+    }, 'OAuth exchange successful'));
 });
 
 export const refreshToken = asyncHandler(async (req, res) => {
     const token = req.body.token || req.body.refreshToken;
-    if (!token) {
-        throw new ApiError(401, 'No refresh token');
+    if (!token || typeof token !== 'string') {
+        throw new ApiError(401, 'No refresh token provided');
     }
     
     const existingToken = await RefreshToken.findOne({ token });
@@ -101,20 +171,31 @@ export const refreshToken = asyncHandler(async (req, res) => {
     try {
         decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
     } catch (err) {
+        await RefreshToken.findOneAndDelete({ token });
         throw new ApiError(403, 'Token expired or invalid');
     }
+
+    // Refresh token rotation: delete old token and issue a new one
+    await RefreshToken.findOneAndDelete({ token });
+
+    const newRefreshToken = jwt.sign(
+        { id: decoded.id, role: decoded.role, jti: crypto.randomUUID() },
+        process.env.JWT_REFRESH_SECRET,
+        { expiresIn: '7d' }
+    );
+    await RefreshToken.create({ token: newRefreshToken, userId: decoded.id, role: decoded.role });
 
     const accessToken = jwt.sign(
         { id: decoded.id, role: decoded.role },
         process.env.JWT_ACCESS_SECRET,
         { expiresIn: '15m' }
     );
-    res.json(new ApiResponse(200, { accessToken }, "Token refreshed"));
+    res.json(new ApiResponse(200, { accessToken, refreshToken: newRefreshToken }, "Token refreshed"));
 });
 
 export const logout = asyncHandler(async (req, res) => {
-    const { token } = req.body;
-    if (token) {
+    const token = req.body.token || req.body.refreshToken;
+    if (token && typeof token === 'string') {
         await RefreshToken.findOneAndDelete({ token });
     }
     res.json(new ApiResponse(200, null, 'Logged out successfully'));

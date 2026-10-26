@@ -6,14 +6,11 @@ import {
     Command, 
     FileText, 
     Briefcase, 
-    User, 
     PlusCircle, 
     Sun, 
     Moon, 
     Sparkles, 
     ArrowRight, 
-    Check, 
-    Code2,
     Compass
 } from 'lucide-react';
 import { toast } from 'sonner';

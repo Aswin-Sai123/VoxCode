@@ -2,8 +2,8 @@ import mongoose, { Schema } from 'mongoose';
 import bcrypt from 'bcryptjs';
 
 const candidateSchema = new Schema({
-    name: { type: String, required: true },
-    email: { type: String, required: true, unique: true },
+    name: { type: String, required: true, trim: true },
+    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     password: { type: String }, // Optional for Google OAuth
     googleId: { type: String },
     role: { type: String, default: 'CANDIDATE', enum: ['CANDIDATE'] },
