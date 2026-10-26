@@ -1,7 +1,7 @@
 import React, { useState, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
-import { Terminal, ArrowRight, AlertCircle, Loader2 } from 'lucide-react';
+import { ArrowRight, AlertCircle, Loader2 } from 'lucide-react';
 
 const Register = () => {
     const [role, setRole] = useState('CANDIDATE');
@@ -36,9 +36,6 @@ const Register = () => {
             <div className="w-full max-w-md space-y-6">
                 {/* Brand & Heading */}
                 <div className="text-center space-y-2">
-                    <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-blue-600/10 border border-blue-500/20 text-blue-500 mb-2">
-                        <Terminal className="w-5 h-5" />
-                    </div>
                     <h1 className="text-2xl font-semibold tracking-tight text-[#EDEDF0]">
                         Create your account
                     </h1>

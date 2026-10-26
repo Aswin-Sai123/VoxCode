@@ -2,7 +2,7 @@ import React, { useContext, useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { Terminal, LogOut, FileText, Plus, LayoutDashboard, Sun, Moon, Menu, X, Search } from 'lucide-react';
+import { LogOut, FileText, Plus, LayoutDashboard, Sun, Moon, Menu, X, Search } from 'lucide-react';
 
 const Navbar = () => {
     const { user, logout } = useContext(AuthContext);
@@ -24,11 +24,8 @@ const Navbar = () => {
             <div className="max-w-7xl mx-auto h-14 px-4 sm:px-6 lg:px-8 flex items-center justify-between">
                 {/* Left: Brand */}
                 <div className="flex items-center gap-4 sm:gap-6">
-                    <Link to="/" className="flex items-center gap-2.5 group">
-                        <div className="w-7 h-7 rounded-lg bg-blue-600/10 border border-blue-500/20 flex items-center justify-center text-blue-500 group-hover:bg-blue-600 group-hover:text-white transition-all">
-                            <Terminal className="w-4 h-4" />
-                        </div>
-                        <span className="font-semibold text-sm tracking-tight text-[#EDEDF0] group-hover:text-blue-500 transition-colors">
+                    <Link to="/" className="flex items-center group">
+                        <span className="font-semibold text-base tracking-tight text-[#EDEDF0] group-hover:text-blue-500 transition-colors">
                             VoxCode
                         </span>
                     </Link>
