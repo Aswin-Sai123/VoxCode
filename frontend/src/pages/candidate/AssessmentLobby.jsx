@@ -354,6 +354,17 @@ const AssessmentLobby = () => {
     };
 
     const handleStartInterview = () => {
+        if (!resumeText.trim()) {
+            toast.error('Resume is required. Please upload or paste your resume before starting the assessment.');
+            document.getElementById('resume-section')?.scrollIntoView({ behavior: 'smooth' });
+            return;
+        }
+
+        if (assessment?.openingTime && new Date() < new Date(assessment.openingTime)) {
+            toast.error(`Assessment is not open yet. Scheduled opening time is: ${new Date(assessment.openingTime).toLocaleString()}`);
+            return;
+        }
+
         // Persist resume and voice model to session storage
         sessionStorage.setItem(`voxcode_resume_${code}`, resumeText);
         sessionStorage.setItem('voxcode_resume', resumeText);
@@ -406,6 +417,7 @@ const AssessmentLobby = () => {
     }
 
     const interviewFormat = assessment?.interviewFormat || assessment?.blueprint?.interviewFormat || 'FULL_INTERVIEW';
+    const isNotOpenYet = assessment?.openingTime && new Date() < new Date(assessment.openingTime);
 
     return (
         <div className="flex-1 p-6 sm:p-8 max-w-6xl mx-auto w-full space-y-6 pb-32">
@@ -425,6 +437,22 @@ const AssessmentLobby = () => {
                     </span>
                 </div>
             </div>
+
+            {/* Scheduled Assessment Banner */}
+            {isNotOpenYet && (
+                <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-start gap-3.5 animate-in fade-in duration-200">
+                    <div className="w-8 h-8 rounded-lg bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-blue-400 flex-shrink-0 mt-0.5">
+                        <Clock className="w-4 h-4" />
+                    </div>
+                    <div className="space-y-1">
+                        <h3 className="text-sm font-semibold text-[#EDEDF0]">Scheduled Assessment</h3>
+                        <p className="text-xs text-[#8B8B9E] leading-relaxed">
+                            This assessment is scheduled to open on <strong className="text-[#EDEDF0]">{new Date(assessment.openingTime).toLocaleString()}</strong>.
+                            You can test your microphone, audio, and upload your resume below right now so you are completely prepared to start when it opens.
+                        </p>
+                    </div>
+                </div>
+            )}
 
             {/* Main Content Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -487,16 +515,30 @@ const AssessmentLobby = () => {
                     </div>
 
                     {/* Resume & Project Discussion Context Card */}
-                    <div className="bg-[#141419] border border-[#232330] rounded-xl p-6 space-y-4">
+                    <div 
+                        id="resume-section" 
+                        className={`bg-[#141419] border rounded-xl p-6 space-y-4 transition-all scroll-mt-6 ${
+                            !resumeText.trim() 
+                                ? 'border-amber-500/40 shadow-[0_0_20px_rgba(245,158,11,0.06)]' 
+                                : 'border-[#232330]'
+                        }`}
+                    >
                         <div className="flex items-start justify-between gap-4">
                             <div className="space-y-1">
-                                <h2 className="text-sm font-semibold text-[#EDEDF0] flex items-center gap-2">
+                                <h2 className="text-sm font-semibold text-[#EDEDF0] flex items-center gap-2 flex-wrap">
                                     <FileText className="w-4 h-4 text-emerald-400" />
                                     <span>Resume & Project Experience</span>
-                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
-                                        <Sparkles className="w-3 h-3" />
-                                        <span>Powers LLM Project Deep-Dive</span>
-                                    </span>
+                                    {!resumeText.trim() ? (
+                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/30 flex items-center gap-1">
+                                            <AlertCircle className="w-3 h-3" />
+                                            <span>Required to Join</span>
+                                        </span>
+                                    ) : (
+                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                                            <CheckCircle2 className="w-3 h-3" />
+                                            <span>Attached & Ready</span>
+                                        </span>
+                                    )}
                                 </h2>
                                 <p className="text-xs text-[#8B8B9E] leading-relaxed">
                                     Upload your resume (PDF, DOCX, or TXT). Gemini automatically parses your real technical projects, architecture choices, and tech stacks so the AI interviewer asks authentic questions tailored to your experience.
@@ -981,16 +1023,16 @@ const AssessmentLobby = () => {
                             {/* Resume Context */}
                             <div className="p-3 bg-[#0A0A0B] border border-[#232330] rounded-lg flex items-center justify-between">
                                 <div className="flex items-center gap-2.5 text-xs font-medium text-[#EDEDF0]">
-                                    <FileText className="w-4 h-4 text-emerald-400" />
-                                    <span>Resume & Project Context</span>
+                                    <FileText className={`w-4 h-4 ${resumeText.trim() ? 'text-emerald-400' : 'text-amber-400'}`} />
+                                    <span>Candidate Resume</span>
                                 </div>
                                 {resumeText.trim() ? (
                                     <span className="text-[10px] text-emerald-400 font-semibold px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20">
-                                        Ready
+                                        Attached
                                     </span>
                                 ) : (
-                                    <span className="text-[10px] text-[#8B8B9E] px-2 py-0.5 rounded bg-[#1C1C24]">
-                                        Optional
+                                    <span className="text-[10px] text-amber-400 font-semibold px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 animate-pulse">
+                                        Required
                                     </span>
                                 )}
                             </div>
@@ -1011,9 +1053,9 @@ const AssessmentLobby = () => {
                                 </span>
                             </div>
                             <div className="flex items-center justify-between">
-                                <span className="text-[#8B8B9E]">Resume Context:</span>
-                                <span className={resumeText.trim() ? 'text-emerald-400 font-medium' : 'text-[#8B8B9E]'}>
-                                    {resumeText.trim() ? 'Attached & Parsed' : 'Standard Profile'}
+                                <span className="text-[#8B8B9E]">Resume Status:</span>
+                                <span className={resumeText.trim() ? 'text-emerald-400 font-medium' : 'text-amber-400 font-medium'}>
+                                    {resumeText.trim() ? 'Attached & Parsed' : 'Upload Required'}
                                 </span>
                             </div>
                         </div>
@@ -1022,13 +1064,37 @@ const AssessmentLobby = () => {
                         <div className="pt-2 space-y-2">
                             <button
                                 onClick={handleStartInterview}
-                                className="btn-primary w-full py-3"
+                                disabled={!resumeText.trim() || isNotOpenYet}
+                                className={`w-full py-3 rounded-lg font-semibold text-xs flex items-center justify-center gap-2 transition-all ${
+                                    !resumeText.trim() || isNotOpenYet
+                                        ? 'bg-[#1C1C24] text-[#8B8B9E] border border-[#2E2E3D] cursor-not-allowed'
+                                        : 'btn-primary'
+                                }`}
                             >
-                                <span>Start Interview</span>
-                                <ArrowRight className="w-4 h-4" />
+                                {isNotOpenYet ? (
+                                    <>
+                                        <Clock className="w-4 h-4 text-blue-400" />
+                                        <span>Opens at {new Date(assessment.openingTime).toLocaleTimeString()}</span>
+                                    </>
+                                ) : !resumeText.trim() ? (
+                                    <>
+                                        <FileText className="w-4 h-4 text-amber-400" />
+                                        <span>Upload Resume to Start</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <span>Start Interview</span>
+                                        <ArrowRight className="w-4 h-4" />
+                                    </>
+                                )}
                             </button>
                             <span className="text-[11px] text-[#555568] text-center block">
-                                Duration: approximately {assessment.durationMinutes || 30} minutes
+                                {!resumeText.trim() 
+                                    ? 'Resume document is mandatory to join this assessment'
+                                    : isNotOpenYet
+                                    ? `Scheduled opening: ${new Date(assessment.openingTime).toLocaleString()}`
+                                    : `Duration: approximately ${assessment.durationMinutes || 30} minutes`
+                                }
                             </span>
                         </div>
                     </div>

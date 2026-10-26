@@ -92,7 +92,8 @@ export const startSession = asyncHandler(async (req, res) => {
 
     // 1. Validate Time Window
     const now = new Date();
-    if (assessment.openingTime && now < new Date(assessment.openingTime)) {
+    // Allow 2-minute clock skew grace period so candidate's system clock differences don't lock them out
+    if (assessment.openingTime && (new Date(assessment.openingTime).getTime() - now.getTime()) > 120000) {
         throw new ApiError(403, `Assessment is not open yet. Opening time is scheduled for: ${new Date(assessment.openingTime).toLocaleString()}`);
     }
     if (assessment.closingTime && now > new Date(assessment.closingTime)) {
@@ -102,8 +103,9 @@ export const startSession = asyncHandler(async (req, res) => {
     // 2. Validate Candidate Eligibility (Invite-Only Assessments)
     if (assessment.accessType === 'INVITE_ONLY') {
         const candidate = await Candidate.findById(candidateId);
-        const email = candidate?.email?.toLowerCase();
-        if (!email || !assessment.eligibleEmails.map(e => e.toLowerCase()).includes(email)) {
+        const email = candidate?.email?.trim().toLowerCase();
+        const allowedEmails = (assessment.eligibleEmails || []).map(e => (e || '').trim().toLowerCase());
+        if (!email || !allowedEmails.includes(email)) {
             throw new ApiError(403, 'Access Restricted: You are not authorized for this private assessment. Please contact the recruiter.');
         }
     }
@@ -114,7 +116,7 @@ export const startSession = asyncHandler(async (req, res) => {
         try {
             const candDoc = await Candidate.findById(candidateId).select('resumeText');
             if (candDoc?.resumeText) {
-                candidateResume = candDoc.resumeText;
+                candidateResume = candDoc.resumeText.trim();
             }
         } catch {
             // Mongo bypassed
@@ -125,6 +127,11 @@ export const startSession = asyncHandler(async (req, res) => {
         } catch {
             // Mongo bypassed
         }
+    }
+
+    // Candidate MUST have uploaded a resume
+    if (!candidateResume) {
+        throw new ApiError(400, 'Resume is required to start this interview. Please upload or paste your resume in the assessment lobby.');
     }
 
     // 3. Interview Format is 100% determined by Company Assessment Blueprint (never candidate choice)

@@ -222,19 +222,18 @@ export const verifyAssessmentCode = asyncHandler(async (req, res) => {
 
     // 1. Time Window Validation
     const now = new Date();
-    if (assessment.openingTime && now < new Date(assessment.openingTime)) {
-        throw new ApiError(403, `Assessment is not open yet. Scheduled opening time is: ${new Date(assessment.openingTime).toLocaleString()}`);
-    }
-
     if (assessment.closingTime && now > new Date(assessment.closingTime)) {
         throw new ApiError(403, `Assessment has expired. The access window closed on: ${new Date(assessment.closingTime).toLocaleString()}`);
     }
 
+    const isNotOpenYet = assessment.openingTime && now < new Date(assessment.openingTime);
+
     // 2. Candidate Eligibility Validation (Invite-Only Assessments)
     if (assessment.accessType === 'INVITE_ONLY' && candidateId) {
         const candidate = await Candidate.findById(candidateId);
-        const candidateEmail = candidate?.email?.toLowerCase();
-        if (!candidateEmail || !assessment.eligibleEmails.map(e => e.toLowerCase()).includes(candidateEmail)) {
+        const candidateEmail = candidate?.email?.trim().toLowerCase();
+        const allowedEmails = (assessment.eligibleEmails || []).map(e => (e || '').trim().toLowerCase());
+        if (!candidateEmail || !allowedEmails.includes(candidateEmail)) {
             throw new ApiError(403, 'Access Restricted: You are not authorized for this private assessment. Please contact the company recruiter.');
         }
     }
@@ -273,6 +272,7 @@ export const verifyAssessmentCode = asyncHandler(async (req, res) => {
         assessmentCode: assessment.assessmentCode,
         openingTime: assessment.openingTime,
         closingTime: assessment.closingTime,
+        isNotOpenYet: !!isNotOpenYet,
         accessType: assessment.accessType,
         codingRoundEnabled: assessment.codingRoundEnabled !== false,
         voiceRoundEnabled: assessment.voiceRoundEnabled !== false,
