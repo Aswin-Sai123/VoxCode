@@ -106,28 +106,7 @@ html[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
 }
 
 /* Base Canvas & Surface Remapping */
-html.light .bg-\[\#0A0A0B\],
-html[data-theme="light"] .bg-\[\#0A0A0B\],
-html.light .bg-\[\#09090B\],
-html[data-theme="light"] .bg-\[\#09090B\] {
-  background-color: #F8FAFC !important;
-}
-
-html.light .bg-\[\#0A0A0B\]\/90,
-html[data-theme="light"] .bg-\[\#0A0A0B\]\/90 {
-  background-color: rgba(255, 255, 255, 0.9) !important;
-}
-
-html.light .bg-\[\#0A0A0B\]\/95,
-html[data-theme="light"] .bg-\[\#0A0A0B\]\/95 {
-  background-color: rgba(255, 255, 255, 0.95) !important;
-}
-
-html.light .bg-\[\#0A0A0B\]\/60,
-html[data-theme="light"] .bg-\[\#0A0A0B\]\/60 {
-  background-color: rgba(241, 245, 249, 0.85) !important;
-}
-
+/* Card & Primary Surface Remapping to Clean Pure White */
 html.light .bg-\[\#141419\],
 html[data-theme="light"] .bg-\[\#141419\],
 html.light .bg-\[\#141419\]\/95,
@@ -137,21 +116,74 @@ html[data-theme="light"] .bg-\[\#141419\]\/90,
 html.light .bg-\[\#141419\]\/80,
 html[data-theme="light"] .bg-\[\#141419\]\/80,
 html.light .bg-\[\#141419\]\/60,
-html[data-theme="light"] .bg-\[\#141419\]\/60 {
+html[data-theme="light"] .bg-\[\#141419\]\/60,
+html.light .bg-\[\#121217\],
+html[data-theme="light"] .bg-\[\#121217\],
+html.light .bg-\[\#14141A\],
+html[data-theme="light"] .bg-\[\#14141A\],
+html.light .bg-\[\#15151B\],
+html[data-theme="light"] .bg-\[\#15151B\],
+html.light .bg-\[\#15151C\],
+html[data-theme="light"] .bg-\[\#15151C\],
+html.light .bg-\[\#16161F\],
+html[data-theme="light"] .bg-\[\#16161F\],
+html.light .bg-\[\#181820\],
+html[data-theme="light"] .bg-\[\#181820\] {
   background-color: #FFFFFF !important;
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
 }
 
+/* Secondary Panels, Inset Wells, and Canvas */
+html.light .bg-\[\#0A0A0B\],
+html[data-theme="light"] .bg-\[\#0A0A0B\],
+html.light .bg-\[\#09090B\],
+html[data-theme="light"] .bg-\[\#09090B\],
+html.light .bg-\[\#0A0A0E\],
+html[data-theme="light"] .bg-\[\#0A0A0E\],
+html.light .bg-\[\#0D0D11\],
+html[data-theme="light"] .bg-\[\#0D0D11\],
+html.light .bg-\[\#0E0E12\],
+html[data-theme="light"] .bg-\[\#0E0E12\],
+html.light .bg-\[\#101015\],
+html[data-theme="light"] .bg-\[\#101015\],
 html.light .bg-\[\#111114\],
 html[data-theme="light"] .bg-\[\#111114\],
 html.light .bg-\[\#18181C\],
-html[data-theme="light"] .bg-\[\#18181C\] {
-  background-color: #F1F5F9 !important;
+html[data-theme="light"] .bg-\[\#18181C\],
+html.light .bg-\[\#181822\],
+html[data-theme="light"] .bg-\[\#181822\],
+html.light .bg-\[\#1A1A24\],
+html[data-theme="light"] .bg-\[\#1A1A24\],
+html.light .bg-\[\#1B1B26\],
+html[data-theme="light"] .bg-\[\#1B1B26\],
+html.light .bg-\[\#1C1C24\],
+html[data-theme="light"] .bg-\[\#1C1C24\],
+html.light .bg-\[\#1C1C26\],
+html[data-theme="light"] .bg-\[\#1C1C26\],
+html.light .bg-\[\#20202C\],
+html[data-theme="light"] .bg-\[\#20202C\],
+html.light .bg-\[\#232330\],
+html[data-theme="light"] .bg-\[\#232330\],
+html.light .bg-\[\#2A2A38\],
+html[data-theme="light"] .bg-\[\#2A2A38\] {
+  background-color: #F8FAFC !important;
 }
 
-html.light .bg-\[\#1C1C24\],
-html[data-theme="light"] .bg-\[\#1C1C24\] {
-  background-color: #F1F5F9 !important;
+/* Semi-transparent overlays */
+html.light .bg-\[\#0A0A0B\]\/90,
+html[data-theme="light"] .bg-\[\#0A0A0B\]\/90,
+html.light .bg-\[\#0A0A0B\]\/95,
+html[data-theme="light"] .bg-\[\#0A0A0B\]\/95 {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+}
+
+html.light .bg-\[\#0A0A0B\]\/60,
+html[data-theme="light"] .bg-\[\#0A0A0B\]\/60,
+html.light .bg-\[\#0A0A0B\]\/80,
+html[data-theme="light"] .bg-\[\#0A0A0B\]\/80,
+html.light .bg-\[\#0A0A0B\]\/40,
+html[data-theme="light"] .bg-\[\#0A0A0B\]\/40 {
+  background-color: rgba(241, 245, 249, 0.85) !important;
 }
 
 /* Hover States */
@@ -159,8 +191,12 @@ html.light .hover\:bg-\[\#1C1C24\]:hover,
 html[data-theme="light"] .hover\:bg-\[\#1C1C24\]:hover,
 html.light .hover\:bg-\[\#1C1C24\]\/60:hover,
 html[data-theme="light"] .hover\:bg-\[\#1C1C24\]\/60:hover,
+html.light .hover\:bg-\[\#1C1C24\]\/40:hover,
+html[data-theme="light"] .hover\:bg-\[\#1C1C24\]\/40:hover,
 html.light .hover\:bg-\[\#141419\]:hover,
-html[data-theme="light"] .hover\:bg-\[\#141419\]:hover {
+html[data-theme="light"] .hover\:bg-\[\#141419\]:hover,
+html.light .hover\:bg-\[\#181822\]:hover,
+html[data-theme="light"] .hover\:bg-\[\#181822\]:hover {
   background-color: #F1F5F9 !important;
 }
 
@@ -170,22 +206,51 @@ html[data-theme="light"] .hover\:bg-\[\#232330\]:hover {
 }
 
 /* Borders & Dividers */
+html.light .border-\[\#1A1A24\],
+html[data-theme="light"] .border-\[\#1A1A24\],
+html.light .border-\[\#1C1C26\],
+html[data-theme="light"] .border-\[\#1C1C26\],
+html.light .border-\[\#20202A\],
+html[data-theme="light"] .border-\[\#20202A\],
+html.light .border-\[\#20202C\],
+html[data-theme="light"] .border-\[\#20202C\],
+html.light .border-\[\#222228\],
+html[data-theme="light"] .border-\[\#222228\],
 html.light .border-\[\#232330\],
 html[data-theme="light"] .border-\[\#232330\],
-html.light .border-\[\#222228\],
-html[data-theme="light"] .border-\[\#222228\] {
+html.light .border-\[\#252535\],
+html[data-theme="light"] .border-\[\#252535\],
+html.light .border-\[\#262636\],
+html[data-theme="light"] .border-\[\#262636\],
+html.light .border-\[\#272736\],
+html[data-theme="light"] .border-\[\#272736\],
+html.light .border-\[\#2A2A38\],
+html[data-theme="light"] .border-\[\#2A2A38\],
+html.light .border-\[\#2B2B3B\],
+html[data-theme="light"] .border-\[\#2B2B3B\],
+html.light .border-\[\#2D2D3D\],
+html[data-theme="light"] .border-\[\#2D2D3D\],
+html.light .border-\[\#2E2E3D\],
+html[data-theme="light"] .border-\[\#2E2E3D\],
+html.light .border-\[\#333344\],
+html[data-theme="light"] .border-\[\#333344\],
+html.light .border-\[\#333348\],
+html[data-theme="light"] .border-\[\#333348\],
+html.light .border-\[\#363645\],
+html[data-theme="light"] .border-\[\#363645\],
+html.light .border-\[\#38384A\],
+html[data-theme="light"] .border-\[\#38384A\],
+html.light .border-\[\#3F3F46\],
+html[data-theme="light"] .border-\[\#3F3F46\] {
   border-color: #E2E8F0 !important;
 }
 
-html.light .border-\[\#363645\],
-html[data-theme="light"] .border-\[\#363645\],
-html.light .border-\[\#3F3F46\],
-html[data-theme="light"] .border-\[\#3F3F46\] {
-  border-color: #CBD5E1 !important;
-}
-
 html.light .hover\:border-\[\#363645\]:hover,
-html[data-theme="light"] .hover\:border-\[\#363645\]:hover {
+html[data-theme="light"] .hover\:border-\[\#363645\]:hover,
+html.light .hover\:border-\[\#38384A\]:hover,
+html[data-theme="light"] .hover\:border-\[\#38384A\]:hover,
+html.light .hover\:border-\[\#272736\]:hover,
+html[data-theme="light"] .hover\:border-\[\#272736\]:hover {
   border-color: #94A3B8 !important;
 }
 
@@ -207,19 +272,48 @@ html[data-theme="light"] .hover\:text-\[\#EDEDF0\]:hover {
   color: #0F172A !important;
 }
 
+html.light .text-\[\#D0D4DC\],
+html[data-theme="light"] .text-\[\#D0D4DC\],
+html.light .text-\[\#D1D5DB\],
+html[data-theme="light"] .text-\[\#D1D5DB\],
+html.light .text-\[\#A1A1AA\],
+html[data-theme="light"] .text-\[\#A1A1AA\],
 html.light .text-\[\#8B8B9E\],
 html[data-theme="light"] .text-\[\#8B8B9E\] {
   color: #475569 !important;
 }
 
 html.light .text-\[\#555568\],
-html[data-theme="light"] .text-\[\#555568\] {
+html[data-theme="light"] .text-\[\#555568\],
+html.light .text-\[\#444455\],
+html[data-theme="light"] .text-\[\#444455\],
+html.light .text-\[\#3F3F4E\],
+html[data-theme="light"] .text-\[\#3F3F4E\],
+html.light .text-\[\#3A3A4C\],
+html[data-theme="light"] .text-\[\#3A3A4C\],
+html.light .text-\[\#363645\],
+html[data-theme="light"] .text-\[\#363645\] {
   color: #64748B !important;
 }
 
-html.light .text-\[\#363645\],
-html[data-theme="light"] .text-\[\#363645\] {
-  color: #94A3B8 !important;
+html.light .text-\[\#A5B4FC\],
+html[data-theme="light"] .text-\[\#A5B4FC\] {
+  color: #4F46E5 !important;
+}
+
+/* Table headers, rows and options in Light Mode */
+html.light thead tr,
+html[data-theme="light"] thead tr {
+  background-color: #F8FAFC !important;
+  border-color: #E2E8F0 !important;
+}
+html.light thead th,
+html[data-theme="light"] thead th {
+  color: #475569 !important;
+}
+html.light tbody tr:hover,
+html[data-theme="light"] tbody tr:hover {
+  background-color: #F8FAFC !important;
 }
 
 /* Safety Fallback: Prevent hardcoded white text on remapped light backgrounds */
@@ -362,7 +456,9 @@ html[data-theme="light"] .studio-input::placeholder {
 }
 
 html.light select,
-html[data-theme="light"] select {
+html.light select option,
+html[data-theme="light"] select,
+html[data-theme="light"] select option {
   background-color: #FFFFFF !important;
   color: #0F172A !important;
   border-color: #CBD5E1 !important;
@@ -668,15 +764,20 @@ html[data-theme="light"] .skeleton-shimmer {
 
 /* Metallic Gradient Headings */
 .metallic-heading {
+  display: inline-block;
   background: linear-gradient(180deg, #FFFFFF 0%, #E2E8F0 50%, #94A3B8 100%);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
+  color: #EDEDF0;
 }
 html.light .metallic-heading,
 html[data-theme="light"] .metallic-heading {
-  background: linear-gradient(180deg, #0F172A 0%, #334155 100%) !important;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  background: none !important;
+  -webkit-background-clip: unset !important;
+  background-clip: unset !important;
+  -webkit-text-fill-color: #0F172A !important;
+  color: #0F172A !important;
 }
 
 /* Soft Mask Truncation Fade */

@@ -168,7 +168,7 @@ const VoiceModelSelectorModal = ({
                             <Volume2 className="w-5 h-5" />
                         </div>
                         <div>
-                            <h2 className="text-base sm:text-lg font-semibold metallic-heading">
+                            <h2 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-[#EDEDF0] metallic-heading">
                                 Choose Interviewer Voice Model
                             </h2>
                             <p className="text-xs text-[#8B8B9E]">

@@ -334,7 +334,7 @@ const AssessmentResults = () => {
                                                 <select
                                                     value={ev.recruiterDecision || 'PENDING'}
                                                     onChange={(e) => handleDecisionChange(ev._id, e.target.value)}
-                                                    className="bg-[#0A0A0B] border border-[#232330] text-xs text-[#EDEDF0] rounded-md px-2.5 py-1 focus:outline-none focus:border-blue-500"
+                                                    className="studio-input text-xs py-1 px-2.5 w-auto font-medium cursor-pointer"
                                                 >
                                                     <option value="PENDING">Pending Review</option>
                                                     <option value="SHORTLISTED">Shortlisted</option>

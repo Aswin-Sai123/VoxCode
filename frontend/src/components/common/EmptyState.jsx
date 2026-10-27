@@ -44,7 +44,7 @@ const EmptyState = ({
 
             {/* Typography */}
             <div className="space-y-1.5 max-w-sm">
-                <h3 className="text-sm font-semibold text-[#EDEDF0] metallic-heading">
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-[#EDEDF0] metallic-heading">
                     {title}
                 </h3>
                 <p className="text-xs text-[#8B8B9E] leading-relaxed">

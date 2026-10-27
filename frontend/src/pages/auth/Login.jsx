@@ -3,7 +3,6 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
 import api from '../../services/api';
 import { ArrowRight, AlertCircle, Loader2 } from 'lucide-react';
-import { InteractiveWorkflowShowcase } from '../../components/common/InteractiveWorkflowShowcase';
 
 const Login = () => {
     const [role, setRole] = useState('CANDIDATE');
@@ -83,16 +82,8 @@ const Login = () => {
     return (
         <div className="flex-1 flex items-center justify-center py-10 px-4 sm:px-6 lg:px-8">
             <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-14 items-center">
-                {/* Left Side: Editorial Branding & Product Showcase */}
+                {/* Left Side: Editorial Branding */}
                 <div className="hidden lg:flex lg:col-span-7 flex-col justify-center space-y-6 pr-4">
-                    {/* Top Status Pill - Micro badge / illuminated status dot */}
-                    <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md text-[11px] font-mono tracking-wide bg-[#15151B] border border-[#272736] text-[#A1A1AA] w-fit shadow-sm">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.7)] animate-pulse" />
-                        <span className="text-[#EDEDF0] font-semibold">VOXCODE ENGINE v2.4</span>
-                        <span className="text-[#3F3F4E]">/</span>
-                        <span className="text-[#8B8B9E]">REAL-TIME AUDIO & MONACO SYNTHESIS</span>
-                    </div>
-
                     {/* Editorial Grotesque Headline in Solid #EDEDF0 */}
                     <div className="space-y-3">
                         <h1 className="text-4xl xl:text-5xl font-bold tracking-tight text-[#EDEDF0] leading-[1.12]">
@@ -103,11 +94,24 @@ const Login = () => {
                         </p>
                     </div>
 
-                    {/* Interactive Miniature Product Slice (Replaces predictable 3-card bento) */}
-                    <InteractiveWorkflowShowcase />
+                    {/* Key Engineering Pillars */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                        <div className="p-3.5 rounded-lg bg-[#141419] border border-[#232330] space-y-1">
+                            <span className="text-xs font-semibold text-[#EDEDF0] block">Real-Time Voice</span>
+                            <span className="text-[11px] text-[#8B8B9E] leading-snug block">Natural bidirectional audio dialogues with sub-100ms response latency.</span>
+                        </div>
+                        <div className="p-3.5 rounded-lg bg-[#141419] border border-[#232330] space-y-1">
+                            <span className="text-xs font-semibold text-[#EDEDF0] block">Monaco Execution</span>
+                            <span className="text-[11px] text-[#8B8B9E] leading-snug block">Isolated browser & server execution sandboxes supporting multi-language tests.</span>
+                        </div>
+                        <div className="p-3.5 rounded-lg bg-[#141419] border border-[#232330] space-y-1">
+                            <span className="text-xs font-semibold text-[#EDEDF0] block">Staff-Level Rubric</span>
+                            <span className="text-[11px] text-[#8B8B9E] leading-snug block">Comprehensive architecture, DSA, code hygiene, and trade-off defense scoring.</span>
+                        </div>
+                    </div>
 
                     {/* Engineering Attribution Footer */}
-                    <div className="pt-1 flex items-center justify-between text-[11px] font-mono text-[#555568] border-t border-[#232330]">
+                    <div className="pt-2 flex items-center justify-between text-[11px] font-mono text-[#555568] border-t border-[#232330]">
                         <span className="flex items-center gap-1.5">
                             <span className="w-1.5 h-1.5 rounded-full bg-blue-500/60 inline-block" />
                             LATENCY OPTIMIZED (WEBSOCKET &lt; 90ms)

@@ -281,7 +281,7 @@ const Dashboard = () => {
                             </span>
                             <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#8B8B9E]">Real Questions</span>
                         </div>
-                        <h2 className="text-lg font-semibold metallic-heading">
+                        <h2 className="text-lg font-semibold text-slate-900 dark:text-[#EDEDF0] metallic-heading">
                             Mock Interview
                         </h2>
                         <p className="text-xs text-[#8B8B9E] leading-relaxed">
@@ -322,7 +322,7 @@ const Dashboard = () => {
                             </span>
                             <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#8B8B9E]">Hiring Test</span>
                         </div>
-                        <h2 className="text-lg font-semibold metallic-heading">
+                        <h2 className="text-lg font-semibold text-slate-900 dark:text-[#EDEDF0] metallic-heading">
                             Join an Official Assessment
                         </h2>
                         <p className="text-xs text-[#8B8B9E] leading-relaxed">

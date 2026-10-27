@@ -2,7 +2,6 @@ import React, { useState, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
 import { ArrowRight, AlertCircle, Loader2 } from 'lucide-react';
-import { InteractiveWorkflowShowcase } from '../../components/common/InteractiveWorkflowShowcase';
 
 const Register = () => {
     const [role, setRole] = useState('CANDIDATE');
@@ -35,16 +34,8 @@ const Register = () => {
     return (
         <div className="flex-1 flex items-center justify-center py-10 px-4 sm:px-6 lg:px-8">
             <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-14 items-center">
-                {/* Left Side: Editorial Branding & Product Showcase */}
+                {/* Left Side: Editorial Branding */}
                 <div className="hidden lg:flex lg:col-span-7 flex-col justify-center space-y-6 pr-4">
-                    {/* Top Status Pill - Micro badge / illuminated status dot */}
-                    <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md text-[11px] font-mono tracking-wide bg-[#15151B] border border-[#272736] text-[#A1A1AA] w-fit shadow-sm">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.7)] animate-pulse" />
-                        <span className="text-[#EDEDF0] font-semibold">VOXCODE RUNTIME</span>
-                        <span className="text-[#3F3F4E]">/</span>
-                        <span className="text-[#8B8B9E]">TECHNICAL ROUND PIPELINE</span>
-                    </div>
-
                     {/* Editorial Grotesque Headline in Solid #EDEDF0 */}
                     <div className="space-y-3">
                         <h1 className="text-4xl xl:text-5xl font-bold tracking-tight text-[#EDEDF0] leading-[1.12]">
@@ -55,11 +46,24 @@ const Register = () => {
                         </p>
                     </div>
 
-                    {/* Interactive Miniature Product Slice (Replaces predictable 3-card bento) */}
-                    <InteractiveWorkflowShowcase />
+                    {/* Key Engineering Pillars */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                        <div className="p-3.5 rounded-lg bg-[#141419] border border-[#232330] space-y-1">
+                            <span className="text-xs font-semibold text-[#EDEDF0] block">Autonomous Vetting</span>
+                            <span className="text-[11px] text-[#8B8B9E] leading-snug block">Assess system design, algorithms, and resume claims without scheduling lag.</span>
+                        </div>
+                        <div className="p-3.5 rounded-lg bg-[#141419] border border-[#232330] space-y-1">
+                            <span className="text-xs font-semibold text-[#EDEDF0] block">Anti-Cheating Guard</span>
+                            <span className="text-[11px] text-[#8B8B9E] leading-snug block">Proactive session stability telemetry and candidate identity validation.</span>
+                        </div>
+                        <div className="p-3.5 rounded-lg bg-[#141419] border border-[#232330] space-y-1">
+                            <span className="text-xs font-semibold text-[#EDEDF0] block">Instant Scorecards</span>
+                            <span className="text-[11px] text-[#8B8B9E] leading-snug block">Objective evaluations delivered to recruiter dashboards in under 30 seconds.</span>
+                        </div>
+                    </div>
 
                     {/* Engineering Metric Row */}
-                    <div className="grid grid-cols-3 gap-4 pt-1 border-t border-[#232330]">
+                    <div className="grid grid-cols-3 gap-4 pt-2 border-t border-[#232330]">
                         <div className="space-y-0.5">
                             <div className="text-xl font-bold font-mono text-[#EDEDF0]">100%</div>
                             <div className="text-[11px] text-[#8B8B9E]">Spoken & Interactive</div>

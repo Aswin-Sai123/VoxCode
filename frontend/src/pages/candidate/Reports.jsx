@@ -65,7 +65,7 @@ const Reports = () => {
                         <ChevronLeft className="w-4 h-4" />
                         <span>Back to dashboard</span>
                     </Link>
-                    <h1 className="text-2xl font-semibold metallic-heading tracking-tight">
+                    <h1 className="text-2xl font-semibold text-slate-900 dark:text-[#EDEDF0] metallic-heading tracking-tight">
                         Interview Reports
                     </h1>
                     <p className="text-sm text-[#8B8B9E]">
