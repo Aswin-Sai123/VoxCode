@@ -69,6 +69,7 @@ const Dashboard = () => {
     const [assessmentCode, setAssessmentCode] = useState('');
     const [dashboardData, setDashboardData] = useState(null);
     const [joinError, setJoinError] = useState('');
+    const [now] = useState(() => Date.now());
 
     // Mock assessment modal state
     const [isMockModalOpen, setIsMockModalOpen] = useState(false);
@@ -383,7 +384,7 @@ const Dashboard = () => {
                             const compName = asmt.targetCompanyName || asmt.companyName || asmt.company?.name || 'Company';
                             const rTitle = asmt.targetRoleTitle || asmt.roleTitle || asmt.role?.title || 'Software Engineer';
 
-                            const isScheduled = asmt.openingTime ? new Date(asmt.openingTime).getTime() > Date.now() : false;
+                            const isScheduled = asmt.openingTime ? new Date(asmt.openingTime).getTime() > now : false;
 
                             return (
                                 <div
@@ -406,7 +407,7 @@ const Dashboard = () => {
                                             ) : (
                                                 <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 inline-flex items-center gap-1.5">
                                                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                                                    <span>Official Test</span>
+                                                    <span>Official Interview</span>
                                                 </span>
                                             )}
                                             {isScheduled && (
@@ -423,10 +424,6 @@ const Dashboard = () => {
                                             <span className="flex items-center gap-1">
                                                 <Clock className="w-3.5 h-3.5 text-[#555568]" />
                                                 <span>{asmt.durationMinutes || 30} mins</span>
-                                            </span>
-                                            <span>•</span>
-                                            <span>
-                                                Skills: {(asmt.skills || ['DSA', 'System Architecture']).slice(0, 3).join(', ')}
                                             </span>
                                         </div>
                                     </div>
@@ -445,7 +442,7 @@ const Dashboard = () => {
                                                 onClick={() => handleQuickFill(asmt.assessmentCode)}
                                                 className="btn-primary text-xs py-2 px-4"
                                             >
-                                                <span>{isMock ? 'Practice now' : (isScheduled ? 'Enter lobby & setup' : 'Start assessment')}</span>
+                                                <span>{isMock ? 'Practice now' : (isScheduled ? 'Enter lobby & setup' : 'Join interview')}</span>
                                                 <ChevronRight className="w-3.5 h-3.5" />
                                             </button>
                                         )}
@@ -455,8 +452,8 @@ const Dashboard = () => {
                         })
                     ) : (
                         <EmptyState
-                            title="No assessments in queue"
-                            description="Launch an AI practice session or enter an official company code above to begin."
+                            title="No interviews scheduled"
+                            description="Launch an AI practice session or enter an official company interview code above to begin."
                             actionLabel="Start Mock Interview"
                             onAction={() => setIsMockModalOpen(true)}
                             actionIcon={Search}

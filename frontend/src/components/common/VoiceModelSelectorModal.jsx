@@ -1,15 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
     Volume2, 
     Check, 
     X, 
     Sparkles, 
-    Zap, 
-    ShieldCheck, 
     Play, 
-    Square, 
-    Loader2, 
-    HelpCircle 
+    Square 
 } from 'lucide-react';
 import api from '../../services/api';
 import { toast } from 'sonner';
@@ -77,15 +73,15 @@ const VoiceModelSelectorModal = ({
     onTestBrowserVoice
 }) => {
     const [testingModelId, setTestingModelId] = useState(null);
-    const [audioElement, setAudioElement] = useState(null);
+    const audioRef = useRef(null);
 
     if (!isOpen) return null;
 
     const stopCurrentAudio = () => {
-        if (audioElement) {
-            audioElement.pause();
-            audioElement.currentTime = 0;
-            setAudioElement(null);
+        if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current.currentTime = 0;
+            audioRef.current = null;
         }
         if (window.speechSynthesis) {
             window.speechSynthesis.cancel();
@@ -135,12 +131,13 @@ const VoiceModelSelectorModal = ({
 
             if (res.data.success && res.data.data?.audioBase64) {
                 const audio = new Audio(res.data.data.audioBase64);
-                setAudioElement(audio);
+                audioRef.current = audio;
                 audio.onended = () => {
                     setTestingModelId(null);
-                    setAudioElement(null);
+                    audioRef.current = null;
                 };
                 audio.onerror = () => {
+                    audioRef.current = null;
                     playBrowserFallback(model);
                 };
                 await audio.play();

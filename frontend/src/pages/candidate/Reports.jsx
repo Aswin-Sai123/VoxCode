@@ -66,10 +66,10 @@ const Reports = () => {
                         <span>Back to dashboard</span>
                     </Link>
                     <h1 className="text-2xl font-semibold metallic-heading tracking-tight">
-                        Assessment Reports
+                        Interview Reports
                     </h1>
                     <p className="text-sm text-[#8B8B9E]">
-                        Review detailed scorecards and feedback for your mock practice assessments. Official company assessments are delivered directly to employer recruiters.
+                        Review detailed scorecards and feedback for your practice interview sessions. Official company interviews are delivered directly to employer recruiters.
                     </p>
                 </div>
             </div>

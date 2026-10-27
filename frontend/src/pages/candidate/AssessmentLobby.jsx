@@ -16,14 +16,15 @@ import {
     FolderGit2,
     CheckCircle,
     Camera,
-    ShieldAlert,
     UploadCloud,
     Trash2,
     Globe,
     Lock,
     Play,
     Square,
-    Sliders
+    Sliders,
+    MessageSquare,
+    Code
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { CardSkeleton } from '../../components/common/Skeleton';
@@ -41,7 +42,6 @@ const AssessmentLobby = () => {
     const [resumeText, setResumeText] = useState('');
     const [uploadedFile, setUploadedFile] = useState(null);
     const [candidateSummary, setCandidateSummary] = useState('');
-    const [candidateSkills, setCandidateSkills] = useState([]);
     const [parsedProjects, setParsedProjects] = useState([]);
     const [isParsingResume, setIsParsingResume] = useState(false);
     const [parseSuccess, setParseSuccess] = useState(false);
@@ -518,23 +518,6 @@ const AssessmentLobby = () => {
                                 <span>Target Role: {assessment.roleTitle}</span>
                             </div>
                         </div>
-
-                        {/* Skills */}
-                        <div className="space-y-2 pt-2 border-t border-[#232330]">
-                            <span className="text-xs font-medium text-[#8B8B9E] block">
-                                Focus areas & technologies:
-                            </span>
-                            <div className="flex flex-wrap gap-1.5">
-                                {(assessment.skills || ['JavaScript', 'System Architecture', 'Algorithms']).map((skill, i) => (
-                                    <span
-                                        key={i}
-                                        className="px-2.5 py-1 rounded-md bg-[#1C1C24] text-[#EDEDF0] border border-[#232330] text-xs font-medium"
-                                    >
-                                        {skill}
-                                    </span>
-                                ))}
-                            </div>
-                        </div>
                     </div>
 
                     {/* Resume & Project Discussion Context Card */}
@@ -798,67 +781,44 @@ const AssessmentLobby = () => {
                                 </div>
                             )}
 
-                            {candidateSkills && candidateSkills.length > 0 && (
-                                <div className="pt-2 space-y-1.5">
-                                    <span className="text-[11px] font-semibold uppercase tracking-wider text-[#8B8B9E] block">
-                                        Extracted Skills ({candidateSkills.length})
-                                    </span>
-                                    <div className="flex flex-wrap gap-1.5">
-                                        {candidateSkills.map((s, idx) => (
-                                            <span
-                                                key={idx}
-                                                className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[11px] font-medium"
-                                            >
-                                                {s}
-                                            </span>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
                         </div>
                     </div>
 
-                    {/* Interview Phases Breakdown */}
+                    {/* Interview Overview & Preparation Tips */}
                     <div className="bg-[#141419] border border-[#232330] rounded-xl p-6 space-y-4">
                         <h2 className="text-sm font-semibold text-[#EDEDF0]">
-                            Interview Flow Breakdown
+                            Interview Overview & Guidelines
                         </h2>
                         
                         <div className="space-y-3">
                             <div className="p-4 bg-[#0A0A0B] border border-[#232330] rounded-lg flex items-start gap-3.5">
                                 <div className="w-7 h-7 rounded-lg bg-blue-600/10 border border-blue-500/20 flex items-center justify-center flex-shrink-0 text-xs font-semibold text-blue-400">
-                                    1
+                                    <MessageSquare className="w-4 h-4" />
                                 </div>
                                 <div className="space-y-1 flex-1">
                                     <div className="flex items-center justify-between">
                                         <span className="text-sm font-medium text-[#EDEDF0]">
-                                            Candidate Journey & Project Architecture
-                                        </span>
-                                        <span className="text-xs text-[#555568]">
-                                            ~10–15 mins
+                                            Technical Discussion & Architecture
                                         </span>
                                     </div>
                                     <p className="text-xs text-[#8B8B9E] leading-relaxed">
-                                        Interactive conversational dialogue with your AI interviewer. Walk through your real resume projects, architectural choices, database decisions, and engineering trade-offs.
+                                        Conversational dialogue with your engineering interviewer. You will discuss your project experiences, architectural decisions, and trade-offs.
                                     </p>
                                 </div>
                             </div>
 
                             <div className="p-4 bg-[#0A0A0B] border border-[#232330] rounded-lg flex items-start gap-3.5">
                                 <div className="w-7 h-7 rounded-lg bg-emerald-600/10 border border-emerald-500/20 flex items-center justify-center flex-shrink-0 text-xs font-semibold text-emerald-400">
-                                    2
+                                    <Code className="w-4 h-4" />
                                 </div>
                                 <div className="space-y-1 flex-1">
                                     <div className="flex items-center justify-between">
                                         <span className="text-sm font-medium text-[#EDEDF0]">
-                                            Core Technical & Competency Evaluation
-                                        </span>
-                                        <span className="text-xs text-[#555568]">
-                                            ~15–20 mins
+                                            Collaborative Problem Solving
                                         </span>
                                     </div>
                                     <p className="text-xs text-[#8B8B9E] leading-relaxed">
-                                        Deep engineering evaluation conducted according to the company's hiring standards. The interviewer adapts dynamically to probe depth, problem-solving, and edge-case reasoning.
+                                        Work together on technical problems in a shared coding workspace. Focus on clean code, explaining your thought process, and evaluating time/space complexity.
                                     </p>
                                 </div>
                             </div>
@@ -896,9 +856,9 @@ const AssessmentLobby = () => {
                         )}
 
                         <div className="p-3 bg-[#0A0A0B] border border-[#232330] rounded-lg text-xs text-[#8B8B9E] space-y-1">
-                            <span className="text-[#EDEDF0] font-medium block">Integrity Notice</span>
+                            <span className="text-[#EDEDF0] font-medium block">Session Guidelines</span>
                             <p className="text-[11px] leading-relaxed">
-                                The session timer begins when you initialize. Code execution and transcripts are automatically preserved across network fluctuations.
+                                Join from a quiet environment with a stable internet connection. Your voice audio and code workspace are synchronized throughout the interview.
                             </p>
                         </div>
 
@@ -1018,26 +978,26 @@ const AssessmentLobby = () => {
                                 </div>
                             </div>
 
-                            {/* Webcam Proctoring */}
+                            {/* Camera & Video Check */}
                             <div className="p-3 bg-[#0A0A0B] border border-[#232330] rounded-lg flex items-center justify-between">
                                 <div className="flex items-center gap-2.5 text-xs font-medium text-[#EDEDF0]">
                                     <Camera className="w-4 h-4 text-blue-400" />
-                                    <span>Webcam & Live Proctoring Guard</span>
+                                    <span>Camera & Video</span>
                                 </div>
                                 <span className="text-[10px] text-emerald-400 font-semibold px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-1">
-                                    <ShieldAlert className="w-3 h-3" />
-                                    <span>Monitored</span>
+                                    <CheckCircle2 className="w-3 h-3" />
+                                    <span>Ready</span>
                                 </span>
                             </div>
 
-                            {/* Sandbox Engine */}
+                            {/* Collaborative Code Workspace */}
                             <div className="p-3 bg-[#0A0A0B] border border-[#232330] rounded-lg flex items-center justify-between">
                                 <div className="flex items-center gap-2.5 text-xs font-medium text-[#EDEDF0]">
                                     <Cpu className="w-4 h-4 text-blue-400" />
                                     <span>
                                         {interviewFormat === 'PROJECT_AND_TECHNICAL_ONLY'
-                                            ? 'Interactive Architectural Engine'
-                                            : 'Online Monaco Sandbox Runner'}
+                                            ? 'Interactive System Architecture Workspace'
+                                            : 'Interactive Code Workspace'}
                                     </span>
                                 </div>
                                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />

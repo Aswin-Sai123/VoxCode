@@ -207,7 +207,7 @@ const ReportDetail = () => {
                             </div>
                             <div>
                                 <h2 className="text-sm font-semibold text-[#EDEDF0] flex items-center gap-2">
-                                    <span>Integrity & Anti-Cheat Audit</span>
+                                    <span>Session Reliability & Environment</span>
                                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium border ${
                                         evaluation.proctoringSummary.integrityScore >= 90
                                             ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
@@ -215,11 +215,11 @@ const ReportDetail = () => {
                                                 ? 'text-amber-400 bg-amber-500/10 border-amber-500/20'
                                                 : 'text-red-400 bg-red-500/10 border-red-500/20'
                                     }`}>
-                                        {evaluation.proctoringSummary.trustLevel?.replace('_', ' ') || 'HIGH TRUST'}
+                                        {evaluation.proctoringSummary.trustLevel?.replace('_', ' ') || 'OPTIMAL'}
                                     </span>
                                 </h2>
                                 <p className="text-xs text-[#8B8B9E]">
-                                    Live browser telemetry, window focus monitoring, and code injection auditing.
+                                    Session connectivity, workspace focus, and environment continuity telemetry.
                                 </p>
                             </div>
                         </div>
@@ -228,7 +228,7 @@ const ReportDetail = () => {
                             <span className="text-2xl font-bold text-[#EDEDF0] tabular-nums">
                                 {evaluation.proctoringSummary.integrityScore ?? 100}%
                             </span>
-                            <span className="text-xs text-[#8B8B9E]">Trust Index</span>
+                            <span className="text-xs text-[#8B8B9E]">Stability Index</span>
                         </div>
                     </div>
 
@@ -293,7 +293,7 @@ const ReportDetail = () => {
                     {evaluation.proctoringSummary.events && evaluation.proctoringSummary.events.length > 0 && (
                         <div className="pt-2 space-y-2">
                             <span className="text-[11px] font-semibold text-[#8B8B9E] uppercase tracking-wider block">
-                                Audit Incident Timeline
+                                Session Event Timeline
                             </span>
                             <div className="space-y-1.5 max-h-36 overflow-y-auto">
                                 {evaluation.proctoringSummary.events.map((evt, idx) => (

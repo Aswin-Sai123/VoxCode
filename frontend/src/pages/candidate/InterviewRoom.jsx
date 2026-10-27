@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import api from '../../services/api';
@@ -22,16 +22,12 @@ import {
     Sparkles, 
     Sun, 
     Moon, 
-    CameraOff, 
-    ShieldAlert, 
-    AlertTriangle,
-    Move,
-    HelpCircle,
-    Code
+    Code,
+    HelpCircle
 } from 'lucide-react';
 import { toast } from 'sonner';
 import confetti from 'canvas-confetti';
-import { playChime, playClick, playSuccess, playWarning } from '../../utils/soundEffects';
+import { playChime, playClick, playSuccess } from '../../utils/soundEffects';
 import VoiceVisualizerOrb from '../../components/common/VoiceVisualizerOrb';
 import VoiceModelSelectorModal from '../../components/common/VoiceModelSelectorModal';
 
@@ -193,21 +189,14 @@ const InterviewRoom = () => {
     const [isDraggingVertical, setIsDraggingVertical] = useState(false);
     const rightPanelRef = useRef(null);
 
-    // Proctoring & Anti-Cheat State
+    // Camera & Media State
     const videoRef = useRef(null);
-    const faceCanvasRef = useRef(null);
     const mediaStreamRef = useRef(null);
-    const blazeFaceModelRef = useRef(null);
     const [cameraActive, setCameraActive] = useState(false);
     const [cameraError, setCameraError] = useState('');
     const [audioLevel, setAudioLevel] = useState(0);
-    const [integrityScore, setIntegrityScore] = useState(100);
-    const [tabSwitchCount, setTabSwitchCount] = useState(0);
-    const [violationAlert, setViolationAlert] = useState(null);
-    const [isFullscreen, setIsFullscreen] = useState(false);
     const [isWebcamMinimized, setIsWebcamMinimized] = useState(false);
-    const [webcamCorner, setWebcamCorner] = useState('bottom-right'); // 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left'
-    const [faceStatus, setFaceStatus] = useState('INITIALIZING'); // 'INITIALIZING' | 'VERIFIED' | 'ABSENT' | 'MULTIPLE'
+    const [isFullscreen, setIsFullscreen] = useState(false);
 
     // Monaco IDE Pro Bar & Customization state
     const [themeOverride, setThemeOverride] = useState(null); // null | 'vs-dark' | 'vs' | 'hc-black'
@@ -216,10 +205,6 @@ const InterviewRoom = () => {
     const [editorFontSize, setEditorFontSize] = useState(13); // 12 | 13 | 14 | 16
     const [showCheatsheet, setShowCheatsheet] = useState(false);
     const monacoEditorRef = useRef(null);
-
-    const missedFaceCountRef = useRef(0);
-    const multipleFaceCountRef = useRef(0);
-    const lastFaceViolationTimeRef = useRef(0);
 
     // Forward function references to eliminate hoisting / temporal dead zone warnings
     const speakAiMessageRef = useRef(null);
@@ -231,42 +216,13 @@ const InterviewRoom = () => {
     const utteranceRef = useRef(null);
     const isMutedRef = useRef(false);
 
-    const recordViolation = useCallback(async (eventType, details) => {
-        try {
-            playWarning();
-            const sessId = session?._id;
-            if (!sessId) return;
-
-            setIntegrityScore(prev => {
-                const deduction = 
-                    eventType === 'TAB_SWITCH' ? 8 : 
-                    eventType === 'SUSPICIOUS_PASTE' ? 12 : 
-                    eventType === 'MULTIPLE_FACES' ? 12 :
-                    eventType === 'FACE_ABSENT' ? 6 :
-                    eventType === 'FACE_OBSTRUCTED' ? 5 : 4;
-                return Math.max(0, prev - deduction);
-            });
-
-            if (eventType === 'TAB_SWITCH') {
-                setTabSwitchCount(prev => prev + 1);
-            }
-
-            await api.post(`/interview/session/${sessId}/proctoring`, {
-                eventType,
-                details
-            });
-        } catch (err) {
-            console.warn('Proctoring telemetry dispatch notice:', err);
-        }
-    }, [session]);
-
-    // Live Proctoring: Webcam & Audio Monitoring Initialization
+    // Media Stream: Webcam & Audio Monitoring Initialization
     useEffect(() => {
         let audioContext = null;
         let analyser = null;
         let animationFrame = null;
 
-        const initProctoringMedia = async () => {
+        const initMediaStream = async () => {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({
                     video: { width: 320, height: 240, frameRate: 15 },
@@ -306,12 +262,12 @@ const InterviewRoom = () => {
                     console.warn('Audio analyzer notice:', audioErr);
                 }
             } catch (err) {
-                console.warn('Proctoring camera/mic permission notice:', err);
+                console.warn('Camera/mic permission notice:', err);
                 setCameraError('Camera/mic access not granted. Running in fallback mode.');
             }
         };
 
-        initProctoringMedia();
+        initMediaStream();
 
         return () => {
             if (animationFrame) cancelAnimationFrame(animationFrame);
@@ -324,375 +280,35 @@ const InterviewRoom = () => {
         };
     }, []);
 
-    // Live AI Face Detection Engine (Google BlazeFace + Computer Vision Fallback)
+    // Candidate Media Lifecycle (Webcam & Mic presence)
     useEffect(() => {
         if (!cameraActive) return;
+        // Clean audio/video presence without surveillance loops
+    }, [cameraActive]);
 
-        let isCancelled = false;
-        let detectionInterval = null;
-
-        const loadBlazeFace = async () => {
-            if (window.blazeface && window.tf) {
-                try {
-                    return await window.blazeface.load();
-                } catch (e) {
-                    console.warn('BlazeFace init error:', e);
-                }
-            }
-
-            const loadScript = (src) => new Promise((resolve, reject) => {
-                const existing = document.querySelector(`script[src="${src}"]`);
-                if (existing) {
-                    if (existing.getAttribute('data-loaded') === 'true' || window.tf) return resolve();
-                    existing.addEventListener('load', () => resolve());
-                    existing.addEventListener('error', (e) => reject(e));
-                    return;
-                }
-                const script = document.createElement('script');
-                script.src = src;
-                script.async = true;
-                script.onload = () => {
-                    script.setAttribute('data-loaded', 'true');
-                    resolve();
-                };
-                script.onerror = (e) => reject(e);
-                document.head.appendChild(script);
-            });
-
-            try {
-                await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js');
-                await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/blazeface@0.0.7/dist/blazeface.min.js');
-                if (window.blazeface) {
-                    return await window.blazeface.load();
-                }
-            } catch (err) {
-                console.warn('BlazeFace CDN fallback notice:', err);
-            }
-            return null;
-        };
-
-        loadBlazeFace().then(model => {
-            if (!isCancelled && model) {
-                blazeFaceModelRef.current = model;
-            }
-        });
-
-        // Fast Color-Space & Pixel Luminance Analyzer Fallback
-        const analyzeFramePresence = (video) => {
-            try {
-                const offCanvas = document.createElement('canvas');
-                offCanvas.width = 64;
-                offCanvas.height = 48;
-                const oCtx = offCanvas.getContext('2d', { willReadFrequently: true });
-                if (!oCtx) return { hasFace: true, count: 1 };
-                oCtx.drawImage(video, 0, 0, 64, 48);
-                const frame = oCtx.getImageData(0, 0, 64, 48);
-                const d = frame.data;
-                let skinPixels = 0;
-                let totalBright = 0;
-                const total = 64 * 48;
-
-                for (let i = 0; i < d.length; i += 4) {
-                    const r = d[i];
-                    const g = d[i + 1];
-                    const b = d[i + 2];
-                    totalBright += (r + g + b) / 3;
-
-                    // Approximate human skin-tone chrominance in RGB
-                    if (r > 60 && g > 40 && b > 20 && (r > g) && (r > b) && (Math.abs(r - g) > 12)) {
-                        skinPixels++;
-                    }
-                }
-
-                const avgBright = totalBright / total;
-                const skinRatio = skinPixels / total;
-
-                // When user covers camera, turns off lights, hides face, or walks away:
-                const hasFace = avgBright > 18 && skinRatio >= 0.055;
-                return {
-                    hasFace,
-                    count: hasFace ? 1 : 0
-                };
-            } catch {
-                return { hasFace: true, count: 1 };
-            }
-        };
-
-        // Main detection frame loop (every 300ms)
-        const runDetectionCycle = async () => {
-            const video = videoRef.current;
-            const canvas = faceCanvasRef.current;
-            if (!video || !canvas || video.readyState < 2) return;
-
-            const ctx = canvas.getContext('2d');
-            if (!ctx) return;
-
-            if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
-                canvas.width = video.videoWidth || 320;
-                canvas.height = video.videoHeight || 240;
-            }
-
-            const w = canvas.width;
-            const h = canvas.height;
-            ctx.clearRect(0, 0, w, h);
-
-            let detectedFaces = [];
-
-            if (blazeFaceModelRef.current) {
-                try {
-                    detectedFaces = await blazeFaceModelRef.current.estimateFaces(video, false);
-                } catch {
-                    detectedFaces = [];
-                }
-            } else {
-                const fallback = analyzeFramePresence(video);
-                if (fallback.hasFace) {
-                    detectedFaces = [{
-                        topLeft: [w * 0.22, h * 0.15],
-                        bottomRight: [w * 0.78, h * 0.85],
-                        probability: [0.92]
-                    }];
-                } else {
-                    detectedFaces = [];
-                }
-            }
-
-            const faceCount = detectedFaces.length;
-
-            if (faceCount === 0) {
-                missedFaceCountRef.current++;
-                multipleFaceCountRef.current = 0;
-
-                // Red warning reticle HUD on canvas
-                ctx.strokeStyle = '#EF4444';
-                ctx.lineWidth = 2.5;
-                ctx.strokeRect(10, 10, w - 20, h - 20);
-
-                const cx = w / 2;
-                const cy = h / 2;
-                ctx.beginPath();
-                ctx.moveTo(cx - 16, cy); ctx.lineTo(cx + 16, cy);
-                ctx.moveTo(cx, cy - 16); ctx.lineTo(cx, cy + 16);
-                ctx.stroke();
-
-                ctx.fillStyle = '#EF4444';
-                ctx.font = 'bold 11px monospace';
-                ctx.textAlign = 'center';
-                ctx.fillText('[ NO FACE DETECTED ]', cx, cy + 30);
-                ctx.textAlign = 'left';
-
-                if (missedFaceCountRef.current >= 3) {
-                    setFaceStatus('ABSENT');
-                }
-
-                // If face absent for ~2.1 seconds or recurring
-                if (missedFaceCountRef.current === 7 || (missedFaceCountRef.current > 7 && missedFaceCountRef.current % 18 === 0)) {
-                    const now = Date.now();
-                    if (now - lastFaceViolationTimeRef.current > 8000) {
-                        lastFaceViolationTimeRef.current = now;
-                        recordViolation('FACE_ABSENT', 'Candidate moved out of camera view or covered face');
-                        setViolationAlert({
-                            title: 'Face Not Detected',
-                            message: 'Your face is not visible in the camera frame. Please keep your camera uncovered and remain centered in front of the screen throughout the assessment.'
-                        });
-                    }
-                }
-            } else if (faceCount === 1) {
-                missedFaceCountRef.current = 0;
-                multipleFaceCountRef.current = 0;
-                setFaceStatus('VERIFIED');
-
-                const face = detectedFaces[0];
-                const start = face.topLeft;
-                const end = face.bottomRight;
-                const boxW = end[0] - start[0];
-                const boxH = end[1] - start[1];
-                const corner = Math.min(boxW, boxH) * 0.25;
-
-                // Cyber green corner target brackets
-                ctx.strokeStyle = '#10B981';
-                ctx.lineWidth = 2.5;
-
-                // Top-Left
-                ctx.beginPath();
-                ctx.moveTo(start[0], start[1] + corner);
-                ctx.lineTo(start[0], start[1]);
-                ctx.lineTo(start[0] + corner, start[1]);
-                ctx.stroke();
-
-                // Top-Right
-                ctx.beginPath();
-                ctx.moveTo(start[0] + boxW - corner, start[1]);
-                ctx.lineTo(start[0] + boxW, start[1]);
-                ctx.lineTo(start[0] + boxW, start[1] + corner);
-                ctx.stroke();
-
-                // Bottom-Left
-                ctx.beginPath();
-                ctx.moveTo(start[0], start[1] + boxH - corner);
-                ctx.lineTo(start[0], start[1] + boxH);
-                ctx.lineTo(start[0] + corner, start[1] + boxH);
-                ctx.stroke();
-
-                // Bottom-Right
-                ctx.beginPath();
-                ctx.moveTo(start[0] + boxW - corner, start[1] + boxH);
-                ctx.lineTo(start[0] + boxW, start[1] + boxH);
-                ctx.lineTo(start[0] + boxW, start[1] + boxH - corner);
-                ctx.stroke();
-
-                // Center crosshair
-                const cx = start[0] + boxW / 2;
-                const cy = start[1] + boxH / 2;
-                ctx.strokeStyle = 'rgba(16, 185, 129, 0.45)';
-                ctx.lineWidth = 1;
-                ctx.beginPath();
-                ctx.moveTo(cx - 6, cy); ctx.lineTo(cx + 6, cy);
-                ctx.moveTo(cx, cy - 6); ctx.lineTo(cx, cy + 6);
-                ctx.stroke();
-
-                const prob = face.probability ? (face.probability[0] * 100).toFixed(0) : '95';
-                ctx.fillStyle = '#10B981';
-                ctx.font = '10px monospace';
-                ctx.fillText(`Verified ${prob}%`, start[0], start[1] > 14 ? start[1] - 5 : start[1] + boxH + 12);
-
-                if (face.landmarks) {
-                    ctx.fillStyle = '#06B6D4';
-                    for (const pt of face.landmarks) {
-                        ctx.beginPath();
-                        ctx.arc(pt[0], pt[1], 2, 0, 2 * Math.PI);
-                        ctx.fill();
-                    }
-                }
-            } else {
-                // Multiple faces (> 1)
-                missedFaceCountRef.current = 0;
-                multipleFaceCountRef.current++;
-                setFaceStatus('MULTIPLE');
-
-                ctx.strokeStyle = '#F59E0B';
-                ctx.lineWidth = 2.5;
-                detectedFaces.forEach((f, idx) => {
-                    const start = f.topLeft;
-                    const end = f.bottomRight;
-                    ctx.strokeRect(start[0], start[1], end[0] - start[0], end[1] - start[1]);
-                    ctx.fillStyle = '#F59E0B';
-                    ctx.font = 'bold 10px monospace';
-                    ctx.fillText(`Person ${idx + 1}`, start[0], start[1] - 4);
-                });
-
-                if (multipleFaceCountRef.current >= 4) {
-                    const now = Date.now();
-                    if (now - lastFaceViolationTimeRef.current > 8000) {
-                        lastFaceViolationTimeRef.current = now;
-                        recordViolation('MULTIPLE_FACES', `Multiple faces (${faceCount}) detected in camera view`);
-                        setViolationAlert({
-                            title: 'Multiple Faces Detected',
-                            message: 'More than one person was detected in your camera view. Only the candidate is permitted in the assessment area.'
-                        });
-                    }
-                }
-            }
-        };
-
-        detectionInterval = setInterval(runDetectionCycle, 300);
-
-        return () => {
-            isCancelled = true;
-            if (detectionInterval) clearInterval(detectionInterval);
-        };
-    }, [cameraActive, recordViolation]);
-
-    // Live Anti-Cheat: Visibility, Window Blur, Fullscreen, and Devtools Guard
+    // Window state and page leave safety handlers
     useEffect(() => {
-        const handleVisibilityChange = () => {
-            if (document.hidden) {
-                recordViolation('TAB_SWITCH', 'Candidate switched away from interview tab');
-                setViolationAlert({
-                    title: 'Tab Switch Detected',
-                    message: 'Leaving the interview window is logged as a proctoring violation. Return to this tab to prevent further score penalties.'
-                });
-            }
-        };
-
-        const handleWindowBlur = () => {
-            recordViolation('WINDOW_BLUR', 'Interview window lost focus');
-            setViolationAlert({
-                title: 'Window Focus Lost',
-                message: 'The interview window lost active focus. Please return to and keep this assessment window active.'
-            });
-        };
-
         const handleFullscreenChange = () => {
             const inFull = !!document.fullscreenElement;
             setIsFullscreen(inFull);
-            if (!inFull && stage !== 'COMPLETED') {
-                recordViolation('FULLSCREEN_EXIT', 'Candidate exited fullscreen mode');
-            }
-        };
-
-        const handleContextMenu = (e) => {
-            e.preventDefault();
-            setViolationAlert({
-                title: 'Context Menu Restricted',
-                message: 'Right-click context menu is restricted to maintain assessment integrity.'
-            });
-        };
-
-        const handleKeyDown = (e) => {
-            if (
-                e.key === 'F12' || 
-                (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) ||
-                (e.ctrlKey && e.key === 'u')
-            ) {
-                e.preventDefault();
-                recordViolation('DEVTOOLS_ATTEMPT', `Keyboard shortcut attempt: ${e.key}`);
-                setViolationAlert({
-                    title: 'Developer Tools Restricted',
-                    message: 'Developer tools inspection is prohibited during live assessments.'
-                });
-            }
-        };
-
-        // Anti-Cheat Navigation Lock: Trap browser back button (HackerRank style)
-        window.history.pushState(null, null, window.location.href);
-
-        const handlePopState = () => {
-            if (stage !== 'COMPLETED') {
-                // Keep the candidate locked inside the interview room
-                window.history.pushState(null, null, window.location.href);
-                toast.warning('Back navigation is disabled during an active assessment.', {
-                    description: "To conclude your evaluation, please click 'End Interview' in the top right corner."
-                });
-            }
         };
 
         const handleBeforeUnload = (e) => {
             if (stage !== 'COMPLETED') {
                 e.preventDefault();
-                e.returnValue = 'Assessment in progress. Leaving this page will disrupt your live interview.';
+                e.returnValue = 'Interview in progress. Leaving this page will disrupt your live interview.';
                 return e.returnValue;
             }
         };
 
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-        window.addEventListener('blur', handleWindowBlur);
         document.addEventListener('fullscreenchange', handleFullscreenChange);
-        document.addEventListener('contextmenu', handleContextMenu);
-        window.addEventListener('keydown', handleKeyDown);
-        window.addEventListener('popstate', handlePopState);
         window.addEventListener('beforeunload', handleBeforeUnload);
 
         return () => {
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
-            window.removeEventListener('blur', handleWindowBlur);
             document.removeEventListener('fullscreenchange', handleFullscreenChange);
-            document.removeEventListener('contextmenu', handleContextMenu);
-            window.removeEventListener('keydown', handleKeyDown);
-            window.removeEventListener('popstate', handlePopState);
             window.removeEventListener('beforeunload', handleBeforeUnload);
         };
-    }, [session?._id, stage, recordViolation]);
+    }, [stage]);
 
     // Split-panel and console drag listener
     useEffect(() => {
@@ -974,10 +590,11 @@ const InterviewRoom = () => {
             if (window.speechSynthesis.getVoices().length > 0) {
                 setVoiceAndSpeak();
             } else {
-                window.speechSynthesis.onvoiceschanged = () => {
+                const handleVoices = () => {
                     setVoiceAndSpeak();
-                    window.speechSynthesis.onvoiceschanged = null;
+                    window.speechSynthesis.removeEventListener('voiceschanged', handleVoices);
                 };
+                window.speechSynthesis.addEventListener('voiceschanged', handleVoices);
             }
             return;
         }
@@ -1185,8 +802,10 @@ const InterviewRoom = () => {
     };
 
     const handleSendMessageRef = useRef(handleSendMessage);
+    const toggleSpeechRecognitionRef = useRef(toggleSpeechRecognition);
     useEffect(() => {
         handleSendMessageRef.current = handleSendMessage;
+        toggleSpeechRecognitionRef.current = toggleSpeechRecognition;
     });
 
     // Push-to-Talk (Hold Spacebar to speak) and Enter-to-transmit
@@ -1201,7 +820,7 @@ const InterviewRoom = () => {
                 e.preventDefault();
                 if (!isListening && !spaceActive) {
                     spaceActive = true;
-                    toggleSpeechRecognition();
+                    toggleSpeechRecognitionRef.current();
                 }
             } else if (e.key === 'Enter' && !isEditing && !e.shiftKey) {
                 if (candidateText.trim() || interimSpeech.trim()) {
@@ -1222,7 +841,7 @@ const InterviewRoom = () => {
                 e.preventDefault();
                 spaceActive = false;
                 if (isListening) {
-                    toggleSpeechRecognition();
+                    toggleSpeechRecognitionRef.current();
                 }
             }
         };
@@ -1479,12 +1098,11 @@ const InterviewRoom = () => {
         <div className="h-screen overflow-hidden flex flex-col bg-[#0A0A0B] text-[#EDEDF0] font-sans select-none">
             {/* Transition Alert Strip */}
             {transitionBanner && (
-                <div className="h-9 bg-amber-500/10 border-b border-amber-500/30 px-4 flex items-center justify-between text-xs text-amber-400">
+                <div className="h-9 bg-amber-500/10 border-b border-amber-500/30 px-4 flex items-center text-xs text-amber-400">
                     <span className="flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
-                        <span>Coding challenge started — editor workspace is now unlocked.</span>
+                        <span>Let's move to the coding exercise — editor workspace is now ready.</span>
                     </span>
-                    <span className="text-xs text-[#8B8B9E]">Phase 2: Coding</span>
                 </div>
             )}
 
@@ -1501,45 +1119,22 @@ const InterviewRoom = () => {
                     </span>
                 </div>
 
-                {/* Center: Interactive Interview Stage Stepper */}
-                <div className="hidden md:flex items-center gap-1.5 lg:gap-2">
-                    {[
-                        { num: 1, label: 'Profile', active: stage === 'CONCEPTUAL' && currentTopicIndex === 0, done: stage === 'CODING' || currentTopicIndex > 0 },
-                        { num: 2, label: 'Architecture Deep-Dive', active: stage === 'CONCEPTUAL' && currentTopicIndex > 0, done: stage === 'CODING' },
-                        { num: 3, label: 'Coding Challenge', active: stage === 'CODING', done: stage === 'COMPLETED' },
-                        { num: 4, label: 'Debrief', active: stage === 'COMPLETED', done: false }
-                    ].map((step, idx, arr) => (
-                        <React.Fragment key={step.num}>
-                            <div className="flex items-center gap-1.5">
-                                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-mono font-bold transition-all ${
-                                    step.active
-                                        ? 'bg-blue-600 text-white shadow-[0_0_10px_rgba(37,99,235,0.5)]'
-                                        : step.done
-                                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                                            : 'bg-[#1C1C24] text-[#8B8B9E] border border-[#2B2B3B]'
-                                }`}>
-                                    {step.done ? '✓' : step.num}
-                                </span>
-                                <span className={`text-[11px] font-medium transition-colors ${
-                                    step.active ? 'text-[#EDEDF0]' : step.done ? 'text-emerald-400/80' : 'text-[#8B8B9E]'
-                                }`}>
-                                    {step.label}
-                                </span>
-                            </div>
-                            {idx < arr.length - 1 && (
-                                <span className="w-2.5 h-[1px] bg-[#2E2E3E]" />
-                            )}
-                        </React.Fragment>
-                    ))}
-                </div>
-
-                <div className="md:hidden flex items-center gap-2">
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${
-                        stage === 'CONCEPTUAL'
-                            ? 'bg-[#141419] text-[#EDEDF0] border-[#363645]'
-                            : 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                {/* Center: Session status — no step spoilers */}
+                <div className="hidden md:flex items-center gap-2">
+                    <span className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border ${
+                        stage === 'CODING'
+                            ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                            : stage === 'COMPLETED'
+                                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                : 'bg-[#141419] text-[#8B8B9E] border-[#363645]'
                     }`}>
-                        {stage === 'CONCEPTUAL' ? `Discussion (${currentTopicIndex + 1}/${totalTopics})` : 'Live Coding'}
+                        <span className={`w-1.5 h-1.5 rounded-full ${
+                            stage === 'CODING' ? 'bg-blue-400 animate-pulse' :
+                            stage === 'COMPLETED' ? 'bg-emerald-400' : 'bg-[#555568]'
+                        }`} />
+                        <span>
+                            {stage === 'CODING' ? 'Coding Exercise' : stage === 'COMPLETED' ? 'Session Complete' : 'Technical Discussion'}
+                        </span>
                     </span>
                 </div>
 
@@ -1565,7 +1160,7 @@ const InterviewRoom = () => {
                         {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-blue-500" />}
                     </button>
 
-                    {/* Fullscreen Anti-Cheat Mode Toggle */}
+                    {/* Fullscreen Toggle */}
                     <button
                         onClick={() => {
                             if (!document.fullscreenElement) {
@@ -1575,7 +1170,7 @@ const InterviewRoom = () => {
                             }
                         }}
                         className="studio-btn-secondary p-2 cursor-pointer"
-                        title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen (Anti-Cheat Mode)"}
+                        title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
                     >
                         {isFullscreen ? <Minimize2 className="w-4 h-4 text-emerald-400" /> : <Maximize2 className="w-4 h-4 text-[#8B8B9E]" />}
                     </button>
@@ -1671,13 +1266,12 @@ const InterviewRoom = () => {
                             <div className="flex items-center gap-2 flex-wrap">
                                 <span className="px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 text-xs font-medium flex items-center gap-1.5">
                                     <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse"></span>
-                                    Live Technical Discussion
-                                </span>
-                                {currentTopic && (
-                                    <span className="px-2 py-0.5 rounded-md bg-[#1C1C24] text-[#8B8B9E] border border-[#262636] text-[11px] font-mono">
-                                        {currentTopic} ({currentTopicIndex + 1}/{totalTopics})
+                                    <span>
+                                        {currentTopic
+                                            ? `Topic ${Math.min(currentTopicIndex + 1, totalTopics)}/${totalTopics}: ${currentTopic}`
+                                            : 'Live Technical Discussion'}
                                     </span>
-                                )}
+                                </span>
                                 {isAiSpeaking && (
                                     <span className="px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 text-[10px] font-mono font-semibold flex items-center gap-1.5 animate-pulse">
                                         <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
@@ -1733,19 +1327,14 @@ const InterviewRoom = () => {
                         </div>
                     )}
 
-                    {/* Speech Recognition Transcript Box with Review & Edit */}
+                    {/* Speech transcript box */}
                     {(candidateText || interimSpeech || isListening) && (
                         <div className="w-full bg-[#141419] border border-[#232330] rounded-xl p-4 space-y-2 text-xs">
                             <div className="flex justify-between items-center text-xs text-[#8B8B9E]">
                                 <span className="flex items-center gap-1.5 font-medium">
                                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                                    Candidate Speech Buffer:
+                                    {isListening ? 'Listening...' : 'Your response — edit before sending'}
                                 </span>
-                                {isListening ? (
-                                    <span className="text-red-400 font-medium animate-pulse">● RECORDING AUDIO...</span>
-                                ) : (
-                                    <span className="text-emerald-400 text-[11px]">[REVIEW & EDIT BEFORE TRANSMITTING]</span>
-                                )}
                             </div>
                             <textarea
                                 value={candidateText}
@@ -1765,7 +1354,7 @@ const InterviewRoom = () => {
                                     onClick={() => { setCandidateText(''); setInterimSpeech(''); }}
                                     className="studio-btn-secondary text-xs py-1 px-2.5"
                                 >
-                                    Clear Buffer
+                                    Clear
                                 </button>
                                 <button
                                     type="button"
@@ -1773,7 +1362,7 @@ const InterviewRoom = () => {
                                     disabled={isSending || (!candidateText.trim() && !interimSpeech.trim())}
                                     className="btn-primary text-xs py-1 px-3.5 font-medium"
                                 >
-                                    {isSending ? 'Transmitting...' : 'Transmit Answer'}
+                                    {isSending ? 'Sending...' : 'Send response'}
                                 </button>
                             </div>
                         </div>
@@ -1811,7 +1400,7 @@ const InterviewRoom = () => {
                                     [SPACE] Hold to speak
                                 </span>
                                 <span className="px-2 py-0.5 rounded bg-[#1C1C24] border border-[#2B2B3B] text-[#EDEDF0]">
-                                    [ENTER] Transmit
+                                    [ENTER] Send
                                 </span>
                             </div>
                         </div>
@@ -2162,16 +1751,6 @@ const InterviewRoom = () => {
                                 onChange={(value) => setEditorCode(value || '')}
                                 onMount={(editor) => {
                                     monacoEditorRef.current = editor;
-                                    editor.onDidPaste((e) => {
-                                        const pasteLength = e.range ? (e.text?.length || 0) : 0;
-                                        if (pasteLength > 40) {
-                                            recordViolation('SUSPICIOUS_PASTE', `Pasted ${pasteLength} characters into code editor`);
-                                            setViolationAlert({
-                                                title: 'External Code Paste Detected',
-                                                message: `You pasted ${pasteLength} characters. Large external code insertions are flagged in the assessment proctoring audit.`
-                                            });
-                                        }
-                                    });
                                 }}
                                 options={{
                                     fontSize: editorFontSize,
@@ -2278,7 +1857,7 @@ const InterviewRoom = () => {
                                                             : 'text-[#8B8B9E] hover:text-[#EDEDF0]'
                                                     }`}
                                                 >
-                                                    Case {idx + 1}
+                                                    Example {idx + 1}
                                                 </button>
                                             ))}
                                         </div>
@@ -2374,73 +1953,21 @@ const InterviewRoom = () => {
                 </main>
             )}
 
-            {/* Floating Picture-in-Picture Live Proctoring Card */}
-            <div className={`fixed ${
-                webcamCorner === 'bottom-left' ? 'bottom-4 left-4' :
-                webcamCorner === 'top-right' ? 'top-16 right-4' :
-                webcamCorner === 'top-left' ? 'top-16 left-4' : 'bottom-4 right-4'
-            } z-50 transition-all duration-300 shadow-2xl rounded-xl border border-[#232330] bg-[#141419]/95 backdrop-blur-md overflow-hidden ${
-                isWebcamMinimized ? 'w-48' : 'w-64 sm:w-72'
-            }`}>
-                {/* Video Header Bar */}
-                <div className="h-8 px-2.5 bg-[#0A0A0B] border-b border-[#232330] flex items-center justify-between text-[11px]">
-                    <div className="flex items-center gap-1.5">
-                        <div className="relative flex items-center justify-center w-3 h-3">
-                            <span className={`absolute w-full h-full rounded-full radar-ring ${
-                                faceStatus === 'VERIFIED' ? 'bg-emerald-400' :
-                                faceStatus === 'ABSENT' ? 'bg-red-500' :
-                                faceStatus === 'MULTIPLE' ? 'bg-amber-400' : 'bg-zinc-400'
-                            }`} />
-                            <span className={`w-2 h-2 rounded-full relative z-10 ${
-                                faceStatus === 'VERIFIED' ? 'bg-emerald-400' :
-                                faceStatus === 'ABSENT' ? 'bg-red-500' :
-                                faceStatus === 'MULTIPLE' ? 'bg-amber-400' : 'bg-zinc-400'
-                            }`} />
-                        </div>
-                        <span className={`font-semibold tracking-wider uppercase text-[10px] ${
-                            faceStatus === 'VERIFIED' ? 'text-emerald-400' :
-                            faceStatus === 'ABSENT' ? 'text-red-400' :
-                            faceStatus === 'MULTIPLE' ? 'text-amber-400' : 'text-zinc-400'
-                        }`}>
-                            {faceStatus === 'VERIFIED' ? 'FACE VERIFIED' :
-                             faceStatus === 'ABSENT' ? 'FACE MISSING' :
-                             faceStatus === 'MULTIPLE' ? 'MULTI-FACE' : 'INITIALIZING'}
-                        </span>
-                    </div>
-                    <div className="flex items-center gap-1.5 sm:gap-2">
-                        <span className={`text-[10px] font-mono font-medium px-1.5 py-0.5 rounded border ${
-                            integrityScore >= 90 
-                                ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
-                                : integrityScore >= 75
-                                    ? 'text-amber-400 bg-amber-500/10 border-amber-500/20'
-                                    : 'text-red-400 bg-red-500/10 border-red-500/20'
-                        }`}>
-                            {integrityScore}% Trust
-                        </span>
-                        {/* Snap-to-Corner Toggle Button */}
-                        <button
-                            onClick={() => {
-                                const corners = ['bottom-right', 'bottom-left', 'top-left', 'top-right'];
-                                const next = corners[(corners.indexOf(webcamCorner) + 1) % corners.length];
-                                setWebcamCorner(next);
-                                toast.info(`Webcam snapped to ${next.replace('-', ' ')}`);
-                            }}
-                            className="text-[#8B8B9E] hover:text-[#EDEDF0] p-0.5 cursor-pointer"
-                            title="Snap webcam to different corner"
-                        >
-                            <Move className="w-3 h-3" />
-                        </button>
-                        <button
-                            onClick={() => setIsWebcamMinimized(!isWebcamMinimized)}
-                            className="text-[#8B8B9E] hover:text-[#EDEDF0] p-0.5 cursor-pointer"
-                            title={isWebcamMinimized ? "Expand camera preview" : "Minimize camera preview"}
-                        >
-                            {isWebcamMinimized ? <Maximize2 className="w-3 h-3" /> : <Minimize2 className="w-3 h-3" />}
-                        </button>
-                    </div>
+            {/* Candidate Self-View Video Tile (Clean professional interview webcam preview) */}
+            <div className="fixed bottom-4 right-4 z-40 w-44 rounded-xl overflow-hidden shadow-2xl border border-[#232330] bg-[#141419]/90 backdrop-blur-md">
+                <div className="flex items-center justify-between px-2.5 py-1.5 bg-[#0A0A0B]/80 text-[10px] text-[#8B8B9E] border-b border-[#232330]">
+                    <span className="flex items-center gap-1.5 font-medium text-[#EDEDF0]">
+                        <span className={`w-1.5 h-1.5 rounded-full ${cameraActive ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+                        <span>You (Candidate)</span>
+                    </span>
+                    <button
+                        onClick={() => setIsWebcamMinimized(!isWebcamMinimized)}
+                        className="text-[#8B8B9E] hover:text-[#EDEDF0] p-0.5 cursor-pointer"
+                        title={isWebcamMinimized ? "Expand camera preview" : "Minimize camera preview"}
+                    >
+                        {isWebcamMinimized ? <Maximize2 className="w-3 h-3" /> : <Minimize2 className="w-3 h-3" />}
+                    </button>
                 </div>
-
-                {/* Live Video Preview Screen with AI HUD Canvas Overlay */}
                 {!isWebcamMinimized && (
                     <div className="relative aspect-video bg-black flex items-center justify-center overflow-hidden">
                         <video
@@ -2448,83 +1975,28 @@ const InterviewRoom = () => {
                             autoPlay
                             playsInline
                             muted
-                            className="w-full h-full object-cover transform -scale-x-100"
+                            className={`w-full h-full object-cover transform -scale-x-100 ${cameraActive ? 'block' : 'hidden'}`}
                         />
-                        {/* Real-time Face Tracking HUD Canvas */}
-                        <canvas
-                            ref={faceCanvasRef}
-                            className="absolute inset-0 w-full h-full pointer-events-none transform -scale-x-100 z-10"
-                        />
-
-                        {/* Visual Alert Banners on Video Preview */}
-                        {cameraActive && faceStatus === 'ABSENT' && (
-                            <div className="absolute top-2 left-2 right-2 z-20 bg-red-600/90 border border-red-400/80 text-white text-[10px] font-semibold py-1 px-2 rounded flex items-center justify-center gap-1.5 shadow-lg backdrop-blur-sm animate-pulse">
-                                <AlertTriangle className="w-3 h-3 flex-shrink-0" />
-                                <span>Face Missing / Covered</span>
-                            </div>
-                        )}
-
-                        {cameraActive && faceStatus === 'MULTIPLE' && (
-                            <div className="absolute top-2 left-2 right-2 z-20 bg-amber-600/90 border border-amber-400/80 text-white text-[10px] font-semibold py-1 px-2 rounded flex items-center justify-center gap-1.5 shadow-lg backdrop-blur-sm animate-pulse">
-                                <AlertTriangle className="w-3 h-3 flex-shrink-0" />
-                                <span>Multiple Faces Detected</span>
-                            </div>
-                        )}
-
                         {!cameraActive && (
-                            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center p-3 text-center bg-[#0A0A0B]/90 text-xs text-[#8B8B9E] space-y-1">
-                                <CameraOff className="w-5 h-5 text-amber-400" />
-                                <span className="text-[11px]">{cameraError || 'Camera stream standby'}</span>
+                            <div className="p-2 text-center text-[10px] text-[#8B8B9E] space-y-1">
+                                <span>{cameraError || 'Camera standby'}</span>
                             </div>
                         )}
-
-                        {/* Audio level meter overlay pill */}
+                        {/* Audio activity indicator */}
                         {cameraActive && (
-                            <div className="absolute bottom-2 left-2 right-2 z-20 flex items-center gap-2 bg-black/70 backdrop-blur-sm px-2 py-1 rounded text-[10px] text-[#EDEDF0] border border-white/5">
-                                <Mic className="w-3 h-3 text-emerald-400" />
-                                <div className="flex-1 h-1.5 bg-[#232330] rounded-full overflow-hidden">
+                            <div className="absolute bottom-1.5 left-1.5 right-1.5 flex items-center gap-1.5 bg-black/60 backdrop-blur-sm px-2 py-0.5 rounded text-[9px] text-[#EDEDF0]">
+                                <Mic className="w-2.5 h-2.5 text-emerald-400" />
+                                <div className="flex-1 h-1 bg-[#232330] rounded-full overflow-hidden">
                                     <div
                                         style={{ width: `${Math.min(100, audioLevel * 1.5)}%` }}
-                                        className={`h-full transition-all duration-75 ${
-                                            audioLevel > 50 ? 'bg-amber-400' : 'bg-emerald-400'
-                                        }`}
+                                        className="h-full bg-emerald-400 transition-all duration-75"
                                     />
                                 </div>
-                                <span className="text-[9px] font-mono text-[#8B8B9E]">
-                                    {tabSwitchCount > 0 ? `${tabSwitchCount} tab flags` : 'Monitored'}
-                                </span>
                             </div>
                         )}
                     </div>
                 )}
             </div>
-
-            {/* Live Proctoring Warning Modal / Toast */}
-            {violationAlert && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fadeIn">
-                    <div className="bg-[#141419] border border-amber-500/40 rounded-xl p-6 max-w-md w-full space-y-4 shadow-2xl text-center">
-                        <div className="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mx-auto text-amber-400">
-                            <ShieldAlert className="w-6 h-6" />
-                        </div>
-                        <div className="space-y-1.5">
-                            <h3 className="text-sm font-semibold text-[#EDEDF0]">
-                                {violationAlert.title}
-                            </h3>
-                            <p className="text-xs text-[#8B8B9E] leading-relaxed">
-                                {violationAlert.message}
-                            </p>
-                        </div>
-                        <div className="pt-2">
-                            <button
-                                onClick={() => setViolationAlert(null)}
-                                className="btn-primary w-full py-2.5 text-xs font-medium cursor-pointer"
-                            >
-                                Acknowledge & Return to Test
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {/* Keyboard Shortcuts Cheatsheet Modal */}
             {showCheatsheet && (
@@ -2548,7 +2020,7 @@ const InterviewRoom = () => {
                                 <kbd className="px-2 py-0.5 rounded bg-[#0A0A0B] border border-[#232330] text-[#EDEDF0] font-mono">[Space] Hold</kbd>
                             </div>
                             <div className="flex justify-between items-center py-1 border-b border-[#232330]/60">
-                                <span className="text-[#8B8B9E]">Transmit Spoken Answer</span>
+                                <span className="text-[#8B8B9E]">Send Spoken Answer</span>
                                 <kbd className="px-2 py-0.5 rounded bg-[#0A0A0B] border border-[#232330] text-[#EDEDF0] font-mono">Enter</kbd>
                             </div>
                             <div className="flex justify-between items-center py-1 border-b border-[#232330]/60">

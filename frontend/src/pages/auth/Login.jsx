@@ -23,7 +23,9 @@ const Login = () => {
         }
         return '';
     });
-    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(() => {
+        return new URLSearchParams(window.location.search).has('code');
+    });
 
     const { login } = useContext(AuthContext);
     const navigate = useNavigate();
@@ -38,7 +40,6 @@ const Login = () => {
         const roleParam = params.get('role') || 'CANDIDATE';
 
         if (code) {
-            setIsSubmitting(true);
             api.post('/auth/oauth/exchange', { code })
                 .then(res => {
                     const { accessToken, refreshToken, role: returnedRole } = res.data.data;

@@ -6,13 +6,10 @@ const SpotlightCard = ({
     className = '',
     spotlightColor = 'rgba(99, 102, 241, 0.12)',
     lightSpotlightColor = 'rgba(59, 130, 246, 0.08)',
-    borderColor = '#232330',
-    hoverBorderColor = '#363645',
     ...props
 }) => {
     const { isDark } = useTheme();
     const divRef = useRef(null);
-    const [isFocused, setIsFocused] = useState(false);
     const [position, setPosition] = useState({ x: 0, y: 0 });
     const [opacity, setOpacity] = useState(0);
 
@@ -26,12 +23,10 @@ const SpotlightCard = ({
     };
 
     const handleFocus = () => {
-        setIsFocused(true);
         setOpacity(1);
     };
 
     const handleBlur = () => {
-        setIsFocused(false);
         setOpacity(0);
     };
 

@@ -264,7 +264,7 @@ const AssessmentResults = () => {
                                     <th className="py-3 px-5">Rank</th>
                                     <th className="py-3 px-5">Candidate</th>
                                     <th className="py-3 px-5">Score</th>
-                                    <th className="py-3 px-5">Integrity</th>
+                                    <th className="py-3 px-5">Session Stability</th>
                                     <th className="py-3 px-5">Rubric Summary</th>
                                     <th className="py-3 px-5">AI Verdict</th>
                                     <th className="py-3 px-5">Hiring Decision</th>
@@ -299,7 +299,7 @@ const AssessmentResults = () => {
                                                     <div className="w-16 h-1.5 bg-[#0A0A0B] rounded-full overflow-hidden border border-[#232330] hidden sm:block">
                                                         <div
                                                              style={{ width: `${score}%` }}
-                                                            className={`h-full ${score >= 75 ? 'bg-emerald-400' : score >= 50 ? 'bg-amber-400' : 'bg-red-400'}`}
+                                                             className={`h-full ${score >= 75 ? 'bg-emerald-400' : score >= 50 ? 'bg-amber-400' : 'bg-red-400'}`}
                                                         />
                                                     </div>
                                                 </div>
@@ -312,7 +312,7 @@ const AssessmentResults = () => {
                                                             ? 'text-amber-400 bg-amber-500/10 border-amber-500/20'
                                                             : 'text-red-400 bg-red-500/10 border-red-500/20'
                                                 }`}>
-                                                    <span>{integrity}% Trust</span>
+                                                    <span>{integrity}% Stable</span>
                                                 </span>
                                             </td>
                                             <td className="py-4 px-5 text-xs text-[#8B8B9E]">
