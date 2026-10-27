@@ -235,10 +235,11 @@ const Dashboard = () => {
     const recentReports = (dashboardData?.recentReports || []).filter(
         r => r.assessmentCode !== 'PRACTICE-MOCK-SESSION' && r.assessmentTitle !== 'Technical Practice Mock Interview'
     );
-    const availableAssessments = (dashboardData?.availableAssessments || []).filter(
-        a => a.assessmentCode !== 'PRACTICE-MOCK-SESSION'
-    );
     const completedAssessmentCodes = dashboardData?.completedAssessmentCodes || [];
+    const inProgressSessions = dashboardData?.inProgressSessions || [];
+    const availableAssessments = (dashboardData?.availableAssessments || []).filter(
+        a => a.assessmentCode !== 'PRACTICE-MOCK-SESSION' && !completedAssessmentCodes.includes(a.assessmentCode)
+    );
 
     const activeCompany = POPULAR_COMPANIES.find(c => c.id === selectedCompanyId);
     const activeRole = POPULAR_ROLES.find(r => r.id === selectedRoleId);
@@ -390,17 +391,17 @@ const Dashboard = () => {
             <div className="space-y-3">
                 <div className="flex items-center justify-between px-1">
                     <div className="flex items-center gap-2">
-                        <Layers className="w-4 h-4 text-[#8B8B9E]" />
-                        <h2 className="text-sm font-semibold text-[#EDEDF0]">
+                        <Layers className="w-4 h-4 text-slate-500 dark:text-[#8B8B9E]" />
+                        <h2 className="text-sm font-semibold text-slate-900 dark:text-[#EDEDF0]">
                             Available Assessments
                         </h2>
                     </div>
-                    <span className="text-xs text-[#555568]">
+                    <span className="text-xs text-slate-500 dark:text-[#555568]">
                         {availableAssessments.length} available
                     </span>
                 </div>
 
-                <div className="bg-[#141419] border border-[#232330] rounded-xl overflow-hidden divide-y divide-[#232330]">
+                <div className="bg-white dark:bg-[#141419] border border-slate-200 dark:border-[#232330] rounded-xl overflow-hidden divide-y divide-slate-100 dark:divide-[#232330] shadow-sm">
                     {availableAssessments.length > 0 ? (
                         availableAssessments.map((asmt) => {
                             const isMock = asmt.assessmentType === 'MOCK';
@@ -408,75 +409,78 @@ const Dashboard = () => {
                             const rTitle = asmt.targetRoleTitle || asmt.roleTitle || asmt.role?.title || 'Software Engineer';
 
                             const isScheduled = asmt.openingTime ? new Date(asmt.openingTime).getTime() > now : false;
+                            const isInProgress = inProgressSessions.some(
+                                s => s.assessmentCode === asmt.assessmentCode || s.assessmentId === asmt._id
+                            );
 
                             return (
                                 <div
                                     key={asmt._id}
-                                    className="p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-[#1C1C24]/60 transition-colors"
+                                    className="p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50 dark:hover:bg-[#1C1C24]/60 transition-colors"
                                 >
                                     <div className="space-y-1.5 flex-1 min-w-0">
                                         <div className="flex items-center gap-2.5 flex-wrap">
-                                            <span className="text-sm font-medium text-[#EDEDF0]">
+                                            <span className="text-sm font-medium text-slate-900 dark:text-[#EDEDF0]">
                                                 {asmt.title || `${compName} ${rTitle}`}
                                             </span>
-                                            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-[#0A0A0B] text-[#8B8B9E] border border-[#232330]">
+                                            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 dark:bg-[#0A0A0B] text-slate-600 dark:text-[#8B8B9E] border border-slate-200 dark:border-[#232330]">
                                                 {compName}
                                             </span>
                                             {isMock ? (
-                                                <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20 inline-flex items-center gap-1.5">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                                                <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-500/10 text-blue-500 dark:text-blue-400 border border-blue-500/20 inline-flex items-center gap-1.5">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 dark:bg-blue-400"></span>
                                                     <span>Live Mock</span>
                                                 </span>
                                             ) : (
-                                                <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 inline-flex items-center gap-1.5">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                                                <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 inline-flex items-center gap-1.5">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400"></span>
                                                     <span>Official Interview</span>
                                                 </span>
                                             )}
+                                            {isInProgress && (
+                                                <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 inline-flex items-center gap-1.5">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                                                    <span>In Progress</span>
+                                                </span>
+                                            )}
                                             {isScheduled && (
-                                                <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20 inline-flex items-center gap-1.5">
+                                                <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 inline-flex items-center gap-1.5">
                                                     <Clock className="w-3 h-3" />
                                                     <span>Opens {new Date(asmt.openingTime).toLocaleDateString()} {new Date(asmt.openingTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                                 </span>
                                             )}
                                         </div>
 
-                                        <div className="flex items-center gap-4 text-xs text-[#8B8B9E] flex-wrap">
+                                        <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-[#8B8B9E] flex-wrap">
                                             <CopyButton textToCopy={asmt.assessmentCode} successMessage={`Copied ${asmt.assessmentCode} to clipboard`} />
                                             <span>•</span>
                                             <span className="flex items-center gap-1">
-                                                <Clock className="w-3.5 h-3.5 text-[#555568]" />
+                                                <Clock className="w-3.5 h-3.5 text-slate-400 dark:text-[#555568]" />
                                                 <span>{asmt.durationMinutes || 30} mins</span>
                                             </span>
                                         </div>
                                     </div>
 
                                     <div className="flex items-center gap-2 flex-shrink-0">
-                                        {completedAssessmentCodes.includes(asmt.assessmentCode) ? (
-                                            <Link
-                                                to="/candidate/reports"
-                                                className="studio-btn-secondary text-xs py-2 px-3.5 flex items-center gap-1.5 text-emerald-400 border-emerald-500/30"
-                                            >
-                                                <CheckCircle2 className="w-3.5 h-3.5" />
-                                                <span>Completed • View Report</span>
-                                            </Link>
-                                        ) : (
-                                            <button
-                                                onClick={() => handleQuickFill(asmt.assessmentCode)}
-                                                className="btn-primary text-xs py-2 px-4"
-                                            >
-                                                <span>{isMock ? 'Practice now' : (isScheduled ? 'Enter lobby & setup' : 'Join interview')}</span>
-                                                <ChevronRight className="w-3.5 h-3.5" />
-                                            </button>
-                                        )}
+                                        <button
+                                            onClick={() => handleQuickFill(asmt.assessmentCode)}
+                                            className="btn-primary text-xs py-2 px-4"
+                                        >
+                                            <span>
+                                                {isInProgress
+                                                    ? (isMock ? 'Resume practice' : 'Resume interview')
+                                                    : (isMock ? 'Practice now' : (isScheduled ? 'Enter lobby & setup' : 'Join interview'))}
+                                            </span>
+                                            <ChevronRight className="w-3.5 h-3.5" />
+                                        </button>
                                     </div>
                                 </div>
                             );
                         })
                     ) : (
                         <EmptyState
-                            title="No interviews scheduled"
-                            description="Launch an AI practice session or enter an official company interview code above to begin."
+                            title="No pending assessments"
+                            description="You have no pending assessments to take. Launch an AI practice mock or enter an official company interview code above to begin."
                             actionLabel="Start Mock Interview"
                             onAction={() => setIsMockModalOpen(true)}
                             actionIcon={Search}

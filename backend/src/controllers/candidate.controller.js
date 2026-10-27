@@ -130,24 +130,34 @@ export const getCandidateDashboard = asyncHandler(async (req, res) => {
         });
     }
 
-    // 3. Recommended / Available Assessments (exclude Practice Lab dummy assessment)
-    // Only return mock practice assessments or official assessments where candidate was explicitly invited
+    // 3. Recommended / Available Assessments (exclude Practice Lab dummy assessment and already completed assessments)
     const candidateEmail = candidate.email?.trim().toLowerCase();
+
+    // Identify all assessments the candidate has already completed (via evaluations or completed interview sessions)
+    const completedEvalCodes = evaluations.map(e => e.assessment?.assessmentCode).filter(Boolean);
+    const completedEvalIds = evaluations.map(e => e.assessment?._id?.toString()).filter(Boolean);
+
+    const completedSessions = await InterviewSession.find({
+        candidate: candidateId,
+        status: 'COMPLETED'
+    }).select('assessment');
+
+    const completedSessionIds = completedSessions.map(s => s.assessment?.toString()).filter(Boolean);
+    const allCompletedAssessmentIds = Array.from(new Set([...completedEvalIds, ...completedSessionIds]));
+    const completedAssessmentCodes = Array.from(new Set(completedEvalCodes));
+
     const availableAssessments = await Assessment.find({ 
         status: 'ACTIVE',
-        assessmentCode: { $ne: 'PRACTICE-MOCK-SESSION' },
+        assessmentCode: { $nin: ['PRACTICE-MOCK-SESSION', ...completedAssessmentCodes] },
+        _id: { $nin: allCompletedAssessmentIds },
         $or: [
-            { assessmentType: 'MOCK' },
+            { assessmentType: 'MOCK', createdByCandidate: candidateId },
             { eligibleEmails: candidateEmail }
         ]
     })
-        .select('title roleTitle companyName targetCompanyName targetRoleTitle assessmentType skills experienceLevel durationMinutes assessmentCode accessType')
+        .select('title roleTitle companyName targetCompanyName targetRoleTitle assessmentType skills experienceLevel durationMinutes assessmentCode accessType openingTime closingTime')
         .sort({ createdAt: -1 })
         .limit(6);
-
-    const completedAssessmentCodes = Array.from(new Set(
-        evaluations.map(e => e.assessment?.assessmentCode).filter(Boolean)
-    ));
 
     res.status(200).json(new ApiResponse(200, {
         candidate,
