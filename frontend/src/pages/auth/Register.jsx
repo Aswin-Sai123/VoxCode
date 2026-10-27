@@ -138,7 +138,7 @@ const Register = () => {
                                 required
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
-                                placeholder={role === 'COMPANY' ? 'Acme Labs' : 'Alex Mercer'}
+                                placeholder={role === 'COMPANY' ? 'Company name (e.g. Stripe)' : 'Alex Mercer'}
                                 className="studio-input"
                             />
                         </div>

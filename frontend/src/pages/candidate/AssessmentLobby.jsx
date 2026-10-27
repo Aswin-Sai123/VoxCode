@@ -146,12 +146,12 @@ const AssessmentLobby = () => {
                     setCandidateSummary(data.summary || '');
                     setCandidateSkills(data.skills || []);
                     setParseSuccess(true);
-                    toast.success('Resume parsed and contextualized with Gemini');
+                    toast.success('Resume parsed and contextualized');
                     setTimeout(() => setParseSuccess(false), 5000);
                 }
             } catch (err) {
                 console.error('Failed to parse resume document:', err);
-                toast.error(err.response?.data?.message || 'Failed to parse resume document with Gemini.');
+                toast.error(err.response?.data?.message || 'Failed to parse resume document.');
             } finally {
                 setIsParsingResume(false);
             }
@@ -547,7 +547,7 @@ const AssessmentLobby = () => {
                                     )}
                                 </h2>
                                 <p className="text-xs text-[#8B8B9E] leading-relaxed">
-                                    Upload your resume (PDF, DOCX, or TXT). Gemini automatically parses your real technical projects, architecture choices, and tech stacks so the AI interviewer asks authentic questions tailored to your experience.
+                                    Upload your resume (PDF, DOCX, or TXT). Your technical projects and tech stack will be extracted so questions are tailored to your real experience.
                                 </p>
                             </div>
 
@@ -635,7 +635,7 @@ const AssessmentLobby = () => {
                                                         <span>•</span>
                                                         <span className="text-emerald-400 flex items-center gap-1">
                                                             <CheckCircle2 className="w-3 h-3" />
-                                                            <span>Parsed with Gemini</span>
+                                                            <span>Resume Processed</span>
                                                         </span>
                                                     </p>
                                                 </div>
@@ -716,7 +716,7 @@ const AssessmentLobby = () => {
                             {isParsingResume && (
                                 <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center gap-2.5 text-xs text-emerald-400 animate-pulse font-medium">
                                     <Loader2 className="w-4 h-4 animate-spin flex-shrink-0" />
-                                    <span>Gemini is analyzing your resume document and extracting project architecture...</span>
+                                    <span>Analyzing resume document and extracting project background...</span>
                                 </div>
                             )}
 
@@ -1026,7 +1026,7 @@ const AssessmentLobby = () => {
                             <div className="flex items-center justify-between">
                                 <span className="text-[#8B8B9E]">Interviewer:</span>
                                 <span className="font-medium text-[#EDEDF0]">
-                                    Rohan (AI Lead Engineer)
+                                    Rohan (Tech Lead)
                                 </span>
                             </div>
                             <div className="flex items-center justify-between">

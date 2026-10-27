@@ -272,6 +272,6 @@ npm test
 
 ## 👨‍💻 Author & Acknowledgments
 
-- **Developed by:** [Vadluri Pratheek](https://github.com/Aswin-Sai123)
+- **Developed by:** [Tera Sai Aswin](https://github.com/Aswin-Sai123) and [Vadluri Pratheek](https://github.com/Vadluri-Pratheek)
 - **Built with:** Node.js, Express, React 19, MongoDB, Google Gemini, and Monaco Editor.
 - **License:** Released under the [MIT License](LICENSE).

@@ -1,6 +1,5 @@
-import React, { useContext, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { AuthContext } from '../../context/AuthContext';
 import api from '../../services/api';
 import { 
     Plus, 
@@ -20,8 +19,6 @@ import EmptyState from '../../components/common/EmptyState';
 import CopyButton from '../../components/common/CopyButton';
 
 const Dashboard = () => {
-    const { user } = useContext(AuthContext);
-
     const [roles, setRoles] = useState([]);
     const [assessments, setAssessments] = useState([]);
     const [interviews, setInterviews] = useState({ ongoing: [], completed: [] });
@@ -172,7 +169,7 @@ const Dashboard = () => {
                         Recruiter Dashboard
                     </h1>
                     <p className="text-sm text-[#8B8B9E] mt-1">
-                        Manage your assessments and track candidate progress for {user?.name || 'your company'}.
+                        Manage your assessments and track candidate progress.
                     </p>
                 </div>
 
@@ -259,9 +256,6 @@ const Dashboard = () => {
                         <h2 className="text-sm font-semibold text-[#EDEDF0]">
                             Create New Job Role Profile
                         </h2>
-                        <p className="text-xs text-[#8B8B9E] mt-0.5">
-                            Roles can be reused across multiple assessments.
-                        </p>
                     </div>
 
                     {roleError && (
@@ -455,7 +449,7 @@ const Dashboard = () => {
                     ) : (
                         <EmptyState
                             title="No assessments created yet"
-                            description="Create an assessment to start screening engineering candidates with AI."
+                            description="Create an assessment to start screening engineering candidates."
                             actionLabel="Create Assessment"
                             onAction={() => window.location.href = '/company/create-assessment'}
                             actionIcon={Plus}

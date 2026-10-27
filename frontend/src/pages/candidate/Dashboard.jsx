@@ -135,7 +135,7 @@ const Dashboard = () => {
                         projectsCount: (data.projects || []).length,
                         summary: data.summary
                     });
-                    toast.success('Resume parsed and contextualized with Gemini');
+                    toast.success('Resume parsed and contextualized');
                 }
                 setIsUploadingResume(false);
             };
@@ -346,7 +346,7 @@ const Dashboard = () => {
                                 Timed Session
                             </span>
                             <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-[#0A0A0B] border border-slate-200 dark:border-[#232330] text-[11px] font-mono text-slate-600 dark:text-[#8B8B9E]">
-                                Live AI Lead
+                                Live Interviewer
                             </span>
                             <span className="text-xs text-slate-500 dark:text-[#555568]">+Direct to Recruiter</span>
                         </div>
@@ -823,7 +823,7 @@ const Dashboard = () => {
                                         {savedResume?.fileName ? (
                                             <span className="text-[10px] text-emerald-400 font-medium bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 flex items-center gap-1">
                                                 <CheckCircle2 className="w-3 h-3" />
-                                                <span>Gemini Ready</span>
+                                                <span>Resume Attached</span>
                                             </span>
                                         ) : (
                                             <span className="text-[10px] text-[#8B8B9E] px-2 py-0.5 rounded bg-[#0A0A0B] border border-[#232330]">
@@ -843,7 +843,7 @@ const Dashboard = () => {
                                                     <p className="text-[11px] text-[#8B8B9E]">
                                                         {savedResume.projectsCount > 0 
                                                             ? `${savedResume.projectsCount} technical project${savedResume.projectsCount > 1 ? 's' : ''} extracted` 
-                                                            : 'Extracted with Gemini for interview deep-dive'}
+                                                            : 'Extracted projects for technical deep-dive'}
                                                     </p>
                                                 </div>
                                             </div>
@@ -887,7 +887,7 @@ const Dashboard = () => {
                                             {isUploadingResume ? (
                                                 <div className="flex items-center justify-center gap-2 text-xs text-emerald-400 animate-pulse">
                                                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                                    <span>Gemini is parsing resume projects & architecture...</span>
+                                                    <span>Extracting projects and background...</span>
                                                 </div>
                                             ) : (
                                                 <div className="flex items-center justify-center gap-2 text-xs text-[#8B8B9E] group-hover:text-[#EDEDF0]">

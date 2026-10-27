@@ -43,7 +43,7 @@ const CommandPalette = () => {
         {
             id: 'reports',
             title: 'My Assessment Reports',
-            subtitle: 'Inspect evaluation breakdown and AI feedback',
+            subtitle: 'Inspect evaluation breakdown and performance feedback',
             category: 'Navigation',
             icon: FileText,
             action: () => navigate('/candidate/reports')
@@ -59,7 +59,7 @@ const CommandPalette = () => {
         {
             id: 'start-mock',
             title: 'Start Mock Interview Practice',
-            subtitle: 'Launch instant AI voice & coding session',
+            subtitle: 'Launch instant practice interview session',
             category: 'Candidate',
             icon: Sparkles,
             action: () => navigate('/candidate/dashboard')

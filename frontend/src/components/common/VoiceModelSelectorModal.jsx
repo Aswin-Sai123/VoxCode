@@ -172,7 +172,7 @@ const VoiceModelSelectorModal = ({
                                 Choose Interviewer Voice Model
                             </h2>
                             <p className="text-xs text-[#8B8B9E]">
-                                Test and select the speech engine used when Rohan speaks and repeats questions.
+                                Select the voice model used during spoken interview sessions.
                             </p>
                         </div>
                     </div>

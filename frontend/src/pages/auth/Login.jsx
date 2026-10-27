@@ -114,9 +114,9 @@ const Login = () => {
                     <div className="pt-2 flex items-center justify-between text-[11px] font-mono text-[#555568] border-t border-[#232330]">
                         <span className="flex items-center gap-1.5">
                             <span className="w-1.5 h-1.5 rounded-full bg-blue-500/60 inline-block" />
-                            LATENCY OPTIMIZED (WEBSOCKET &lt; 90ms)
+                            Latency Optimized (WebSocket &lt; 90ms)
                         </span>
-                        <span>MULTI-LANGUAGE SANDBOX READY</span>
+                        <span>Multi-Language Sandbox</span>
                     </div>
                 </div>
 
@@ -283,7 +283,7 @@ const Login = () => {
                                 }}
                                 className="studio-btn-secondary text-xs py-1.5 justify-start text-left"
                             >
-                                <span className="truncate">Acme (Recruiter)</span>
+                                <span className="truncate">Recruiter Demo</span>
                             </button>
                         </div>
                     </div>

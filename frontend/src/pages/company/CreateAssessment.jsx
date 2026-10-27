@@ -276,10 +276,8 @@ const CreateAssessment = () => {
                         <h1 className="text-xl font-semibold tracking-tight text-[#EDEDF0]">
                             Create Assessment
                         </h1>
-                        <p className="text-xs text-[#8B8B9E] mt-0.5">
-                            Configure assessment parameters, duration, and target competencies.
-                        </p>
                     </div>
+
 
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div className="space-y-1.5">
@@ -395,12 +393,9 @@ const CreateAssessment = () => {
                                     <h3 className="text-xs font-semibold text-[#EDEDF0] flex items-center gap-1.5">
                                         <Sparkles className="w-3.5 h-3.5 text-blue-400" />
                                         <span>Interview Blueprint & Hiring Directive</span>
-                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                                            LLM Directed
-                                        </span>
                                     </h3>
                                     <p className="text-[11px] text-[#8B8B9E] mt-0.5 leading-relaxed">
-                                        Upload your hiring document (.pdf, .docx, .txt) or paste your internal blueprint. Gemini analyzes the rubric, determines if live coding is required, and synthesizes the master directive for the AI interviewer.
+                                        Upload your hiring document (.pdf, .docx, .txt) or paste your internal rubric to automatically configure competencies and interview format.
                                     </p>
                                 </div>
 
@@ -534,12 +529,12 @@ const CreateAssessment = () => {
                                             {isSynthesizing ? (
                                                 <>
                                                     <Loader2 className="w-3 h-3 animate-spin" />
-                                                    <span>Synthesizing with Gemini...</span>
+                                                    <span>Structuring format...</span>
                                                 </>
                                             ) : (
                                                 <>
                                                     <Sparkles className="w-3 h-3 text-blue-400" />
-                                                    <span>Analyze & Generate Format with AI</span>
+                                                    <span>Generate Round Format</span>
                                                 </>
                                             )}
                                         </button>
@@ -550,7 +545,7 @@ const CreateAssessment = () => {
                             {isSynthesizing && (
                                 <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl flex items-center gap-2 text-xs text-blue-400 font-medium animate-pulse">
                                     <Loader2 className="w-3.5 h-3.5 animate-spin flex-shrink-0" />
-                                    <span>Gemini is analyzing your blueprint, structuring the round format, and generating interviewer persona...</span>
+                                    <span>Analyzing blueprint and structuring assessment format...</span>
                                 </div>
                             )}
 
@@ -559,7 +554,7 @@ const CreateAssessment = () => {
                                     <div className="flex items-center justify-between">
                                         <span className="font-semibold text-[#EDEDF0] flex items-center gap-1.5">
                                             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                                            <span>AI-Synthesized Round Format</span>
+                                            <span>Structured Round Format</span>
                                         </span>
                                         <span className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20">
                                             {blueprintAnalysis.roundType}
@@ -573,7 +568,7 @@ const CreateAssessment = () => {
                                     <div className="flex items-center gap-2 pt-1 text-[11px]">
                                         <span className="text-[#8B8B9E]">Coding Round:</span>
                                         <span className={codingRoundEnabled ? 'text-emerald-400 font-medium' : 'text-purple-400 font-medium'}>
-                                            {codingRoundEnabled ? 'Live Coding IDE Enabled' : 'Skipped by AI (Discussion & Architecture Only)'}
+                                            {codingRoundEnabled ? 'Live Coding IDE Enabled' : 'Discussion & Architecture Focus'}
                                         </span>
                                     </div>
 
@@ -592,7 +587,7 @@ const CreateAssessment = () => {
 
                                     {blueprintAnalysis.interviewerPersonaPrompt && (
                                         <div className="pt-2 border-t border-[#232330]">
-                                            <span className="text-[#8B8B9E] text-[10px] uppercase font-semibold block mb-1">Generated Master Persona Directive for Rohan:</span>
+                                            <span className="text-[#8B8B9E] text-[10px] uppercase font-semibold block mb-1">Interviewer Guidelines:</span>
                                             <p className="text-[11px] text-[#8B8B9E] line-clamp-3 italic bg-[#0A0A0B] p-2 rounded border border-[#232330]">
                                                 "{blueprintAnalysis.interviewerPersonaPrompt}"
                                             </p>
@@ -605,56 +600,56 @@ const CreateAssessment = () => {
                         {/* Assessment Time Window & Expiry */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-1.5">
-                                <label className="text-[11px] font-mono uppercase tracking-wider text-[#8B8B9E] block">
-                                    Scheduled Opening Time (Optional):
+                                <label className="text-xs font-medium text-[#8B8B9E] block">
+                                    Scheduled Opening Time (Optional)
                                 </label>
                                 <input
                                     type="datetime-local"
                                     value={openingTime}
                                     onChange={(e) => setOpeningTime(e.target.value)}
-                                    className="studio-input font-mono text-xs"
+                                    className="studio-input text-xs"
                                 />
                             </div>
                             <div className="space-y-1.5">
-                                <label className="text-[11px] font-mono uppercase tracking-wider text-[#8B8B9E] block">
-                                    Closing / Expiry Time (Optional):
+                                <label className="text-xs font-medium text-[#8B8B9E] block">
+                                    Closing / Expiry Time (Optional)
                                 </label>
                                 <input
                                     type="datetime-local"
                                     value={closingTime}
                                     onChange={(e) => setClosingTime(e.target.value)}
-                                    className="studio-input font-mono text-xs"
+                                    className="studio-input text-xs"
                                 />
                             </div>
                         </div>
 
                         {/* Access Control & Eligibility Policy */}
                         <div className="space-y-2">
-                            <label className="text-[11px] font-mono uppercase tracking-wider text-[#8B8B9E] block">
-                                Candidate Access Policy:
+                            <label className="text-xs font-medium text-[#8B8B9E] block">
+                                Candidate Access Policy
                             </label>
                             <div className="grid grid-cols-2 gap-2">
                                 <button
                                     type="button"
                                     onClick={() => setAccessType('PUBLIC')}
-                                    className={`py-2 text-xs font-mono rounded-lg border transition-all ${
+                                    className={`py-2 text-xs font-medium rounded-lg border transition-all ${
                                         accessType === 'PUBLIC'
                                             ? 'bg-[#1C1C24] text-[#EDEDF0] border-[#363645] shadow-sm'
                                             : 'text-[#8B8B9E] border-[#232330] hover:text-[#EDEDF0] hover:bg-[#1C1C24]/40'
                                     }`}
                                 >
-                                    [PUBLIC ACCESS]
+                                    Public Access
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => setAccessType('INVITE_ONLY')}
-                                    className={`py-2 text-xs font-mono rounded-lg border transition-all ${
+                                    className={`py-2 text-xs font-medium rounded-lg border transition-all ${
                                         accessType === 'INVITE_ONLY'
                                             ? 'bg-[#1C1C24] text-[#EDEDF0] border-[#363645] shadow-sm'
                                             : 'text-[#8B8B9E] border-[#232330] hover:text-[#EDEDF0] hover:bg-[#1C1C24]/40'
                                     }`}
                                 >
-                                    [INVITE-ONLY RESTRICTED]
+                                    Invite-Only Restricted
                                 </button>
                             </div>
 
@@ -723,9 +718,6 @@ const CreateAssessment = () => {
                             <h2 className="text-sm font-semibold text-[#EDEDF0]">
                                 Assessment Summary
                             </h2>
-                            <p className="text-xs text-[#8B8B9E] mt-0.5">
-                                Preview of the assessment configuration.
-                            </p>
                         </div>
 
                         <div className="space-y-3.5 text-xs">
@@ -770,13 +762,13 @@ const CreateAssessment = () => {
                             </div>
                             {blueprintAnalysis && (
                                 <div className="pt-1 border-t border-[#232330]">
-                                    <span className="text-[#8B8B9E] block mb-1">AI Structured Format</span>
+                                    <span className="text-[#8B8B9E] block mb-1">Round Format</span>
                                     <div className="flex items-center justify-between">
                                         <span className="text-xs font-medium text-blue-400">
                                             {blueprintAnalysis.roundType}
                                         </span>
                                         <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${codingRoundEnabled ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-purple-500/10 text-purple-400 border border-purple-500/20'}`}>
-                                            {codingRoundEnabled ? 'IDE Coding' : 'No Coding'}
+                                            {codingRoundEnabled ? 'IDE Coding' : 'Discussion Only'}
                                         </span>
                                     </div>
                                 </div>
@@ -784,11 +776,11 @@ const CreateAssessment = () => {
                         </div>
 
                         <div className="p-3 bg-[#0A0A0B] border border-[#232330] rounded-lg text-xs text-[#8B8B9E] space-y-1">
-                            <span className="text-[#EDEDF0] font-medium block">Interviewer Brain Engine</span>
+                            <span className="text-[#EDEDF0] font-medium block">Interview Structure</span>
                             <p>
                                 {codingRoundEnabled 
-                                    ? 'Rohan will conduct conversational voice reasoning followed by an interviewer-initiated live coding challenge in the Monaco IDE.'
-                                    : 'Rohan will conduct an in-depth project architecture & systems reasoning deep-dive. Live coding is skipped according to company blueprint.'}
+                                    ? 'Rohan conducts conversational technical reasoning followed by a live coding challenge in the Monaco IDE.'
+                                    : 'Rohan conducts an in-depth systems & architecture interview based on your blueprint.'}
                             </p>
                         </div>
                     </div>
