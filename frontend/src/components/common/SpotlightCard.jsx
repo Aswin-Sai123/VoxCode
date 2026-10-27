@@ -48,7 +48,7 @@ const SpotlightCard = ({
             onBlur={handleBlur}
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
-            className={`relative overflow-hidden rounded-xl border transition-all duration-200 ${
+            className={`relative overflow-hidden rounded-xl border transition-all duration-200 h-full flex flex-col ${
                 isDark 
                     ? 'bg-[#141419] border-[#232330] hover:border-[#363645] light-catch' 
                     : 'bg-white border-slate-200/90 hover:border-slate-300 shadow-sm'
@@ -65,7 +65,7 @@ const SpotlightCard = ({
             />
 
             {/* Card Content */}
-            <div className="relative z-10 w-full h-full">
+            <div className="relative z-10 w-full flex-1 flex flex-col justify-between">
                 {children}
             </div>
         </div>
