@@ -1,6 +1,4 @@
-// AI service powered by Google Gemini
-// Configured to act as a realistic, unscripted Senior Engineering Lead / Tech Interviewer
-import { extractBlueprintDurationAndTimeline, buildDefaultTimeline, getActivePhaseInfo } from '../utils/blueprintParser.js';
+import { extractBlueprintDurationAndTimeline } from '../utils/blueprintParser.js';
 
 const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-flash-latest', 'gemini-flash-lite-latest'];
 

@@ -42,8 +42,7 @@
 
 /* Custom UI Component Utilities */
 @layer components {
-  .btn-primary,
-  .studio-btn-primary {
+  .btn-primary {
     @apply inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-500 active:bg-blue-700 rounded-lg shadow-sm transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed select-none;
   }
 
@@ -52,28 +51,10 @@
     @apply inline-flex items-center justify-center gap-2 px-3.5 py-2 text-sm font-medium text-[#EDEDF0] bg-[#141419] hover:bg-[#1C1C24] active:bg-[#232330] border border-[#232330] hover:border-[#363645] rounded-lg transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed select-none;
   }
 
-  .btn-danger,
-  .studio-btn-danger {
-    @apply inline-flex items-center justify-center gap-2 px-3.5 py-2 text-sm font-medium text-red-400 bg-red-500/10 hover:bg-red-500/20 active:bg-red-500/30 border border-red-500/20 rounded-lg transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed select-none;
-  }
-
-  .btn-warning,
-  .studio-btn-warning {
-    @apply inline-flex items-center justify-center gap-2 px-3.5 py-2 text-sm font-semibold text-black bg-amber-500 hover:bg-amber-400 active:bg-amber-600 rounded-lg shadow-sm transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed select-none;
-  }
-
-  .btn-success,
-  .studio-btn-success {
-    @apply inline-flex items-center justify-center gap-2 px-3.5 py-2 text-sm font-medium text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 active:bg-emerald-500/30 border border-emerald-500/20 hover:border-emerald-500/40 rounded-lg transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed select-none;
-  }
-
   .studio-input {
     @apply w-full bg-[#141419] border border-[#232330] hover:border-[#363645] focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 focus:outline-none text-sm text-[#EDEDF0] placeholder-[#555568] px-3.5 py-2.5 rounded-lg transition-colors;
   }
 
-  .studio-badge {
-    @apply inline-flex items-center gap-1.5 px-2.5 py-0.5 text-xs font-medium rounded-full border tabular-nums;
-  }
 }
 
 /* ==========================================================================
@@ -335,7 +316,6 @@ html[data-theme="light"] .bg-blue-600\/10.text-white {
 
 /* Primary buttons always keep pure white text */
 .btn-primary,
-.studio-btn-primary,
 .bg-blue-600.text-white,
 .bg-red-600.text-white {
   color: #FFFFFF !important;
@@ -749,21 +729,6 @@ html[data-theme="light"] .skeleton-shimmer {
   background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.06), transparent) !important;
 }
 
-/* Radar Ripple Ring for Active Live Telemetry */
-@keyframes radar-ripple {
-  0% {
-    transform: scale(0.9);
-    opacity: 0.8;
-  }
-  100% {
-    transform: scale(2.4);
-    opacity: 0;
-  }
-}
-.radar-ring {
-  animation: radar-ripple 2s cubic-bezier(0, 0.2, 0.8, 1) infinite;
-}
-
 /* Metallic Gradient Headings */
 .metallic-heading {
   display: inline-block;
@@ -782,12 +747,6 @@ html[data-theme="light"] .metallic-heading {
   color: #0F172A !important;
 }
 
-/* Soft Mask Truncation Fade */
-.mask-fade-right {
-  mask-image: linear-gradient(to right, black 85%, transparent 100%);
-  -webkit-mask-image: linear-gradient(to right, black 85%, transparent 100%);
-}
-
 /* Dual-Tone Status Pill */
 .dual-tone-pill {
   display: inline-flex;
@@ -799,34 +758,3 @@ html[data-theme="light"] .metallic-heading {
   border-radius: 9999px;
   box-shadow: inset 0 0 0 1px currentColor;
 }
-
-/* Staggered Page Entrance Animation */
-@keyframes cascadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.stagger-container > * {
-  animation: cascadeIn 400ms cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.stagger-container > *:nth-child(1) { animation-delay: 0ms; }
-.stagger-container > *:nth-child(2) { animation-delay: 40ms; }
-.stagger-container > *:nth-child(3) { animation-delay: 80ms; }
-.stagger-container > *:nth-child(4) { animation-delay: 120ms; }
-.stagger-container > *:nth-child(5) { animation-delay: 160ms; }
-.stagger-container > *:nth-child(6) { animation-delay: 200ms; }
-
-/* Spring sliding segmented pills */
-.spring-pill-transition {
-  transition: all 250ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-
-

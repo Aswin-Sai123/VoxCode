@@ -10,17 +10,8 @@ import {
 
 const router = Router();
 
-// Dashboard & telemetry endpoints
 router.get('/interviews', protect(['COMPANY']), getCompanyInterviews);
-router.get('/dashboard', protect(['COMPANY']), (req, res) => {
-    res.json({ message: 'Company Dashboard data' });
-});
 
-router.get('/profile', protect(['COMPANY']), (req, res) => {
-    res.json({ message: 'Company Profile data' });
-});
-
-// Role endpoints
 router.post('/roles', protect(['COMPANY']), createRole);
 router.get('/roles', protect(['COMPANY']), getRoles);
 router.put('/roles/:id', protect(['COMPANY']), updateRole);

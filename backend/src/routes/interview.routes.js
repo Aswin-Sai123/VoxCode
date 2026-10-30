@@ -11,7 +11,6 @@ import {
 
 const router = Router();
 
-// Candidate interview endpoints
 router.post('/start/:code', protect(['CANDIDATE']), startSession);
 router.post('/start', protect(['CANDIDATE']), startSession);
 router.post('/practice/start', protect(['CANDIDATE']), startPracticeSession);

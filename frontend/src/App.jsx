@@ -1,4 +1,3 @@
-import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
@@ -25,17 +24,14 @@ const AppContent = () => {
 
     return (
         <div className={`min-h-screen ${isDark ? 'bg-[#0A0A0B] text-[#EDEDF0]' : 'bg-[#F8FAFC] text-[#0F172A]'} flex flex-col antialiased selection:bg-blue-600/30 selection:text-white transition-colors duration-200 relative`}>
-            {/* Architectural Engineering Grid Texture */}
             <div className="fixed inset-0 bg-architectural-grid pointer-events-none z-0" />
 
-            {/* Global Stacked Toast Notifications */}
-            <Toaster 
-                richColors 
-                position="top-right" 
-                theme={isDark ? 'dark' : 'light'} 
-                closeButton 
+            <Toaster
+                richColors
+                position="top-right"
+                theme={isDark ? 'dark' : 'light'}
+                closeButton
             />
-
 
             {!isInterviewRoom && <Navbar />}
             <main className={!isInterviewRoom ? "pt-14 flex-1 flex flex-col relative z-10 min-h-0" : "flex-1 flex flex-col relative z-10"}>
@@ -44,7 +40,6 @@ const AppContent = () => {
                     <Route path="/login" element={<Login />} />
                     <Route path="/register" element={<Register />} />
 
-                    {/* Company Routes */}
                     <Route path="/company/dashboard" element={
                         <ProtectedRoute allowedRole="COMPANY">
                             <CompanyDashboard />
@@ -61,7 +56,6 @@ const AppContent = () => {
                         </ProtectedRoute>
                     } />
 
-                    {/* Candidate Routes */}
                     <Route path="/candidate/dashboard" element={
                         <ProtectedRoute allowedRole="CANDIDATE">
                             <CandidateDashboard />
@@ -70,11 +64,6 @@ const AppContent = () => {
                     <Route path="/candidate/reports" element={
                         <ProtectedRoute allowedRole="CANDIDATE">
                             <Reports />
-                        </ProtectedRoute>
-                    } />
-                    <Route path="/candidate/report/:sessionId" element={
-                        <ProtectedRoute allowedRole="CANDIDATE">
-                            <ReportDetail />
                         </ProtectedRoute>
                     } />
                     <Route path="/candidate/reports/:sessionId" element={
@@ -93,7 +82,6 @@ const AppContent = () => {
                         </ProtectedRoute>
                     } />
 
-                    {/* 404 Catch-All Route */}
                     <Route path="*" element={<NotFound />} />
                 </Routes>
             </main>

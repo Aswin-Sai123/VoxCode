@@ -23,7 +23,7 @@ export const protect = (allowedRoles = []) => {
             throw new ApiError(401, 'Not authorized, token invalid');
         }
 
-        req.user = decoded; // { id, role }
+        req.user = decoded;
 
         if (allowedRoles.length && !allowedRoles.includes(req.user.role)) {
             throw new ApiError(403, 'Forbidden: you do not have access to this resource');
@@ -32,23 +32,3 @@ export const protect = (allowedRoles = []) => {
         next();
     });
 };
-
-export const optionalAuth = () => {
-    return asyncHandler(async (req, res, next) => {
-        let token;
-        if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-            token = req.headers.authorization.split(' ')[1];
-        }
-
-        if (token) {
-            try {
-                const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
-                req.user = decoded;
-            } catch {
-                // Ignore token error for optional auth
-            }
-        }
-        next();
-    });
-};
-

@@ -16,7 +16,6 @@ const generateTokens = (user, role) => {
     return { accessToken, refreshToken };
 };
 
-// In-memory store for short-lived (60s) single-use OAuth exchange codes
 const oauthCodeStore = new Map();
 setInterval(() => {
     const now = Date.now();
@@ -107,10 +106,6 @@ export const loginCandidate = asyncHandler(async (req, res) => {
     res.json(new ApiResponse(200, { accessToken, refreshToken, role: 'CANDIDATE' }, "Login successful"));
 });
 
-export const googleLogin = asyncHandler(async (req, res) => {
-    // Handled by passport middleware
-});
-
 export const googleCallback = asyncHandler(async (req, res) => {
     const candidate = req.user;
     const frontendUrl = getFrontendUrl();
@@ -122,7 +117,6 @@ export const googleCallback = asyncHandler(async (req, res) => {
     const { accessToken, refreshToken } = generateTokens(candidate, 'CANDIDATE');
     await RefreshToken.create({ token: refreshToken, userId: candidate._id, role: 'CANDIDATE' });
     
-    // Store in short-lived code store to prevent token leakage in URL history/referrers
     const code = crypto.randomBytes(24).toString('hex');
     oauthCodeStore.set(code, {
         accessToken,
@@ -146,7 +140,6 @@ export const oauthExchange = asyncHandler(async (req, res) => {
         throw new ApiError(400, 'OAuth exchange code has expired or is invalid. Please sign in again.');
     }
 
-    // Invalidate code immediately after first use
     oauthCodeStore.delete(code);
 
     res.json(new ApiResponse(200, {
@@ -175,7 +168,6 @@ export const refreshToken = asyncHandler(async (req, res) => {
         throw new ApiError(403, 'Token expired or invalid');
     }
 
-    // Refresh token rotation: delete old token and issue a new one
     await RefreshToken.findOneAndDelete({ token });
 
     const newRefreshToken = jwt.sign(
