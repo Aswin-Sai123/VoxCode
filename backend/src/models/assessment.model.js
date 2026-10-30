@@ -25,6 +25,15 @@ const assessmentSchema = new Schema({
         roundType: { type: String, default: 'TECHNICAL' },
         roundSummary: { type: String, default: '' },
         codingRoundEnabled: { type: Boolean, default: true },
+        totalDurationMinutes: { type: Number, default: 30 },
+        phases: [{ type: String }],
+        timeline: [{
+            phase: { type: String },
+            title: { type: String },
+            startMinute: { type: Number },
+            endMinute: { type: Number },
+            durationMinutes: { type: Number }
+        }],
         keyCompetencies: [{ type: String }],
         interviewerPersonaPrompt: { type: String, default: '' }
     },

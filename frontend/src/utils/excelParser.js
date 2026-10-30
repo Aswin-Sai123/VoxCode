@@ -80,3 +80,4 @@ export async function extractEmailsFromSpreadsheet(file) {
         totalFound: emails.length
     };
 }
+

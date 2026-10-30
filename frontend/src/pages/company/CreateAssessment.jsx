@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import api from '../../services/api';
 import { UNIVERSAL_BLUEPRINT_FORMAT } from '../../data/blueprintTemplates';
 import { extractEmailsFromSpreadsheet } from '../../utils/excelParser';
+import { extractBlueprintDurationAndTimeline } from '../../utils/blueprintParser';
 import { 
     ArrowRight, 
     Copy, 
@@ -139,6 +140,9 @@ const CreateAssessment = () => {
                 if (analysis.codingRoundEnabled !== undefined) {
                     setCodingRoundEnabled(analysis.codingRoundEnabled);
                 }
+                if (analysis.totalDurationMinutes) {
+                    setDurationMinutes(analysis.totalDurationMinutes);
+                }
             }
         } catch (err) {
             console.error('Failed to synthesize blueprint:', err);
@@ -152,6 +156,10 @@ const CreateAssessment = () => {
         setBlueprintMode('text');
         setBlueprint(UNIVERSAL_BLUEPRINT_FORMAT);
         setBlueprintFile(null);
+        const timing = extractBlueprintDurationAndTimeline(UNIVERSAL_BLUEPRINT_FORMAT);
+        if (timing.totalDurationMinutes) {
+            setDurationMinutes(timing.totalDurationMinutes);
+        }
         setShowTemplateModal(false);
     };
 
@@ -445,15 +453,20 @@ const CreateAssessment = () => {
 
                         <div className="space-y-2">
                             <div className="flex items-center justify-between">
-                                <label className="text-xs font-medium text-[#8B8B9E]">
-                                    Allocated Duration
+                                <label className="text-xs font-medium text-[#8B8B9E] flex items-center gap-2">
+                                    <span>Allocated Duration</span>
+                                    {extractBlueprintDurationAndTimeline(blueprint).source === 'blueprint' && (
+                                        <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                            Auto-synced with blueprint
+                                        </span>
+                                    )}
                                 </label>
                                 <span className="text-xs font-medium text-[#EDEDF0] tabular-nums">{durationMinutes} Minutes</span>
                             </div>
                             <input
                                 type="range"
                                 min="15"
-                                max="60"
+                                max="120"
                                 step="5"
                                 value={durationMinutes}
                                 onChange={(e) => setDurationMinutes(Number(e.target.value))}
@@ -462,7 +475,8 @@ const CreateAssessment = () => {
                             <div className="flex justify-between text-[11px] text-[#555568]">
                                 <span>15 mins (Rapid)</span>
                                 <span>30 mins (Standard)</span>
-                                <span>60 mins (In-depth)</span>
+                                <span>45 mins (Balanced)</span>
+                                <span>60+ mins (Deep)</span>
                             </div>
                         </div>
 
@@ -642,7 +656,14 @@ const CreateAssessment = () => {
                                     <textarea
                                         rows={4}
                                         value={blueprint}
-                                        onChange={(e) => setBlueprint(e.target.value)}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            setBlueprint(val);
+                                            const timing = extractBlueprintDurationAndTimeline(val);
+                                            if (timing.source === 'blueprint' && timing.totalDurationMinutes) {
+                                                setDurationMinutes(timing.totalDurationMinutes);
+                                            }
+                                        }}
                                         placeholder="Paste interview round guidelines, job description, expected technical topics, or question blueprints..."
                                         className="studio-input text-xs resize-y"
                                     />

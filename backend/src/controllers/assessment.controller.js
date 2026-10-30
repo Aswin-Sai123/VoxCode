@@ -9,6 +9,7 @@ import { ApiResponse } from '../utils/ApiResponse.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { sendAssessmentInvite } from '../services/email.service.js';
 import { synthesizeInterviewBlueprint } from '../services/ai.service.js';
+import { extractBlueprintDurationAndTimeline } from '../utils/blueprintParser.js';
 import { getFrontendUrl } from '../utils/url.utils.js';
 
 // Cryptographically secure, unguessable assessment code e.g. "ASMT-A7F2B9-8E1C4D"
@@ -103,6 +104,13 @@ export const createAssessment = asyncHandler(async (req, res) => {
         throw new ApiError(400, 'Assessment duration must be an integer between 5 and 240 minutes');
     }
 
+    // Check if blueprint explicitly specifies duration/timeline
+    const extractedTiming = extractBlueprintDurationAndTimeline(effectiveBlueprint);
+    let resolvedDuration = parsedDuration;
+    if (extractedTiming.source === 'blueprint' && (durationMinutes === undefined || durationMinutes === null || Number(durationMinutes) === 30 || Number(durationMinutes) === extractedTiming.totalDurationMinutes)) {
+        resolvedDuration = extractedTiming.totalDurationMinutes;
+    }
+
     if (openingTime && isNaN(new Date(openingTime).getTime())) {
         throw new ApiError(400, 'Invalid opening time format');
     }
@@ -122,8 +130,8 @@ export const createAssessment = asyncHandler(async (req, res) => {
             throw new ApiError(400, 'Assessment closing time must be strictly after opening time');
         }
         const windowMinutes = (closeDate.getTime() - openDate.getTime()) / (60 * 1000);
-        if (windowMinutes < parsedDuration) {
-            throw new ApiError(400, `Assessment access window (${Math.round(windowMinutes)} mins) must be at least as long as the test duration (${parsedDuration} mins)`);
+        if (windowMinutes < resolvedDuration) {
+            throw new ApiError(400, `Assessment access window (${Math.round(windowMinutes)} mins) must be at least as long as the test duration (${resolvedDuration} mins)`);
         }
     }
 
@@ -168,6 +176,15 @@ export const createAssessment = asyncHandler(async (req, res) => {
         });
     }
 
+    if (finalAnalysis?.totalDurationMinutes && (durationMinutes === undefined || durationMinutes === null || Number(durationMinutes) === 30)) {
+        resolvedDuration = finalAnalysis.totalDurationMinutes;
+    }
+
+    if (finalAnalysis) {
+        if (!finalAnalysis.totalDurationMinutes) finalAnalysis.totalDurationMinutes = resolvedDuration;
+        if (!finalAnalysis.timeline || !finalAnalysis.timeline.length) finalAnalysis.timeline = extractedTiming.timeline;
+    }
+
     const effectiveCoding = codingRoundEnabled !== undefined 
         ? codingRoundEnabled 
         : (finalAnalysis?.codingRoundEnabled !== false);
@@ -180,7 +197,7 @@ export const createAssessment = asyncHandler(async (req, res) => {
         title: title.trim(),
         skills: skills || [],
         experienceLevel: experienceLevel || 'Entry',
-        durationMinutes: parsedDuration,
+        durationMinutes: resolvedDuration,
         blueprint: effectiveBlueprint,
         blueprintFileName: req.body.blueprintFileName || '',
         blueprintAnalysis: finalAnalysis,

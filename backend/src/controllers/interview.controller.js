@@ -21,6 +21,8 @@ import {
 } from '../utils/reconcileInterviewSession.js';
 
 // Concurrency deduplication map to prevent race conditions during session creation
+import { getActivePhaseInfo, buildDefaultTimeline } from '../utils/blueprintParser.js';
+
 const sessionStartLocks = new Map();
 
 // Helper to ensure a dedicated default Practice Assessment exists in the system
@@ -218,7 +220,8 @@ export const startSession = asyncHandler(async (req, res) => {
                     blueprint: assessment.blueprint || assessment.scrapedBlueprint || '',
                     blueprintAnalysis: assessment.blueprintAnalysis || null,
                     candidateResume,
-                    interviewFormat: selectedFormat
+                    interviewFormat: selectedFormat,
+                    durationMinutes: assessment.durationMinutes || 30
                 });
 
                 const initialTranscript = [{
@@ -249,6 +252,7 @@ export const startSession = asyncHandler(async (req, res) => {
                         codingChallenge: null,
                         candidateResume,
                         interviewFormat: selectedFormat,
+                    durationMinutes: assessment.durationMinutes || 30,
                         durationMinutes: assessment.durationMinutes || 30,
                         startedAt: new Date()
                     });
@@ -501,6 +505,20 @@ export const sendCandidateMessage = asyncHandler(async (req, res) => {
     const effectiveCode = currentCode || session.codeSubmission?.code || '';
     const effectiveOutput = executionOutput || session.codeSubmission?.output || '';
 
+    // Calculate live session pacing and blueprint timeline adherence
+    const elapsedMinutes = Math.floor(elapsedMs / (60 * 1000));
+    const totalDurationMinutes = session.durationMinutes || 30;
+    const remainingMinutes = Math.max(0, Math.ceil((sessionDurationMs - elapsedMs) / (60 * 1000)));
+
+    let timeline = session.assessment?.blueprintAnalysis?.timeline;
+    if (!timeline || !timeline.length) {
+        timeline = buildDefaultTimeline(
+            totalDurationMinutes,
+            session.interviewFormat !== 'PROJECT_AND_TECHNICAL_ONLY' && session.assessment?.codingRoundEnabled !== false
+        );
+    }
+    const timingContext = getActivePhaseInfo(timeline, elapsedMinutes, totalDurationMinutes);
+
     const aiResponse = await generateNextInterviewStep({
         companyName,
         roleTitle,
@@ -519,8 +537,21 @@ export const sendCandidateMessage = asyncHandler(async (req, res) => {
         topics,
         currentTopicIndex,
         questionsInCurrentTopic,
-        stateMachine: session.stateMachine || null
+        stateMachine: session.stateMachine || null,
+        timingContext
     });
+
+    // Pacing & Buffer Safeguards (guarantee adherence to blueprint timeline):
+    if (timingContext.isPastCodingPhase && session.stage === 'CONCEPTUAL' && session.interviewFormat !== 'PROJECT_AND_TECHNICAL_ONLY' && session.assessment?.codingRoundEnabled !== false) {
+        if (aiResponse.nextStage !== 'CODING') {
+            aiResponse.nextStage = 'CODING';
+            aiResponse.stateAction = 'TRANSITION_CODING';
+        }
+    }
+
+    if (timingContext.isFinalClosing && remainingMinutes <= 1) {
+        aiResponse.nextStage = 'COMPLETED';
+    }
 
     // Append candidate's message with evaluation and active topic
     session.transcript.push({

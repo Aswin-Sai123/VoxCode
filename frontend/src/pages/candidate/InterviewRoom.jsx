@@ -28,6 +28,7 @@ import {
 import { toast } from 'sonner';
 import confetti from 'canvas-confetti';
 import { playChime, playClick, playSuccess } from '../../utils/soundEffects';
+import { getActivePhaseInfo, buildDefaultTimeline } from '../../utils/blueprintParser';
 import VoiceVisualizerOrb from '../../components/common/VoiceVisualizerOrb';
 import VoiceModelSelectorModal from '../../components/common/VoiceModelSelectorModal';
 
@@ -101,6 +102,18 @@ const InterviewRoom = () => {
 
     // Timer state
     const [timeLeftSeconds, setTimeLeftSeconds] = useState(1800); // default 30m
+
+    // Active blueprint timeline & pacing info
+    const currentPhaseInfo = React.useMemo(() => {
+        const totalMins = session?.durationMinutes || assessment?.durationMinutes || 30;
+        const totalDurationSec = totalMins * 60;
+        const elapsedSec = Math.max(0, totalDurationSec - timeLeftSeconds);
+        const elapsedMins = Math.floor(elapsedSec / 60);
+        const timeline = assessment?.blueprintAnalysis?.timeline?.length 
+            ? assessment.blueprintAnalysis.timeline 
+            : buildDefaultTimeline(totalMins, assessment?.codingRoundEnabled !== false);
+        return getActivePhaseInfo(timeline, elapsedMins, totalMins);
+    }, [session?.durationMinutes, assessment, timeLeftSeconds]);
 
     // Voice & Input state
     const [isListening, setIsListening] = useState(false);
@@ -1133,7 +1146,11 @@ const InterviewRoom = () => {
                             stage === 'COMPLETED' ? 'bg-emerald-400' : 'bg-[#555568]'
                         }`} />
                         <span>
-                            {stage === 'CODING' ? 'Coding Exercise' : stage === 'COMPLETED' ? 'Session Complete' : 'Technical Discussion'}
+                            {stage === 'CODING' 
+                                ? `Live Coding Exercise (${currentPhaseInfo.codingStartMinute}-${currentPhaseInfo.codingEndMinute}m)` 
+                                : stage === 'COMPLETED' 
+                                    ? 'Session Complete' 
+                                    : (currentPhaseInfo.activePhaseTitle || 'Technical Discussion')}
                         </span>
                     </span>
                 </div>

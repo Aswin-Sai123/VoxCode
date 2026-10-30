@@ -1,5 +1,6 @@
 // AI service powered by Google Gemini
 // Configured to act as a realistic, unscripted Senior Engineering Lead / Tech Interviewer
+import { extractBlueprintDurationAndTimeline, buildDefaultTimeline, getActivePhaseInfo } from '../utils/blueprintParser.js';
 
 const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-flash-latest', 'gemini-flash-lite-latest'];
 
@@ -52,13 +53,15 @@ export const generateOpeningGreeting = async ({
     blueprint = '',
     blueprintAnalysis = null,
     candidateResume = '',
-    interviewFormat = 'FULL_INTERVIEW'
+    interviewFormat = 'FULL_INTERVIEW',
+    durationMinutes = 30
 }) => {
     const apiKey = process.env.GEMINI_API_KEY;
     const firstName = candidateName ? candidateName.split(' ')[0] : '';
+    const plannedDuration = Number(durationMinutes) || blueprintAnalysis?.totalDurationMinutes || 30;
 
     const fallbackGreeting = {
-        message: `Hey${firstName ? ' ' + firstName : ''}, great to connect with you! I'm Rohan, an engineering lead here at ${companyName}. Thanks for taking the time to chat today. To kick things off, how are you doing, and could you tell me a little bit about your journey and what kind of projects you've been working on recently?`,
+        message: `Hey${firstName ? ' ' + firstName : ''}, great to connect with you! I'm Rohan, an engineering lead here at ${companyName}. Thanks for taking the time to chat today. We have about ${plannedDuration} minutes scheduled to talk through your background, dive into some technical architecture, and work through a problem. To kick things off, how are you doing, and could you tell me a little bit about your journey and what kind of projects you've been working on recently?`,
         nextStage: 'CONCEPTUAL'
     };
 
@@ -76,11 +79,12 @@ ${candidateResume ? `Candidate Resume / Background Context:\n${candidateResume}`
 
 INTERVIEW ROUND:
 ${interviewFormat === 'PROJECT_AND_TECHNICAL_ONLY' ? 'Project Architecture & Technical Discussion (No live coding).' : 'Full Technical Loop (Technical discussion followed by live coding).'}
+Planned Round Duration: ${plannedDuration} minutes.
 
 YOUR GOAL FOR THIS FIRST SPOKEN GREETING:
 1. Greet the candidate warmly, authentically, and casually, like a real senior engineer greeting someone at the start of a Google Meet call.
 2. Introduce yourself naturally ("Hey [Name], good to meet you! I'm Rohan, an engineering lead here at ${companyName}...").
-3. Break the ice and warmly invite them to introduce themselves and share what kind of projects or technologies they've been working on recently.
+3. Break the ice, casually reference the ~${plannedDuration} minute session ahead, and warmly invite them to introduce themselves and share what kind of projects or technologies they've been working on recently.
 4. ${candidateResume ? 'You may casually reference one of the technologies or domains in their resume in a friendly, conversational way.' : 'Do NOT say "no resume attached" or anything robotic—just ask them naturally about what they have been building.'}
 5. Keep it conversational, spoken-friendly, and concise (under 3 sentences). Speak naturally, not like a scripted automated questionnaire.
 
@@ -140,7 +144,8 @@ export const generateNextInterviewStep = async ({
     topics = [],
     currentTopicIndex = 0,
     questionsInCurrentTopic = 0,
-    stateMachine = null
+    stateMachine = null,
+    timingContext = null
 }) => {
     const apiKey = process.env.GEMINI_API_KEY;
 
@@ -189,13 +194,20 @@ export const generateNextInterviewStep = async ({
             : `Candidate provided a conversational explanation.`
     };
 
+    const shouldFallbackToCoding = timingContext?.isPastCodingPhase && currentStage === 'CONCEPTUAL' && !isProjectOnly;
+    const shouldFallbackToCompleted = timingContext?.isFinalClosing;
+
     const fallbackResponse = {
-        message: `That makes a lot of sense. When you think about scaling or failure handling in that architecture, what was the biggest bottleneck you had to address?`,
-        nextStage: currentStage || 'CONCEPTUAL',
-        stateAction: 'DRILL_DEEPER',
+        message: shouldFallbackToCoding
+            ? `That was a great architectural walkthrough. Let's now transition over to some practical code. I've pulled up a live coding challenge on your right—take a look and let's discuss your approach!`
+            : (shouldFallbackToCompleted
+                ? `Thank you so much for your time and thoughts today! That concludes our technical round. We'll review everything and share detailed feedback shortly.`
+                : `That makes a lot of sense. When you think about scaling or failure handling in that architecture, what was the biggest bottleneck you had to address?`),
+        nextStage: shouldFallbackToCompleted ? 'COMPLETED' : (shouldFallbackToCoding ? 'CODING' : (currentStage || 'CONCEPTUAL')),
+        stateAction: shouldFallbackToCoding ? 'TRANSITION_CODING' : 'DRILL_DEEPER',
         targetTopicIndex: currentTopicIndex,
         answerEvaluation: fallbackEvaluation,
-        codingChallenge: null
+        codingChallenge: shouldFallbackToCoding ? fallbackCodingChallenge : null
     };
 
     if (!apiKey) return fallbackResponse;
@@ -229,9 +241,40 @@ export const generateNextInterviewStep = async ({
     const personaDirective = blueprintAnalysis?.interviewerPersonaPrompt || blueprint || '';
     const roundSummary = blueprintAnalysis?.roundSummary || (isProjectOnly ? 'Project Architecture & System Design (Zero Live Coding)' : 'Full Technical Loop (Architecture + Live Coding)');
     const keyCompetencies = (blueprintAnalysis?.keyCompetencies || []).join(', ');
+    const timingPacingPrompt = timingContext ? `
+=== LIVE ROUND PACING & BLUEPRINT SCHEDULE (AUTHORITATIVE) ===
+Total Allocated Round Duration: ${timingContext.totalDurationMinutes} minutes (from Blueprint)
+Current Session Progress: Minute ${timingContext.elapsedMinutes} of ${timingContext.totalDurationMinutes} (${timingContext.remainingMinutes} min remaining)
+Active Blueprint Phase: ${timingContext.activePhaseTitle || 'Active Technical Discussion'}
+
+${timingContext.isNearCodingPhase || timingContext.isPastCodingPhase ? `
+CRITICAL PACING DIRECTIVE (LIVE CODING PHASE TRANSITION):
+We have reached minute ${timingContext.elapsedMinutes} of ${timingContext.totalDurationMinutes}. According to the blueprint schedule, the live coding phase begins around minute ${timingContext.codingStartMinute}.
+You MUST transition to the live coding challenge on this turn!
+- Acknowledge their previous answer in 1 sentence.
+- Introduce the coding problem enthusiastically (e.g. "Awesome reasoning! Let's now transition to practical implementation. I've loaded a challenge into your editor on the right—let's take a look together!").
+- Set "nextStage": "CODING".
+- Set "stateAction": "TRANSITION_CODING".
+- Supply the tailored "codingChallenge" object.
+` : ''}
+${timingContext.isNearWrapUp ? `
+CRITICAL PACING DIRECTIVE (CANDIDATE Q&A & WRAP-UP):
+Only ${timingContext.remainingMinutes} minutes remain in this session.
+According to the blueprint schedule, we are in the Wrap-up & Candidate Q&A phase.
+- Do NOT ask any new complex algorithmic or architectural questions.
+- Transition smoothly to wrap-up: invite the candidate to ask any questions they have about the team, stack, or company engineering culture, or debrief on the session.
+` : ''}
+${timingContext.isFinalClosing ? `
+CRITICAL PACING DIRECTIVE (FINAL ROUND CONCLUSION):
+Only ${timingContext.remainingMinutes} minute(s) remain before hard session deadline.
+- Give a warm, encouraging closing statement thanking the candidate for their time.
+- Set "nextStage": "COMPLETED".
+` : ''}
+` : '';
 
     const systemInstruction = `You are Rohan, a Staff Software Engineer & Technical Lead at ${companyName} conducting a live, realistic technical interview for a ${experienceLevel}-level ${roleTitle} role.
 Target Skills & Stack: ${skills.length ? skills.join(', ') : 'Software Engineering'}
+${timingPacingPrompt}
 
 ${personaDirective ? `=== COMPANY HIRING DIRECTIVE & INTERVIEW BLUEPRINT ===
 Round Focus: ${roundSummary}
@@ -471,12 +514,15 @@ export const synthesizeInterviewBlueprint = async ({
 }) => {
     const apiKey = process.env.GEMINI_API_KEY;
     const cleanText = (blueprintText || '').trim();
+    const parsedTiming = extractBlueprintDurationAndTimeline(cleanText);
 
     const fallbackResult = {
         roundType: 'FULL_TECHNICAL_AND_CODING',
         roundSummary: `Comprehensive ${experienceLevel}-level technical assessment evaluating software engineering principles, system design, and algorithmic problem solving.`,
-        codingRoundEnabled: true,
-        interviewFormat: 'FULL_INTERVIEW',
+        codingRoundEnabled: parsedTiming.codingRoundEnabled,
+        interviewFormat: parsedTiming.codingRoundEnabled ? 'FULL_INTERVIEW' : 'PROJECT_AND_TECHNICAL_ONLY',
+        totalDurationMinutes: parsedTiming.totalDurationMinutes,
+        timeline: parsedTiming.timeline,
         estimatedQuestions: '4-5 Questions (System Architecture & Live Monaco Coding)',
         phases: [
             '01. Warmup & Production Project Context',
@@ -511,11 +557,17 @@ Analyze and decide:
    - "FULL_INTERVIEW" if codingRoundEnabled is true.
    - "PROJECT_AND_TECHNICAL_ONLY" if codingRoundEnabled is false and technical/architecture.
    - "BEHAVIORAL_ONLY" if purely behavioral/HR.
-4. "roundSummary": A crisp, professional 2-sentence executive summary of what this interview round evaluates and the company's expectations.
-5. "estimatedQuestions": A short string describing question distribution (e.g. "4-5 Questions: 2 Architecture, 1-2 Live Coding, 1 Wrap-up").
-6. "phases": Array of 3-4 string descriptions of the phases (e.g. ["01. Warmup & Production Project Context", "02. System Architecture & Trade-offs", "03. Live Coding Challenge in Monaco IDE", "04. Wrap-up & Q&A"]).
-7. "keyCompetencies": Array of 4 to 6 specific technical/behavioral concepts to rigorously probe based on the company's blueprint.
-8. "interviewerPersonaPrompt": A comprehensive, authoritative master prompt directive written for Rohan (the AI interviewer).
+4. "totalDurationMinutes": integer (e.g. 45, 60, 30). Extract total round duration in minutes from the blueprint. Check for phase ranges like "(40-45 mins)" or statements like "Duration: 45 minutes", "1 hour". If unspecified, default to 30.
+5. "timeline": Array of phase timing objects:
+   [
+     { "phase": "WARMUP" | "ARCHITECTURE" | "CODING" | "WRAPUP", "title": "Phase title", "startMinute": 0, "endMinute": 5, "durationMinutes": 5 },
+     ...
+   ]
+6. "roundSummary": A crisp, professional 2-sentence executive summary of what this interview round evaluates and the company's expectations.
+7. "estimatedQuestions": A short string describing question distribution (e.g. "4-5 Questions: 2 Architecture, 1-2 Live Coding, 1 Wrap-up").
+8. "phases": Array of 3-4 string descriptions of the phases (e.g. ["01. Warmup & Production Project Context (0-5 mins)", "02. System Architecture & Trade-offs (5-20 mins)", "03. Live Coding Challenge (20-40 mins)", "04. Wrap-up & Q&A (40-45 mins)"]).
+9. "keyCompetencies": Array of 4 to 6 specific technical/behavioral concepts to rigorously probe based on the company's blueprint.
+10. "interviewerPersonaPrompt": A comprehensive, authoritative master prompt directive written for Rohan (the AI interviewer).
    - Direct Rohan on what specific architecture questions, scenarios, or trade-offs to probe.
    - If codingRoundEnabled is false, instruct Rohan that this round has NO live coding, so any coding questions should be explained verbally by the candidate.
    - Specify the depth and rigor expected by this company.
@@ -565,10 +617,21 @@ Return ONLY a JSON object:
         if (text) {
             const parsed = JSON.parse(text);
             const isCoding = parsed.codingRoundEnabled !== false && parsed.roundType !== 'TECHNICAL_ARCHITECTURE' && parsed.roundType !== 'BEHAVIORAL_LEADERSHIP';
+            
+            const resolvedDuration = (typeof parsed.totalDurationMinutes === 'number' && parsed.totalDurationMinutes >= 5 && parsed.totalDurationMinutes <= 240)
+                ? parsed.totalDurationMinutes
+                : (parsedTiming.source === 'blueprint' ? parsedTiming.totalDurationMinutes : 30);
+
+            const resolvedTimeline = Array.isArray(parsed.timeline) && parsed.timeline.length >= 2
+                ? parsed.timeline
+                : parsedTiming.timeline;
+
             return {
                 roundType: parsed.roundType || 'FULL_TECHNICAL_AND_CODING',
                 codingRoundEnabled: isCoding,
                 interviewFormat: parsed.interviewFormat || (isCoding ? 'FULL_INTERVIEW' : 'PROJECT_AND_TECHNICAL_ONLY'),
+                totalDurationMinutes: resolvedDuration,
+                timeline: resolvedTimeline,
                 roundSummary: parsed.roundSummary || fallbackResult.roundSummary,
                 estimatedQuestions: parsed.estimatedQuestions || (isCoding ? '4-5 Questions (Architecture & Live Monaco Coding)' : '4-5 Questions (System Architecture & Verbal Problem Solving)'),
                 phases: Array.isArray(parsed.phases) && parsed.phases.length ? parsed.phases : (isCoding ? fallbackResult.phases : [
