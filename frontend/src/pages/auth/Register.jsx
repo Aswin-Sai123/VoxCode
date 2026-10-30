@@ -61,7 +61,7 @@ const Register = () => {
                                     </div>
                                     <div className="p-3 rounded-lg bg-[#141419] border border-[#232330] space-y-1">
                                         <span className="text-xs font-semibold text-[#EDEDF0] block">Anti-Cheating Guard</span>
-                                        <span className="text-[11px] text-[#8B8B9E] leading-snug block">Proactive session stability telemetry and candidate identity validation.</span>
+                                        <span className="text-[11px] text-[#8B8B9E] leading-snug block">Real-time session monitoring and candidate identity verification.</span>
                                     </div>
                                     <div className="p-3 rounded-lg bg-[#141419] border border-[#232330] space-y-1">
                                         <span className="text-xs font-semibold text-[#EDEDF0] block">Instant Scorecards</span>

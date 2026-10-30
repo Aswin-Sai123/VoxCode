@@ -89,7 +89,7 @@ export const InteractiveWorkflowShowcase = () => {
                         }`}
                     >
                         <Sliders className="w-3 h-3 text-amber-400" />
-                        <span>Calibrated Rubric</span>
+                        <span>Scoring Rubric</span>
                     </button>
                 </div>
             </div>
@@ -99,12 +99,12 @@ export const InteractiveWorkflowShowcase = () => {
                 {/* 1. AUDIO TURN-TAKING & BARGE-IN SLICE */}
                 {activeTab === 'audio' && (
                     <div className="space-y-3.5 animate-in fade-in duration-200">
-                        <div className="flex items-center justify-between text-[11px] font-mono text-[#8B8B9E]">
+                        <div className="flex items-center justify-between text-xs text-[#8B8B9E]">
                             <span className="flex items-center gap-1.5">
                                 <span className={`w-2 h-2 rounded-full ${interrupted ? 'bg-amber-400' : 'bg-emerald-400 animate-pulse'}`} />
-                                <span>{interrupted ? 'CANDIDATE INTERRUPT DETECTED' : 'AI LEAD SPEAKING (BARGE-IN ARMED)'}</span>
+                                <span>{interrupted ? 'Candidate speaking' : 'AI interviewer speaking'}</span>
                             </span>
-                            <span className="text-[10px] text-[#555568]">LATENCY: 85ms · VAD: ACTIVE</span>
+                            <span className="text-[11px] text-[#555568]">Low latency audio</span>
                         </div>
 
                         {/* Transcript Bubble Exchange */}

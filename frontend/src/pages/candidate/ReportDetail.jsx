@@ -215,11 +215,11 @@ const ReportDetail = () => {
                                                 ? 'text-amber-400 bg-amber-500/10 border-amber-500/20'
                                                 : 'text-red-400 bg-red-500/10 border-red-500/20'
                                     }`}>
-                                        {evaluation.proctoringSummary.trustLevel?.replace('_', ' ') || 'OPTIMAL'}
+                                        {evaluation.proctoringSummary.trustLevel?.replace('_', ' ') || 'Good'}
                                     </span>
                                 </h2>
                                 <p className="text-xs text-[#8B8B9E]">
-                                    Session connectivity, workspace focus, and environment continuity telemetry.
+                                    Session integrity and focus overview.
                                 </p>
                             </div>
                         </div>
@@ -280,7 +280,7 @@ const ReportDetail = () => {
                         </div>
 
                         <div className="p-3 bg-[#0A0A0B] border border-[#232330] rounded-lg">
-                            <span className="text-[11px] font-mono uppercase tracking-wider text-[#8B8B9E] block">Fullscrn Exits</span>
+                            <span className="text-[11px] font-mono uppercase tracking-wider text-[#8B8B9E] block">Fullscreen Exits</span>
                             <span className={`text-base font-semibold tabular-nums mt-0.5 block ${
                                 (evaluation.proctoringSummary.fullscreenExitCount || 0) > 0 ? 'text-amber-400' : 'text-[#EDEDF0]'
                             }`}>
@@ -292,8 +292,8 @@ const ReportDetail = () => {
                     {/* Event Log (if any) */}
                     {evaluation.proctoringSummary.events && evaluation.proctoringSummary.events.length > 0 && (
                         <div className="pt-2 space-y-2">
-                            <span className="text-[11px] font-semibold text-[#8B8B9E] uppercase tracking-wider block">
-                                Session Event Timeline
+                            <span className="text-xs font-semibold text-[#8B8B9E] block">
+                                Session Timeline
                             </span>
                             <div className="space-y-1.5 max-h-36 overflow-y-auto">
                                 {evaluation.proctoringSummary.events.map((evt, idx) => (

@@ -77,15 +77,6 @@ export const CandidateReadinessIndex = ({ stats, recentReports = [] }) => {
             : 84
     );
 
-    const getTierBadge = (cri) => {
-        if (cri >= 90) return { label: 'TIER 1 · SENIOR ONSITE READY', color: isDark ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' : 'text-emerald-700 bg-emerald-50 border-emerald-200' };
-        if (cri >= 75) return { label: 'TIER 2 · INTERVIEW COMPETENT', color: isDark ? 'text-blue-400 bg-blue-500/10 border-blue-500/20' : 'text-blue-700 bg-blue-50 border-blue-200' };
-        if (cri >= 60) return { label: 'TIER 3 · FOUNDATIONAL DRILLS', color: isDark ? 'text-amber-400 bg-amber-500/10 border-amber-500/20' : 'text-amber-800 bg-amber-50 border-amber-200' };
-        return { label: 'UNCALIBRATED', color: isDark ? 'text-[#8B8B9E] bg-[#141419] border-[#232330]' : 'text-slate-600 bg-slate-100 border-slate-200' };
-    };
-
-    const tier = getTierBadge(readinessIndex);
-
     // SVG Spider Radar Calculations (Radius = 75, Center = 100, 100)
     const center = 100;
     const radius = 72;
@@ -126,27 +117,14 @@ export const CandidateReadinessIndex = ({ stats, recentReports = [] }) => {
                 ? 'bg-[#121217] border-[#232330] shadow-2xl light-catch'
                 : 'bg-white border-slate-200 shadow-sm'
         }`}>
-            {/* Top Index Header & Telemetry */}
+            {/* Top Index Header */}
             <div className={`flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-5 border-b ${
                 isDark ? 'border-[#232330]' : 'border-slate-200'
             }`}>
-                <div className="space-y-1.5">
-                    <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.7)] animate-pulse" />
-                        <span className={`text-[11px] font-mono uppercase tracking-widest ${isDark ? 'text-[#8B8B9E]' : 'text-slate-500'}`}>
-                            CANDIDATE READINESS INDEX (CRI)
-                        </span>
-                        <span className={isDark ? 'text-[#3F3F4E]' : 'text-slate-300'}>/</span>
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-semibold border ${tier.color}`}>
-                            {tier.label}
-                        </span>
-                    </div>
+                <div className="space-y-1">
                     <h2 className={`text-xl sm:text-2xl font-bold tracking-tight ${isDark ? 'text-[#EDEDF0]' : 'text-slate-900'}`}>
                         Engineering Competency Profile
                     </h2>
-                    <p className={`text-xs ${isDark ? 'text-[#8B8B9E]' : 'text-slate-500'}`}>
-                        Multi-vector signal aggregated across {totalInterviews} simulated Staff Engineer rounds.
-                    </p>
                 </div>
 
                 {/* Score Big Numbers */}
@@ -154,8 +132,8 @@ export const CandidateReadinessIndex = ({ stats, recentReports = [] }) => {
                     isDark ? 'bg-[#0E0E12] border-[#232330]' : 'bg-slate-50 border-slate-200'
                 }`}>
                     <div className="space-y-0.5">
-                        <span className={`text-[10px] font-mono uppercase tracking-wider block ${isDark ? 'text-[#8B8B9E]' : 'text-slate-500'}`}>
-                            READINESS
+                        <span className={`text-[11px] font-medium block ${isDark ? 'text-[#8B8B9E]' : 'text-slate-500'}`}>
+                            Readiness
                         </span>
                         <div className="flex items-baseline gap-1">
                             <span className={`text-3xl font-extrabold font-mono tabular-nums ${isDark ? 'text-[#EDEDF0]' : 'text-slate-900'}`}>
@@ -168,8 +146,8 @@ export const CandidateReadinessIndex = ({ stats, recentReports = [] }) => {
                     <div className={`w-[1px] h-8 ${isDark ? 'bg-[#232330]' : 'bg-slate-200'}`} />
 
                     <div className="space-y-0.5">
-                        <span className={`text-[10px] font-mono uppercase tracking-wider block ${isDark ? 'text-[#8B8B9E]' : 'text-slate-500'}`}>
-                            PEAK SCORE
+                        <span className={`text-[11px] font-medium block ${isDark ? 'text-[#8B8B9E]' : 'text-slate-500'}`}>
+                            Best Score
                         </span>
                         <div className="flex items-baseline gap-1">
                             <span className={`text-2xl font-bold font-mono tabular-nums ${isDark ? 'text-[#EDEDF0]' : 'text-slate-900'}`}>
@@ -181,14 +159,14 @@ export const CandidateReadinessIndex = ({ stats, recentReports = [] }) => {
                     <div className={`w-[1px] h-8 ${isDark ? 'bg-[#232330]' : 'bg-slate-200'}`} />
 
                     <div className="space-y-0.5">
-                        <span className={`text-[10px] font-mono uppercase tracking-wider block ${isDark ? 'text-[#8B8B9E]' : 'text-slate-500'}`}>
-                            EVALS
+                        <span className={`text-[11px] font-medium block ${isDark ? 'text-[#8B8B9E]' : 'text-slate-500'}`}>
+                            Interviews
                         </span>
                         <div className="flex items-baseline gap-1">
                             <span className="text-2xl font-bold font-mono text-blue-500 tabular-nums">
                                 {totalInterviews}
                             </span>
-                            <span className={`text-[11px] ${isDark ? 'text-[#555568]' : 'text-slate-400'}`}>sessions</span>
+                            <span className={`text-[11px] ${isDark ? 'text-[#555568]' : 'text-slate-400'}`}>completed</span>
                         </div>
                     </div>
                 </div>
@@ -265,22 +243,7 @@ export const CandidateReadinessIndex = ({ stats, recentReports = [] }) => {
                                 );
                             })}
                         </svg>
-
-                        {/* Center Hub Indicator */}
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                            <div className={`w-8 h-8 rounded-full border flex items-center justify-center text-[10px] font-mono ${
-                                isDark
-                                    ? 'bg-[#1A1A24] border-[#2D2D3D] text-[#8B8B9E]'
-                                    : 'bg-slate-100 border-slate-300 text-slate-600'
-                            }`}>
-                                CRI
-                            </div>
-                        </div>
                     </div>
-
-                    <span className={`text-[11px] font-mono mt-2 text-center ${isDark ? 'text-[#555568]' : 'text-slate-400'}`}>
-                        RADAR PROFICIENCY AXES (CALIBRATED)
-                    </span>
                 </div>
 
                 {/* Right: Competency Signal Bars */}
@@ -346,7 +309,7 @@ export const CandidateReadinessIndex = ({ stats, recentReports = [] }) => {
                 }`}>
                     <div className="flex items-center gap-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
                         <CheckCircle2 className="w-4 h-4" />
-                        <span>Key Strengths Confirmed by Lead Engineer</span>
+                        <span>Key Strengths</span>
                     </div>
                     <ul className={`space-y-1.5 text-xs leading-relaxed ${isDark ? 'text-[#8B8B9E]' : 'text-slate-600'}`}>
                         {strengths.slice(0, 3).map((item, idx) => (
@@ -364,7 +327,7 @@ export const CandidateReadinessIndex = ({ stats, recentReports = [] }) => {
                 }`}>
                     <div className="flex items-center gap-2 text-xs font-semibold text-amber-600 dark:text-amber-400">
                         <Lightbulb className="w-4 h-4" />
-                        <span>Priority Focus Areas for Next Session</span>
+                        <span>Areas for Improvement</span>
                     </div>
                     <ul className={`space-y-1.5 text-xs leading-relaxed ${isDark ? 'text-[#8B8B9E]' : 'text-slate-600'}`}>
                         {improvements.slice(0, 3).map((item, idx) => (
@@ -383,17 +346,17 @@ export const CandidateReadinessIndex = ({ stats, recentReports = [] }) => {
                     isDark ? 'border-[#232330]' : 'border-slate-200'
                 }`}>
                     <div className={`flex items-center gap-2 ${isDark ? 'text-[#8B8B9E]' : 'text-slate-600'}`}>
-                        <span className={`font-mono text-[10px] uppercase ${isDark ? 'text-[#555568]' : 'text-slate-400'}`}>LATEST EVALUATION:</span>
+                        <span className={`text-[11px] font-medium ${isDark ? 'text-[#8B8B9E]' : 'text-slate-500'}`}>Latest:</span>
                         <span className={`font-medium ${isDark ? 'text-[#EDEDF0]' : 'text-slate-900'}`}>{recentReports[0]?.assessmentTitle}</span>
                         <span className={isDark ? 'text-[#3F3F4E]' : 'text-slate-300'}>•</span>
-                        <span className="text-emerald-500 font-mono font-semibold">{recentReports[0]?.verdict || 'Strong Hire'}</span>
+                        <span className="text-emerald-500 font-medium">{recentReports[0]?.verdict || 'Strong Hire'}</span>
                     </div>
 
                     <Link
                         to={`/candidate/report/${recentReports[0]?.sessionId || recentReports[0]?._id}`}
                         className="inline-flex items-center gap-1.5 text-xs text-blue-500 hover:text-blue-600 font-medium transition-colors"
                     >
-                        <span>Jump to full session audio & question scorecard</span>
+                        <span>View report</span>
                         <ArrowRight className="w-3.5 h-3.5" />
                     </Link>
                 </div>

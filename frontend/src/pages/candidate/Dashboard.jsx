@@ -281,7 +281,6 @@ const Dashboard = () => {
                                     <Globe className="w-3 h-3" />
                                     <span>Live Interview Questions</span>
                                 </span>
-                                <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#8B8B9E]">Real Questions</span>
                             </div>
                             <h2 className="text-lg font-semibold text-slate-900 dark:text-[#EDEDF0] metallic-heading">
                                 Mock Interview
@@ -328,7 +327,6 @@ const Dashboard = () => {
                                     <Lock className="w-3 h-3" />
                                     <span>Confidential to Recruiter</span>
                                 </span>
-                                <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#8B8B9E]">Hiring Test</span>
                             </div>
                             <h2 className="text-lg font-semibold text-slate-900 dark:text-[#EDEDF0] metallic-heading">
                                 Join an Official Assessment
@@ -338,17 +336,10 @@ const Dashboard = () => {
                             </p>
                         </div>
 
-                        <div className="flex items-center gap-2 pt-0.5 flex-wrap">
-                            <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-[#0A0A0B] border border-slate-200 dark:border-[#232330] text-[11px] font-mono text-slate-600 dark:text-[#8B8B9E]">
-                                Single-Use Token
-                            </span>
-                            <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-[#0A0A0B] border border-slate-200 dark:border-[#232330] text-[11px] font-mono text-slate-600 dark:text-[#8B8B9E]">
-                                Timed Session
-                            </span>
-                            <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-[#0A0A0B] border border-slate-200 dark:border-[#232330] text-[11px] font-mono text-slate-600 dark:text-[#8B8B9E]">
-                                Live Interviewer
-                            </span>
-                            <span className="text-xs text-slate-500 dark:text-[#555568]">+Direct to Recruiter</span>
+                        <div className="flex items-center gap-2 pt-0.5 text-xs text-[#8B8B9E]">
+                            <span>Timed session</span>
+                            <span>•</span>
+                            <span>Direct submission to recruiter</span>
                         </div>
                     </div>
 

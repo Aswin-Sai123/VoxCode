@@ -731,8 +731,8 @@ const AssessmentLobby = () => {
                             {/* Candidate Summary */}
                             {candidateSummary && (
                                 <div className="p-3 bg-[#0A0A0B] border border-[#232330] rounded-lg text-xs space-y-1">
-                                    <span className="text-[11px] font-semibold uppercase tracking-wider text-[#8B8B9E] block">
-                                        Candidate Profile Overview
+                                    <span className="text-xs font-semibold text-[#8B8B9E] block">
+                                        Profile Summary
                                     </span>
                                     <p className="text-[#EDEDF0] leading-relaxed">
                                         {candidateSummary}
@@ -743,8 +743,8 @@ const AssessmentLobby = () => {
                             {/* Render Parsed Projects Cards if available */}
                             {parsedProjects.length > 0 && (
                                 <div className="pt-2 space-y-2">
-                                    <span className="text-[11px] font-semibold uppercase tracking-wider text-[#8B8B9E] block">
-                                        Detected Projects for Interview Deep-Dive ({parsedProjects.length})
+                                    <span className="text-xs font-semibold text-[#8B8B9E] block">
+                                        Extracted Projects ({parsedProjects.length})
                                     </span>
                                     <div className="grid grid-cols-1 gap-2">
                                         {parsedProjects.map((p, idx) => (
