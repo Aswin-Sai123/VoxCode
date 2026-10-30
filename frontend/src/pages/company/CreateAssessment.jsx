@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../services/api';
 import { UNIVERSAL_BLUEPRINT_FORMAT } from '../../data/blueprintTemplates';
+import { extractEmailsFromSpreadsheet } from '../../utils/excelParser';
 import { 
     ArrowRight, 
     Copy, 
@@ -17,7 +18,8 @@ import {
     BookOpen, 
     X, 
     MessageSquare, 
-    Terminal 
+    Terminal,
+    FileSpreadsheet
 } from 'lucide-react';
 
 const CreateAssessment = () => {
@@ -39,11 +41,15 @@ const CreateAssessment = () => {
     const [accessType, setAccessType] = useState('PUBLIC');
     const [eligibleEmails, setEligibleEmails] = useState('');
     const [codingRoundEnabled, setCodingRoundEnabled] = useState(true);
-    const voiceRoundEnabled = true; // Always conversational voice dialogue with Rohan
 
     // universal format modal state
     const [showTemplateModal, setShowTemplateModal] = useState(false);
     const [formatCopied, setFormatCopied] = useState(false);
+
+    // excel upload state & staged creation status
+    const [excelFile, setExcelFile] = useState(null);
+    const [isExtractingEmails, setIsExtractingEmails] = useState(false);
+    const [creationStep, setCreationStep] = useState('');
 
     // other state
     const [roles, setRoles] = useState([]);
@@ -155,6 +161,37 @@ const CreateAssessment = () => {
         setTimeout(() => setFormatCopied(false), 2000);
     };
 
+    const handleExcelUpload = async (file) => {
+        if (!file) return;
+        setIsExtractingEmails(true);
+        setError('');
+        try {
+            const { emails, fileName, totalFound } = await extractEmailsFromSpreadsheet(file);
+            if (totalFound === 0) {
+                setError(`No valid candidate email addresses found in "${fileName}". Please check your spreadsheet column names or content.`);
+                return;
+            }
+
+            setExcelFile({
+                name: fileName,
+                size: (file.size / 1024).toFixed(1) + ' KB',
+                count: totalFound
+            });
+
+            // Merge with existing eligibleEmails without duplicates
+            const existing = eligibleEmails
+                ? eligibleEmails.split(/[\n,;]+/).map(e => e.trim().toLowerCase()).filter(Boolean)
+                : [];
+            const merged = Array.from(new Set([...existing, ...emails]));
+            setEligibleEmails(merged.join('\n'));
+        } catch (err) {
+            console.error('Failed to extract emails from spreadsheet:', err);
+            setError('Failed to parse spreadsheet. Please ensure it is a valid .xlsx, .xls, or .csv file.');
+        } finally {
+            setIsExtractingEmails(false);
+        }
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
@@ -172,8 +209,54 @@ const CreateAssessment = () => {
             return;
         }
 
+        let parsedEmails = [];
+        if (accessType === 'INVITE_ONLY') {
+            parsedEmails = eligibleEmails
+                ? eligibleEmails.split(/[\n,;]+/).map(e => e.trim().toLowerCase()).filter(Boolean)
+                : [];
+            parsedEmails = Array.from(new Set(parsedEmails));
+            if (parsedEmails.length === 0) {
+                setError('Please provide at least one authorized candidate email or upload an Excel spreadsheet for invite-only assessments.');
+                return;
+            }
+        }
+
         setLoading(true);
         try {
+            setCreationStep('Validating assessment configuration and access policy...');
+            await new Promise(r => setTimeout(r, 650));
+
+            if (accessType === 'INVITE_ONLY') {
+                setCreationStep(`Indexing and verifying ${parsedEmails.length} authorized candidate email(s)...`);
+                await new Promise(r => setTimeout(r, 650));
+            }
+
+            setCreationStep('Structuring interview blueprint & evaluation rubrics with AI...');
+            let finalAnalysis = blueprintAnalysis;
+            if (!finalAnalysis) {
+                try {
+                    const synRes = await api.post('/assessments/synthesize-blueprint', {
+                        roleId,
+                        title: title.trim(),
+                        skills,
+                        experienceLevel,
+                        blueprintText: blueprint.trim(),
+                        fileBase64: blueprintFile?.base64 || '',
+                        mimeType: blueprintFile?.mimeType || 'application/pdf',
+                        fileName: blueprintFile?.name || ''
+                    });
+                    if (synRes.data.success && synRes.data.data?.analysis) {
+                        finalAnalysis = synRes.data.data.analysis;
+                        setBlueprintAnalysis(finalAnalysis);
+                    }
+                } catch (synErr) {
+                    console.warn('Synthesis in background, server-side fallback active:', synErr);
+                }
+            }
+
+            setCreationStep('Generating cryptographically unique assessment code & security tokens...');
+            await new Promise(r => setTimeout(r, 650));
+
             const res = await api.post('/assessments', {
                 roleId,
                 title: title.trim(),
@@ -182,17 +265,19 @@ const CreateAssessment = () => {
                 durationMinutes,
                 blueprint: blueprint.trim(),
                 blueprintFileName: blueprintFile?.name || '',
-                blueprintAnalysis,
-                interviewFormat: blueprintAnalysis?.interviewFormat || (codingRoundEnabled ? 'FULL_INTERVIEW' : 'PROJECT_AND_TECHNICAL_ONLY'),
+                blueprintAnalysis: finalAnalysis,
+                interviewFormat: finalAnalysis?.interviewFormat || (codingRoundEnabled ? 'FULL_INTERVIEW' : 'PROJECT_AND_TECHNICAL_ONLY'),
                 openingTime: openingTime ? new Date(openingTime).toISOString() : null,
                 closingTime: closingTime ? new Date(closingTime).toISOString() : null,
                 accessType,
-                eligibleEmails,
+                eligibleEmails: parsedEmails,
                 codingRoundEnabled,
-                voiceRoundEnabled
+                voiceRoundEnabled: true
             });
 
             if (res.data.success) {
+                setCreationStep('Finalizing configuration and provisioning evaluation workspace...');
+                await new Promise(r => setTimeout(r, 500));
                 setCreatedCode(res.data.data.assessmentCode);
                 setCreatedId(res.data.data._id);
             }
@@ -200,6 +285,7 @@ const CreateAssessment = () => {
             setError(err.response?.data?.message || 'Failed to create assessment');
         } finally {
             setLoading(false);
+            setCreationStep('');
         }
     };
 
@@ -729,17 +815,127 @@ const CreateAssessment = () => {
                             </div>
 
                             {accessType === 'INVITE_ONLY' && (
-                                <div className="space-y-1 pt-1">
-                                    <label className="text-[11px] uppercase text-[#8B8B9E] block font-mono">
-                                        Authorized Candidate Emails (comma or newline separated):
-                                    </label>
-                                    <textarea
-                                        rows={2}
-                                        value={eligibleEmails}
-                                        onChange={(e) => setEligibleEmails(e.target.value)}
-                                        placeholder="sarah@example.com, alex@mit.edu"
-                                        className="studio-input font-mono text-xs resize-none"
-                                    />
+                                <div className="space-y-3 pt-2 border-t border-[#232330]">
+                                    {/* Excel / Spreadsheet Upload Card */}
+                                    <div className="p-3.5 bg-[#0A0A0B] border border-[#232330] rounded-xl space-y-2.5">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-xs font-semibold text-[#EDEDF0] flex items-center gap-1.5">
+                                                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+                                                <span>Import Candidates from Excel / Spreadsheet</span>
+                                            </span>
+                                            <span className="text-[10px] font-mono text-[#8B8B9E]">.xlsx, .xls, .csv</span>
+                                        </div>
+                                        <p className="text-[11px] text-[#8B8B9E] leading-relaxed">
+                                            Upload your candidates list. VoxCode automatically detects email columns (e.g. "Email", "Mail", "Candidate Email") and extracts all valid emails.
+                                        </p>
+
+                                        {!excelFile ? (
+                                            <div
+                                                onClick={() => document.getElementById('excel-file-input')?.click()}
+                                                className="border border-dashed border-[#2D2D3D] hover:border-emerald-500/50 bg-[#121217] hover:bg-[#14141C] rounded-lg p-4 text-center cursor-pointer transition-all flex flex-col items-center justify-center space-y-1.5"
+                                            >
+                                                <input
+                                                    id="excel-file-input"
+                                                    type="file"
+                                                    accept=".xlsx,.xls,.csv"
+                                                    className="hidden"
+                                                    onChange={(e) => {
+                                                        if (e.target.files && e.target.files[0]) {
+                                                            handleExcelUpload(e.target.files[0]);
+                                                        }
+                                                    }}
+                                                />
+                                                <div className="w-8 h-8 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                                                    {isExtractingEmails ? (
+                                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                                    ) : (
+                                                        <UploadCloud className="w-4 h-4" />
+                                                    )}
+                                                </div>
+                                                <p className="text-xs font-medium text-[#EDEDF0]">
+                                                    {isExtractingEmails ? 'Scanning spreadsheet and extracting emails...' : 'Click or drop Excel spreadsheet here'}
+                                                </p>
+                                                <p className="text-[10px] text-[#555568]">
+                                                    Supports Excel (.xlsx, .xls) and CSV sheets with any number of rows
+                                                </p>
+                                            </div>
+                                        ) : (
+                                            <div className="p-3 bg-[#14141A] border border-emerald-500/30 rounded-lg flex items-center justify-between gap-3 text-xs">
+                                                <div className="flex items-center gap-2.5 min-w-0">
+                                                    <div className="w-7 h-7 rounded bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 flex-shrink-0">
+                                                        <FileSpreadsheet className="w-4 h-4" />
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <p className="text-[#EDEDF0] truncate font-medium">{excelFile.name}</p>
+                                                        <p className="text-[11px] text-emerald-400 font-mono">
+                                                            ✓ {excelFile.count} email{excelFile.count !== 1 ? 's' : ''} extracted ({excelFile.size})
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-1.5 flex-shrink-0">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => document.getElementById('excel-file-input')?.click()}
+                                                        className="studio-btn-secondary text-[11px] py-1 px-2 text-[#EDEDF0]"
+                                                    >
+                                                        Replace
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setExcelFile(null);
+                                                            setEligibleEmails('');
+                                                        }}
+                                                        className="p-1 rounded text-[#8B8B9E] hover:text-red-400"
+                                                        title="Remove spreadsheet"
+                                                    >
+                                                        <Trash2 className="w-3.5 h-3.5" />
+                                                    </button>
+                                                    <input
+                                                        id="excel-file-input"
+                                                        type="file"
+                                                        accept=".xlsx,.xls,.csv"
+                                                        className="hidden"
+                                                        onChange={(e) => {
+                                                            if (e.target.files && e.target.files[0]) {
+                                                                handleExcelUpload(e.target.files[0]);
+                                                            }
+                                                        }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Email List Textarea */}
+                                    <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between text-xs">
+                                            <label className="text-[11px] font-medium text-[#8B8B9E] flex items-center gap-1.5">
+                                                <span>Authorized Candidate Emails</span>
+                                                {eligibleEmails && (
+                                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                                        {eligibleEmails.split(/[\n,;]+/).filter(e => e.trim()).length} candidates
+                                                    </span>
+                                                )}
+                                            </label>
+                                            {eligibleEmails && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setEligibleEmails('')}
+                                                    className="text-[10px] text-[#8B8B9E] hover:text-red-400 transition-colors"
+                                                >
+                                                    Clear All
+                                                </button>
+                                            )}
+                                        </div>
+                                        <textarea
+                                            rows={3}
+                                            value={eligibleEmails}
+                                            onChange={(e) => setEligibleEmails(e.target.value)}
+                                            placeholder="Paste candidate emails or upload an Excel file above (sarah@example.com, alex@mit.edu)..."
+                                            className="studio-input font-mono text-xs resize-y"
+                                        />
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -789,15 +985,15 @@ const CreateAssessment = () => {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="btn-primary w-full py-2.5 mt-2"
+                            className="btn-primary w-full py-2.5 mt-2 transition-all duration-200"
                         >
                             {loading ? (
-                                <span className="flex items-center gap-2">
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                    <span>Creating assessment...</span>
+                                <span className="flex items-center justify-center gap-2">
+                                    <Loader2 className="w-4 h-4 animate-spin text-white flex-shrink-0" />
+                                    <span className="text-xs font-medium">{creationStep || 'Creating assessment...'}</span>
                                 </span>
                             ) : (
-                                <span className="flex items-center gap-1.5">
+                                <span className="flex items-center justify-center gap-1.5">
                                     <span>Create Assessment</span>
                                     <ArrowRight className="w-4 h-4" />
                                 </span>
