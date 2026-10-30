@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../services/api';
-import { REALISTIC_BLUEPRINT_TEMPLATES } from '../../data/blueprintTemplates';
+import { UNIVERSAL_BLUEPRINT_FORMAT } from '../../data/blueprintTemplates';
 import { 
     ArrowRight, 
     Copy, 
@@ -9,15 +9,15 @@ import {
     ChevronLeft, 
     AlertCircle, 
     CheckCircle2, 
-    Loader2,
-    FileText,
-    UploadCloud,
-    Sparkles,
-    Trash2,
-    BookOpen,
-    X,
-    MessageSquare,
-    Terminal
+    Loader2, 
+    FileText, 
+    UploadCloud, 
+    Sparkles, 
+    Trash2, 
+    BookOpen, 
+    X, 
+    MessageSquare, 
+    Terminal 
 } from 'lucide-react';
 
 const CreateAssessment = () => {
@@ -41,9 +41,9 @@ const CreateAssessment = () => {
     const [codingRoundEnabled, setCodingRoundEnabled] = useState(true);
     const voiceRoundEnabled = true; // Always conversational voice dialogue with Rohan
 
-    // blueprint template modal state
+    // universal format modal state
     const [showTemplateModal, setShowTemplateModal] = useState(false);
-    const [activeTemplateIdx, setActiveTemplateIdx] = useState(0);
+    const [formatCopied, setFormatCopied] = useState(false);
 
     // other state
     const [roles, setRoles] = useState([]);
@@ -142,22 +142,17 @@ const CreateAssessment = () => {
         }
     };
 
-    const applyTemplate = (tmpl) => {
+    const applyUniversalFormat = () => {
         setBlueprintMode('text');
-        setBlueprint(tmpl.blueprintText);
+        setBlueprint(UNIVERSAL_BLUEPRINT_FORMAT);
         setBlueprintFile(null);
-        if (tmpl.suggestedDuration) {
-            setDurationMinutes(tmpl.suggestedDuration);
-        }
-        if (tmpl.suggestedSkills && tmpl.suggestedSkills.length > 0) {
-            setSkills(tmpl.suggestedSkills);
-        }
-        if (tmpl.codingRoundEnabled !== undefined) {
-            setCodingRoundEnabled(tmpl.codingRoundEnabled);
-        }
         setShowTemplateModal(false);
-        // Automatically trigger AI synthesis for the selected template
-        triggerSynthesis({ text: tmpl.blueprintText });
+    };
+
+    const copyUniversalFormat = () => {
+        navigator.clipboard.writeText(UNIVERSAL_BLUEPRINT_FORMAT);
+        setFormatCopied(true);
+        setTimeout(() => setFormatCopied(false), 2000);
     };
 
     const handleSubmit = async (e) => {
@@ -438,10 +433,10 @@ const CreateAssessment = () => {
                                         type="button"
                                         onClick={() => setShowTemplateModal(true)}
                                         className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 border border-blue-500/20 transition-all"
-                                        title="View realistic production templates"
+                                        title="View universal blueprint text format"
                                     >
                                         <BookOpen className="w-3.5 h-3.5" />
-                                        <span>Format Guide</span>
+                                        <span>Universal Format</span>
                                     </button>
 
                                     <div className="segmented-pill-container text-[11px]">
@@ -902,10 +897,10 @@ const CreateAssessment = () => {
                 </div>
             </div>
 
-            {/* Realistic Blueprint Format & Templates Modal */}
+            {/* Universal Blueprint Format Modal */}
             {showTemplateModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-[#141419] border border-[#232330] rounded-2xl max-w-3xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+                    <div className="bg-[#141419] border border-[#232330] rounded-2xl max-w-2xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
                         {/* Modal Header */}
                         <div className="flex items-center justify-between p-5 border-b border-[#232330]">
                             <div className="flex items-center gap-2.5">
@@ -914,10 +909,10 @@ const CreateAssessment = () => {
                                 </div>
                                 <div>
                                     <h3 className="text-base font-semibold text-[#EDEDF0]">
-                                        Interview Blueprint Format & Realistic Examples
+                                        Universal Blueprint Format
                                     </h3>
                                     <p className="text-xs text-[#8B8B9E]">
-                                        Production-grade templates showing how real companies structure conversational technical rounds.
+                                        Standard structure used by the AI interviewer to configure technical rounds.
                                     </p>
                                 </div>
                             </div>
@@ -930,115 +925,44 @@ const CreateAssessment = () => {
                             </button>
                         </div>
 
-                        {/* Modal Body */}
-                        <div className="p-5 overflow-y-auto space-y-4 flex-1">
-                            {/* Explanation Banner */}
-                            <div className="p-3.5 bg-[#0A0A0B] border border-[#232330] rounded-xl text-xs space-y-2 text-[#8B8B9E] leading-relaxed">
-                                <span className="font-semibold text-[#EDEDF0] flex items-center gap-1.5">
-                                    <Sparkles className="w-3.5 h-3.5 text-blue-400" />
-                                    <span>How VoxCode's Autonomous Interviewer Uses Your Blueprint</span>
-                                </span>
-                                <p>
-                                    Your blueprint tells Rohan the round timeline, whether to open the Monaco code editor or evaluate verbally, and the depth of system design to probe.
-                                </p>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-[11px]">
-                                    <div className="p-2 rounded bg-[#141419] border border-[#232330] space-y-0.5">
-                                        <span className="font-semibold text-emerald-400 flex items-center gap-1">
-                                            <Terminal className="w-3 h-3" />
-                                            <span>Rounds with Coding</span>
-                                        </span>
-                                        <p className="text-[#8B8B9E]">
-                                            Rohan leads conversational technical warmup and architecture, then transitions the candidate to live problem-solving in Monaco IDE.
-                                        </p>
-                                    </div>
-                                    <div className="p-2 rounded bg-[#141419] border border-[#232330] space-y-0.5">
-                                        <span className="font-semibold text-purple-400 flex items-center gap-1">
-                                            <MessageSquare className="w-3 h-3" />
-                                            <span>Architecture & Verbal Rounds</span>
-                                        </span>
-                                        <p className="text-[#8B8B9E]">
-                                            Candidates explain architectural trade-offs, algorithms, and pseudo-code verbally without touching a code editor.
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Template Tabs */}
-                            <div className="flex items-center gap-2 overflow-x-auto pb-1">
-                                {REALISTIC_BLUEPRINT_TEMPLATES.map((tmpl, idx) => (
-                                    <button
-                                        key={tmpl.id}
-                                        type="button"
-                                        onClick={() => setActiveTemplateIdx(idx)}
-                                        className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap border transition-all ${
-                                            activeTemplateIdx === idx
-                                                ? 'bg-[#1C1C24] text-[#EDEDF0] border-blue-500/40 shadow-sm'
-                                                : 'text-[#8B8B9E] border-[#232330] hover:text-[#EDEDF0] hover:bg-[#1C1C24]/50'
-                                        }`}
-                                    >
-                                        <span>{tmpl.title}</span>
-                                    </button>
-                                ))}
-                            </div>
-
-                            {/* Active Template Card */}
-                            {REALISTIC_BLUEPRINT_TEMPLATES[activeTemplateIdx] && (
-                                <div className="space-y-3">
-                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 bg-[#0A0A0B] border border-[#232330] rounded-xl text-xs">
-                                        <div>
-                                            <span className="text-[#8B8B9E] block text-[11px]">Role & Focus</span>
-                                            <span className="font-semibold text-[#EDEDF0] block text-sm">
-                                                {REALISTIC_BLUEPRINT_TEMPLATES[activeTemplateIdx].role}
-                                            </span>
-                                            <p className="text-[#8B8B9E] text-[11px] mt-0.5">
-                                                {REALISTIC_BLUEPRINT_TEMPLATES[activeTemplateIdx].summary}
-                                            </p>
-                                        </div>
-                                        <div className="flex items-center gap-2 self-start sm:self-center flex-shrink-0">
-                                            <span className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${
-                                                REALISTIC_BLUEPRINT_TEMPLATES[activeTemplateIdx].codingRoundEnabled
-                                                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                                                    : 'bg-purple-500/10 text-purple-400 border-purple-500/20'
-                                            }`}>
-                                                {REALISTIC_BLUEPRINT_TEMPLATES[activeTemplateIdx].badge}
-                                            </span>
-                                            <span className="px-2 py-0.5 rounded text-[10px] bg-[#1C1C24] border border-[#232330] text-[#8B8B9E]">
-                                                {REALISTIC_BLUEPRINT_TEMPLATES[activeTemplateIdx].suggestedDuration} mins
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    {/* Blueprint Text Preview */}
-                                    <div className="relative">
-                                        <textarea
-                                            readOnly
-                                            rows={12}
-                                            value={REALISTIC_BLUEPRINT_TEMPLATES[activeTemplateIdx].blueprintText}
-                                            className="w-full p-3.5 bg-[#0A0A0B] border border-[#232330] rounded-xl font-mono text-xs text-[#EDEDF0] leading-relaxed resize-none focus:outline-none"
-                                        />
-                                    </div>
-                                </div>
-                            )}
+                        {/* Modal Body: Universal Text Only */}
+                        <div className="p-5 overflow-y-auto space-y-3 flex-1">
+                            <textarea
+                                readOnly
+                                rows={14}
+                                value={UNIVERSAL_BLUEPRINT_FORMAT}
+                                className="w-full p-4 bg-[#0A0A0B] border border-[#232330] rounded-xl font-mono text-xs text-[#EDEDF0] leading-relaxed resize-none focus:outline-none select-all"
+                            />
                         </div>
 
                         {/* Modal Footer */}
                         <div className="p-4 border-t border-[#232330] flex items-center justify-between gap-3 bg-[#0E0E12]">
                             <button
                                 type="button"
-                                onClick={() => setShowTemplateModal(false)}
-                                className="studio-btn-secondary px-4 py-2 text-xs font-medium"
+                                onClick={copyUniversalFormat}
+                                className="studio-btn-secondary px-3.5 py-2 text-xs font-medium flex items-center gap-1.5 text-[#EDEDF0]"
                             >
-                                Close
+                                {formatCopied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-[#8B8B9E]" />}
+                                <span>{formatCopied ? 'Copied' : 'Copy Format'}</span>
                             </button>
 
-                            <button
-                                type="button"
-                                onClick={() => applyTemplate(REALISTIC_BLUEPRINT_TEMPLATES[activeTemplateIdx])}
-                                className="btn-primary px-4 py-2 text-xs font-medium flex items-center gap-1.5"
-                            >
-                                <Sparkles className="w-3.5 h-3.5" />
-                                <span>Use This Blueprint Template</span>
-                            </button>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowTemplateModal(false)}
+                                    className="studio-btn-secondary px-3.5 py-2 text-xs font-medium"
+                                >
+                                    Close
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={applyUniversalFormat}
+                                    className="btn-primary px-4 py-2 text-xs font-medium flex items-center gap-1.5"
+                                >
+                                    <Sparkles className="w-3.5 h-3.5" />
+                                    <span>Insert into Blueprint</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
