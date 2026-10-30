@@ -90,12 +90,12 @@ const Login = () => {
                             <h1 className="text-3xl xl:text-[2.65rem] font-bold tracking-tight text-[#EDEDF0] leading-[1.14]">
                                 {role === 'COMPANY'
                                     ? 'Conduct technical rounds with zero recruiter fatigue.'
-                                    : 'Take realistic technical rounds through authentic spoken dialogue.'}
+                                    : 'Take unbiased technical rounds with zero panel luck.'}
                             </h1>
                             <p className="text-xs xl:text-sm text-[#8B8B9E] leading-relaxed max-w-lg">
                                 {role === 'COMPANY'
                                     ? 'VoxCode pairs candidates with an autonomous lead engineer. From architecture defense to live Monaco execution, screen engineering talent without scheduling bottlenecks.'
-                                    : 'VoxCode pairs you with an autonomous tech lead. Talk through real system architecture, solve coding challenges in a live Monaco IDE, and get instant rubric feedback—on your own schedule.'}
+                                    : 'VoxCode evaluates pure engineering merit, not interviewer mood or panel roulette. Discuss real system architecture, solve coding challenges in Monaco IDE, and get fair, rubric-backed scoring.'}
                             </p>
                         </div>
 
@@ -119,16 +119,16 @@ const Login = () => {
                             ) : (
                                 <>
                                     <div className="p-3 rounded-lg bg-[#141419] border border-[#232330] space-y-1">
-                                        <span className="text-xs font-semibold text-[#EDEDF0] block">Real-Time Voice</span>
-                                        <span className="text-[11px] text-[#8B8B9E] leading-snug block">Natural, bidirectional spoken dialogues with sub-100ms response audio.</span>
+                                        <span className="text-xs font-semibold text-[#EDEDF0] block">Standardized Rounds</span>
+                                        <span className="text-[11px] text-[#8B8B9E] leading-snug block">Consistent, conversational interviews that focus on your technical depth, free from interviewer bias.</span>
                                     </div>
                                     <div className="p-3 rounded-lg bg-[#141419] border border-[#232330] space-y-1">
                                         <span className="text-xs font-semibold text-[#EDEDF0] block">Live Code Sandbox</span>
                                         <span className="text-[11px] text-[#8B8B9E] leading-snug block">Interactive multi-language Monaco editor with real-time test execution.</span>
                                     </div>
                                     <div className="p-3 rounded-lg bg-[#141419] border border-[#232330] space-y-1">
-                                        <span className="text-xs font-semibold text-[#EDEDF0] block">Objective Feedback</span>
-                                        <span className="text-[11px] text-[#8B8B9E] leading-snug block">Transparent scorecards covering DSA, architecture depth, and code quality.</span>
+                                        <span className="text-xs font-semibold text-[#EDEDF0] block">Objective Rubrics</span>
+                                        <span className="text-[11px] text-[#8B8B9E] leading-snug block">Evidence-based scorecards across DSA, code quality, and system design so your true skills shine.</span>
                                     </div>
                                 </>
                             )}
@@ -138,9 +138,9 @@ const Login = () => {
                         <div className="pt-2 flex items-center justify-between text-[11px] font-mono text-[#555568] border-t border-[#232330]">
                             <span className="flex items-center gap-1.5">
                                 <span className="w-1.5 h-1.5 rounded-full bg-blue-500/60 inline-block" />
-                                {role === 'COMPANY' ? 'Zero Scheduling Lag' : 'Real-Time Spoken Audio (< 90ms)'}
+                                {role === 'COMPANY' ? 'Zero Scheduling Lag' : 'Zero Interviewer Bias'}
                             </span>
-                            <span>{role === 'COMPANY' ? 'Objective Rubric Scoring' : 'Interactive Monaco Sandbox'}</span>
+                            <span>{role === 'COMPANY' ? 'Objective Rubric Scoring' : 'Standardized Rubric Evaluation'}</span>
                         </div>
                     </div>
                 </div>

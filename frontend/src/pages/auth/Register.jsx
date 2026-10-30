@@ -42,12 +42,12 @@ const Register = () => {
                             <h1 className="text-3xl xl:text-[2.65rem] font-bold tracking-tight text-[#EDEDF0] leading-[1.14]">
                                 {role === 'COMPANY'
                                     ? 'Conduct technical rounds with zero recruiter fatigue.'
-                                    : 'Take realistic technical rounds through authentic spoken dialogue.'}
+                                    : 'Take unbiased technical rounds with zero panel luck.'}
                             </h1>
                             <p className="text-xs xl:text-sm text-[#8B8B9E] leading-relaxed max-w-lg">
                                 {role === 'COMPANY'
                                     ? 'Join engineering teams using VoxCode. Experience conversational technical interviews tailored to your job descriptions, rubrics, and coding standards.'
-                                    : 'Join developers practicing for top engineering roles. Experience conversational technical rounds tailored to your stack, resume projects, and coding level.'}
+                                    : 'Join developers practicing for top engineering roles. Experience fair, conversational technical rounds where your engineering ability matters—not interviewer bias or panel luck.'}
                             </p>
                         </div>
 
@@ -71,16 +71,16 @@ const Register = () => {
                             ) : (
                                 <>
                                     <div className="p-3 rounded-lg bg-[#141419] border border-[#232330] space-y-1">
-                                        <span className="text-xs font-semibold text-[#EDEDF0] block">Real-Time Voice</span>
-                                        <span className="text-[11px] text-[#8B8B9E] leading-snug block">Natural, bidirectional spoken dialogues with sub-100ms response audio.</span>
+                                        <span className="text-xs font-semibold text-[#EDEDF0] block">Standardized Rounds</span>
+                                        <span className="text-[11px] text-[#8B8B9E] leading-snug block">Consistent, conversational interviews that focus on your technical depth, free from interviewer bias.</span>
                                     </div>
                                     <div className="p-3 rounded-lg bg-[#141419] border border-[#232330] space-y-1">
                                         <span className="text-xs font-semibold text-[#EDEDF0] block">Live Code Sandbox</span>
                                         <span className="text-[11px] text-[#8B8B9E] leading-snug block">Interactive multi-language Monaco editor with real-time test execution.</span>
                                     </div>
                                     <div className="p-3 rounded-lg bg-[#141419] border border-[#232330] space-y-1">
-                                        <span className="text-xs font-semibold text-[#EDEDF0] block">Objective Feedback</span>
-                                        <span className="text-[11px] text-[#8B8B9E] leading-snug block">Transparent scorecards covering DSA, architecture depth, and code quality.</span>
+                                        <span className="text-xs font-semibold text-[#EDEDF0] block">Objective Rubrics</span>
+                                        <span className="text-[11px] text-[#8B8B9E] leading-snug block">Evidence-based scorecards across DSA, code quality, and system design so your true skills shine.</span>
                                     </div>
                                 </>
                             )}
@@ -107,11 +107,11 @@ const Register = () => {
                                 <>
                                     <div className="space-y-0.5">
                                         <div className="text-lg sm:text-xl font-bold font-mono text-[#EDEDF0]">100%</div>
-                                        <div className="text-[11px] text-[#8B8B9E]">Spoken & Interactive</div>
+                                        <div className="text-[11px] text-[#8B8B9E]">Standardized Rubrics</div>
                                     </div>
                                     <div className="space-y-0.5">
-                                        <div className="text-lg sm:text-xl font-bold font-mono text-emerald-400">&lt; 90ms</div>
-                                        <div className="text-[11px] text-[#8B8B9E]">Voice Audio Latency</div>
+                                        <div className="text-lg sm:text-xl font-bold font-mono text-emerald-400">0%</div>
+                                        <div className="text-[11px] text-[#8B8B9E]">Interviewer Bias</div>
                                     </div>
                                     <div className="space-y-0.5">
                                         <div className="text-lg sm:text-xl font-bold font-mono text-blue-400">24 / 7</div>
