@@ -80,19 +80,19 @@ const Login = () => {
     };
 
     return (
-        <div className="flex-1 flex items-center justify-center py-10 px-4 sm:px-6 lg:px-8">
-            <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-14 items-center">
+        <div className="flex-1 flex items-center justify-center py-4 sm:py-6 px-4 sm:px-6 lg:px-8 my-auto">
+            <div className="w-full max-w-5xl xl:max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10 xl:gap-14 items-center">
                 {/* Left Side: Editorial Branding */}
-                <div className="hidden lg:flex lg:col-span-7 flex-col justify-center space-y-6 pr-4">
-                    <div key={role} className="space-y-6 transition-all duration-200">
+                <div className="hidden lg:flex lg:col-span-7 flex-col justify-center space-y-4 xl:space-y-5 pr-2 xl:pr-4">
+                    <div key={role} className="space-y-4 xl:space-y-5 transition-all duration-200">
                         {/* Headline & Description */}
-                        <div className="space-y-3">
-                            <h1 className="text-4xl xl:text-5xl font-bold tracking-tight text-[#EDEDF0] leading-[1.12]">
+                        <div className="space-y-2 sm:space-y-2.5">
+                            <h1 className="text-3xl xl:text-[2.65rem] font-bold tracking-tight text-[#EDEDF0] leading-[1.14]">
                                 {role === 'COMPANY'
                                     ? 'Conduct technical rounds with zero recruiter fatigue.'
                                     : 'Take realistic technical rounds through authentic spoken dialogue.'}
                             </h1>
-                            <p className="text-sm xl:text-base text-[#8B8B9E] leading-relaxed max-w-xl">
+                            <p className="text-xs xl:text-sm text-[#8B8B9E] leading-relaxed max-w-lg">
                                 {role === 'COMPANY'
                                     ? 'VoxCode pairs candidates with an autonomous lead engineer. From architecture defense to live Monaco execution, screen engineering talent without scheduling bottlenecks.'
                                     : 'VoxCode pairs you with an autonomous tech lead. Talk through real system architecture, solve coding challenges in a live Monaco IDE, and get instant rubric feedback—on your own schedule.'}
@@ -100,33 +100,33 @@ const Login = () => {
                         </div>
 
                         {/* Key Engineering Pillars */}
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
                             {role === 'COMPANY' ? (
                                 <>
-                                    <div className="p-3.5 rounded-lg bg-[#141419] border border-[#232330] space-y-1">
+                                    <div className="p-3 rounded-lg bg-[#141419] border border-[#232330] space-y-1">
                                         <span className="text-xs font-semibold text-[#EDEDF0] block">Autonomous Vetting</span>
                                         <span className="text-[11px] text-[#8B8B9E] leading-snug block">Standardized voice rounds that probe deep system design without interviewer burnout.</span>
                                     </div>
-                                    <div className="p-3.5 rounded-lg bg-[#141419] border border-[#232330] space-y-1">
+                                    <div className="p-3 rounded-lg bg-[#141419] border border-[#232330] space-y-1">
                                         <span className="text-xs font-semibold text-[#EDEDF0] block">Live Code Sandbox</span>
                                         <span className="text-[11px] text-[#8B8B9E] leading-snug block">Multi-language sandboxes with automated test verification and code replay.</span>
                                     </div>
-                                    <div className="p-3.5 rounded-lg bg-[#141419] border border-[#232330] space-y-1">
+                                    <div className="p-3 rounded-lg bg-[#141419] border border-[#232330] space-y-1">
                                         <span className="text-xs font-semibold text-[#EDEDF0] block">Instant Rubrics</span>
                                         <span className="text-[11px] text-[#8B8B9E] leading-snug block">Objective, evidence-based candidate scorecards delivered in under 30 seconds.</span>
                                     </div>
                                 </>
                             ) : (
                                 <>
-                                    <div className="p-3.5 rounded-lg bg-[#141419] border border-[#232330] space-y-1">
+                                    <div className="p-3 rounded-lg bg-[#141419] border border-[#232330] space-y-1">
                                         <span className="text-xs font-semibold text-[#EDEDF0] block">Real-Time Voice</span>
                                         <span className="text-[11px] text-[#8B8B9E] leading-snug block">Natural, bidirectional spoken dialogues with sub-100ms response audio.</span>
                                     </div>
-                                    <div className="p-3.5 rounded-lg bg-[#141419] border border-[#232330] space-y-1">
+                                    <div className="p-3 rounded-lg bg-[#141419] border border-[#232330] space-y-1">
                                         <span className="text-xs font-semibold text-[#EDEDF0] block">Live Code Sandbox</span>
                                         <span className="text-[11px] text-[#8B8B9E] leading-snug block">Interactive multi-language Monaco editor with real-time test execution.</span>
                                     </div>
-                                    <div className="p-3.5 rounded-lg bg-[#141419] border border-[#232330] space-y-1">
+                                    <div className="p-3 rounded-lg bg-[#141419] border border-[#232330] space-y-1">
                                         <span className="text-xs font-semibold text-[#EDEDF0] block">Objective Feedback</span>
                                         <span className="text-[11px] text-[#8B8B9E] leading-snug block">Transparent scorecards covering DSA, architecture depth, and code quality.</span>
                                     </div>
@@ -146,25 +146,25 @@ const Login = () => {
                 </div>
 
                 {/* Right Side: Login Card */}
-                <div className="lg:col-span-5 w-full max-w-md mx-auto space-y-6">
+                <div className="lg:col-span-5 w-full max-w-sm sm:max-w-md mx-auto space-y-3">
                     {/* Brand & Heading */}
-                    <div className="text-center space-y-2">
-                        <h1 className="text-2xl font-semibold tracking-tight text-[#EDEDF0]">
+                    <div className="text-center space-y-1">
+                        <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-[#EDEDF0]">
                             Welcome back
                         </h1>
-                        <p className="text-sm text-[#8B8B9E]">
+                        <p className="text-xs sm:text-sm text-[#8B8B9E]">
                             Sign in to your VoxCode account
                         </p>
                     </div>
 
                     {/* Main Card */}
-                    <div className="bg-[#141419] border border-[#232330] rounded-xl p-6 sm:p-8 space-y-5 shadow-2xl">
+                    <div className="bg-[#141419] border border-[#232330] rounded-xl p-5 sm:p-6 space-y-3.5 shadow-2xl">
                         {/* Role Selector Pill */}
                         <div className="grid grid-cols-2 p-1 role-pill-container border rounded-lg gap-1">
                             <button
                                 type="button"
                                 onClick={() => setRole('CANDIDATE')}
-                                className={`py-2 text-xs font-semibold rounded-md border transition-all ${
+                                className={`py-1.5 text-xs font-semibold rounded-md border transition-all ${
                                     role === 'CANDIDATE'
                                         ? 'role-pill-btn-active'
                                         : 'role-pill-btn-inactive border-transparent'
@@ -175,7 +175,7 @@ const Login = () => {
                             <button
                                 type="button"
                                 onClick={() => setRole('COMPANY')}
-                                className={`py-2 text-xs font-semibold rounded-md border transition-all ${
+                                className={`py-1.5 text-xs font-semibold rounded-md border transition-all ${
                                     role === 'COMPANY'
                                         ? 'role-pill-btn-active'
                                         : 'role-pill-btn-inactive border-transparent'
@@ -187,16 +187,16 @@ const Login = () => {
 
                         {/* Error Banner */}
                         {error && (
-                            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-xs text-red-400 flex items-center gap-2">
+                            <div className="p-2.5 bg-red-500/10 border border-red-500/20 rounded-lg text-xs text-red-400 flex items-center gap-2">
                                 <AlertCircle className="w-4 h-4 flex-shrink-0" />
                                 <span>{error}</span>
                             </div>
                         )}
 
                         {/* Login Form */}
-                        <form onSubmit={handleSubmit} className="space-y-4">
-                            <div className="space-y-1.5">
-                                <label className="text-xs font-medium text-[#8B8B9E] block">
+                        <form onSubmit={handleSubmit} className="space-y-3">
+                            <div className="space-y-1">
+                                <label className="text-[11px] sm:text-xs font-medium text-[#8B8B9E] block">
                                     Email address
                                 </label>
                                 <input
@@ -205,16 +205,16 @@ const Login = () => {
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
                                     placeholder="name@example.com"
-                                    className="studio-input"
+                                    className="studio-input py-2 text-xs sm:text-sm"
                                 />
                             </div>
 
-                            <div className="space-y-1.5">
+                            <div className="space-y-1">
                                 <div className="flex items-center justify-between">
-                                    <label className="text-xs font-medium text-[#8B8B9E]">
+                                    <label className="text-[11px] sm:text-xs font-medium text-[#8B8B9E]">
                                         Password
                                     </label>
-                                    <span className="text-xs text-[#555568]">Min. 6 chars</span>
+                                    <span className="text-[11px] text-[#555568]">Min. 6 chars</span>
                                 </div>
                                 <input
                                     type="password"
@@ -222,24 +222,24 @@ const Login = () => {
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     placeholder="••••••••••••"
-                                    className="studio-input"
+                                    className="studio-input py-2 text-xs sm:text-sm"
                                 />
                             </div>
 
                             <button
                                 type="submit"
                                 disabled={isSubmitting}
-                                className="btn-primary w-full py-2.5 mt-2"
+                                className="btn-primary w-full py-2 text-xs sm:text-sm mt-1"
                             >
                                 {isSubmitting ? (
                                     <span className="flex items-center gap-2">
-                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
                                         <span>Signing in...</span>
                                     </span>
                                 ) : (
                                     <span className="flex items-center gap-1.5">
                                         <span>Sign in</span>
-                                        <ArrowRight className="w-4 h-4" />
+                                        <ArrowRight className="w-3.5 h-3.5" />
                                     </span>
                                 )}
                             </button>
@@ -247,7 +247,7 @@ const Login = () => {
 
                         {/* Google OAuth (Candidate only) */}
                         {role === 'CANDIDATE' && (
-                            <div className="space-y-3 pt-1">
+                            <div className="space-y-2 pt-0.5">
                                 <div className="relative flex items-center justify-center">
                                     <div className="border-t auth-divider-line w-full"></div>
                                     <span className="auth-divider-badge px-2 text-[10px] font-mono uppercase absolute">
@@ -257,9 +257,9 @@ const Login = () => {
 
                                 <a
                                     href={`${(import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/+$/, '')}/auth/google`}
-                                    className="studio-btn-secondary w-full py-2.5 flex items-center justify-center gap-2.5 text-xs font-mono font-medium hover:border-[#3F3F46] transition-all"
+                                    className="studio-btn-secondary w-full py-2 flex items-center justify-center gap-2 text-xs font-mono font-medium hover:border-[#3F3F46] transition-all"
                                 >
-                                    <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24">
+                                    <svg className="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 24 24">
                                         <path
                                             fill="#EA4335"
                                             d="M12 5c1.6 0 3 .6 4.1 1.6l3.1-3.1C17.3 1.8 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.4 9 5 12 5z"
@@ -283,8 +283,8 @@ const Login = () => {
                         )}
 
                         {/* Quick Demo Access */}
-                        <div className="border-t border-[#232330] pt-4 space-y-2">
-                            <span className="text-[11px] font-medium text-[#555568] block">
+                        <div className="border-t border-[#232330] pt-2.5 space-y-1.5">
+                            <span className="text-[10px] sm:text-[11px] font-medium text-[#555568] block">
                                 Quick demo accounts:
                             </span>
                             <div className="grid grid-cols-2 gap-2">
@@ -295,7 +295,7 @@ const Login = () => {
                                         setEmail('sarah.chen@example.com');
                                         setPassword('password123');
                                     }}
-                                    className="studio-btn-secondary text-xs py-1.5 justify-start text-left"
+                                    className="studio-btn-secondary text-[11px] py-1 px-2.5 justify-start text-left"
                                 >
                                     <span className="truncate">Sarah (Candidate)</span>
                                 </button>
@@ -306,7 +306,7 @@ const Login = () => {
                                         setEmail('recruiter@acme.ai');
                                         setPassword('password123');
                                     }}
-                                    className="studio-btn-secondary text-xs py-1.5 justify-start text-left"
+                                    className="studio-btn-secondary text-[11px] py-1 px-2.5 justify-start text-left"
                                 >
                                     <span className="truncate">Recruiter Demo</span>
                                 </button>
@@ -315,7 +315,7 @@ const Login = () => {
                     </div>
 
                     {/* Footer Switch */}
-                    <p className="text-center text-xs text-[#8B8B9E]">
+                    <p className="text-center text-xs text-[#8B8B9E] pt-0.5">
                         Don't have an account?{' '}
                         <Link to="/register" className="text-blue-400 hover:text-blue-300 font-medium">
                             Create an account
