@@ -8,7 +8,11 @@ import {
     AlertCircle, 
     Code2, 
     Cpu, 
-    ShieldCheck
+    ShieldCheck,
+    Target,
+    HelpCircle,
+    Sparkles,
+    Clock
 } from 'lucide-react';
 
 import { CardSkeleton, TableSkeleton } from '../../components/common/Skeleton';
@@ -86,7 +90,18 @@ const ReportDetail = () => {
         );
     }
 
-    const { scores, verdict, summary, strengths, areasForImprovement, codeReview, testCaseResults } = evaluation;
+    const { 
+        scores, 
+        verdict, 
+        summary, 
+        strengths, 
+        areasForImprovement, 
+        codeReview, 
+        testCaseResults,
+        roleRubricsFeedback,
+        candidateQuestionsAsked,
+        companyHistoryContext
+    } = evaluation;
 
     return (
         <div className="flex-1 p-6 sm:p-8 max-w-6xl mx-auto w-full space-y-6">
@@ -463,6 +478,98 @@ const ReportDetail = () => {
                     </span>
                     <p className="text-xs text-[#8B8B9E] leading-relaxed">
                         {summary}
+                    </p>
+                </div>
+            )}
+
+            {/* Role Rubrics & Competencies Assessment */}
+            {roleRubricsFeedback && roleRubricsFeedback.length > 0 && (
+                <div className="bg-[#141419] border border-[#232330] rounded-xl p-6 space-y-4">
+                    <div className="flex items-center justify-between border-b border-[#232330] pb-3">
+                        <span className="text-xs font-semibold text-[#EDEDF0] flex items-center gap-2">
+                            <Target className="w-4 h-4 text-purple-400" />
+                            Role Rubrics & Key Competencies Alignment
+                        </span>
+                        <span className="text-xs text-[#555568]">Blueprint Calibrated</span>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {roleRubricsFeedback.map((rubric, idx) => (
+                            <div key={idx} className="p-3.5 bg-[#0A0A0B] border border-[#232330] rounded-lg space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs font-medium text-[#EDEDF0]">{rubric.competency}</span>
+                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium border ${
+                                        rubric.status === 'EXCEEDS_EXPECTATIONS'
+                                            ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
+                                            : rubric.status === 'MEETS_EXPECTATIONS'
+                                                ? 'text-blue-400 bg-blue-500/10 border-blue-500/20'
+                                                : 'text-amber-400 bg-amber-500/10 border-amber-500/20'
+                                    }`}>
+                                        {rubric.status?.replace(/_/g, ' ') || 'EVALUATED'}
+                                    </span>
+                                </div>
+                                <div className="h-1.5 w-full bg-[#141419] rounded-full overflow-hidden border border-[#232330]">
+                                    <div style={{ width: `${rubric.score || 0}%` }} className="h-full bg-purple-500 rounded-full" />
+                                </div>
+                                <p className="text-[11px] text-[#8B8B9E] leading-relaxed">
+                                    {rubric.feedback}
+                                </p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Questions Asked by Candidate */}
+            {candidateQuestionsAsked && candidateQuestionsAsked.length > 0 && (
+                <div className="bg-[#141419] border border-[#232330] rounded-xl p-6 space-y-4">
+                    <div className="flex items-center justify-between border-b border-[#232330] pb-3">
+                        <span className="text-xs font-semibold text-[#EDEDF0] flex items-center gap-2">
+                            <HelpCircle className="w-4 h-4 text-emerald-400" />
+                            Candidate Questions & Role Inquiry
+                        </span>
+                        <span className="text-xs text-emerald-400 font-medium font-mono">
+                            {candidateQuestionsAsked.length} question{candidateQuestionsAsked.length > 1 ? 's' : ''} asked
+                        </span>
+                    </div>
+                    <div className="space-y-3">
+                        {candidateQuestionsAsked.map((qa, idx) => (
+                            <div key={idx} className="p-4 bg-[#0A0A0B] border border-[#232330] rounded-lg space-y-2.5 text-xs">
+                                <div className="flex items-start gap-2">
+                                    <span className="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 font-mono text-[10px] font-bold mt-0.5">Q</span>
+                                    <span className="text-[#EDEDF0] font-medium leading-relaxed">{qa.question}</span>
+                                </div>
+                                {qa.interviewerAnswer && (
+                                    <div className="flex items-start gap-2 pl-4 border-l-2 border-[#232330] text-[#8B8B9E]">
+                                        <span className="text-[#555568] font-mono text-[10px] uppercase font-semibold mt-0.5">Rohan:</span>
+                                        <span className="leading-relaxed">{qa.interviewerAnswer}</span>
+                                    </div>
+                                )}
+                                {qa.analysis && (
+                                    <div className="bg-[#141419] p-2.5 rounded border border-[#232330] text-[11px] text-emerald-400/90 leading-relaxed flex items-center gap-2">
+                                        <Sparkles className="w-3.5 h-3.5 flex-shrink-0 text-emerald-400" />
+                                        <span>Signal: {qa.analysis}</span>
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Candidate History with Company */}
+            {companyHistoryContext && companyHistoryContext.priorInterviewsCount > 0 && (
+                <div className="bg-[#141419] border border-blue-500/20 rounded-xl p-5 space-y-2 text-xs">
+                    <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-blue-400 flex items-center gap-2">
+                            <Clock className="w-4 h-4" />
+                            Candidate Trajectory with Company
+                        </span>
+                        <span className="text-xs text-[#8B8B9E] font-mono">
+                            {companyHistoryContext.priorInterviewsCount} prior round{companyHistoryContext.priorInterviewsCount > 1 ? 's' : ''}
+                        </span>
+                    </div>
+                    <p className="text-xs text-[#EDEDF0] leading-relaxed">
+                        {companyHistoryContext.trajectorySummary}
                     </p>
                 </div>
             )}

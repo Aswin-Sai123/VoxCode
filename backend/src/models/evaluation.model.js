@@ -59,6 +59,31 @@ const evaluationSchema = new Schema({
         passed: { type: Boolean, default: false },
         executionTime: { type: String, default: '0.00s' }
     }],
+    candidateQuestionsAsked: [{
+        question: { type: String, default: '' },
+        interviewerAnswer: { type: String, default: '' },
+        analysis: { type: String, default: '' }
+    }],
+    companyHistoryContext: {
+        priorInterviewsCount: { type: Number, default: 0 },
+        trajectorySummary: { type: String, default: '' },
+        priorScores: [{
+            overall: { type: Number },
+            date: { type: Date },
+            roleTitle: { type: String },
+            verdict: { type: String }
+        }]
+    },
+    roleRubricsFeedback: [{
+        competency: { type: String, default: '' },
+        score: { type: Number, min: 0, max: 100, default: 0 },
+        status: { 
+            type: String, 
+            enum: ['EXCEEDS_EXPECTATIONS', 'MEETS_EXPECTATIONS', 'BELOW_EXPECTATIONS', 'NOT_EVALUATED'], 
+            default: 'MEETS_EXPECTATIONS' 
+        },
+        feedback: { type: String, default: '' }
+    }],
     recruiterDecision: {
         type: String,
         enum: ['PENDING', 'SHORTLISTED', 'REJECTED', 'ADVANCED_TO_ROUND_2'],

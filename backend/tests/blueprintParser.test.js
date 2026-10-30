@@ -45,3 +45,4 @@ const p5 = getActivePhaseInfo(r1.timeline, 44, 45);
 assert.strictEqual(p5.isFinalClosing, true, 'Minute 44 should be final closing');
 
 console.log('ALL BLUEPRINT PARSER & TIMELINE PACING TESTS PASSED (100%)');
+

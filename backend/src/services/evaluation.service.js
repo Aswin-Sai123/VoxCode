@@ -43,7 +43,7 @@ const callGemini = async (body) => {
 };
 
 /**
- * Safely executes JavaScript code against structured test cases
+ * Safely executes JavaScript / Python / Compiled code against structured test cases
  */
 export const runTestCases = async (language = 'javascript', code = '', testCases = []) => {
     if (!testCases || !Array.isArray(testCases) || testCases.length === 0) {
@@ -205,7 +205,7 @@ ${code}
 };
 
 /**
- * Call Gemini 2.5 Flash to comprehensively grade the transcript and code
+ * Call Gemini 2.5 Flash to comprehensively grade the transcript and code with Role Rubrics, Company History Context & Candidate Q&A
  */
 export const generateAiEvaluation = async ({
     roleTitle = 'Software Engineer',
@@ -216,7 +216,12 @@ export const generateAiEvaluation = async ({
     codeSubmission = {},
     testCaseResults = [],
     candidateResume = '',
-    interviewFormat = 'FULL_INTERVIEW'
+    interviewFormat = 'FULL_INTERVIEW',
+    blueprint = '',
+    roundSummary = '',
+    keyCompetencies = [],
+    skills = [],
+    companyHistory = { priorInterviewsCount: 0, trajectorySummary: '', priorScores: [] }
 }) => {
     const apiKey = process.env.GEMINI_API_KEY;
     const isProjectOnly = interviewFormat === 'PROJECT_AND_TECHNICAL_ONLY';
@@ -236,6 +241,10 @@ export const generateAiEvaluation = async ({
         t => t.role === 'candidate' && typeof t.text === 'string' && t.text.trim().length > 0
     );
     const hasCode = isSubstantiveCode(codeSubmission?.code);
+
+    const competenciesList = keyCompetencies && keyCompetencies.length > 0
+        ? keyCompetencies
+        : (skills && skills.length > 0 ? skills.slice(0, 4) : ['Problem Solving & Algorithms', 'System Architecture', 'Code Quality', 'Technical Communication']);
 
     // Fast-path guard for unattempted / abandoned interviews
     if (candidateMessages.length === 0 && !hasCode) {
@@ -264,7 +273,15 @@ export const generateAiEvaluation = async ({
                     'Implement algorithmic solutions for technical challenges.',
                     'Communicate thought processes clearly during technical assessments.'
                 ]
-            }
+            },
+            roleRubricsFeedback: competenciesList.map(c => ({
+                competency: c,
+                score: 0,
+                status: 'BELOW_EXPECTATIONS',
+                feedback: 'No signal demonstrated as session was unattempted or abandoned.'
+            })),
+            candidateQuestionsAsked: [],
+            companyHistoryContext: companyHistory
         };
     }
 
@@ -292,7 +309,6 @@ export const generateAiEvaluation = async ({
             const depthAvg = Math.round(inlineScores.reduce((s, e) => s + (e.depth || 0), 0) / inlineScores.length);
             communicationScore = Math.min(100, Math.round((conceptualScore + depthAvg) / 2 + (avgWords > 30 ? 5 : 0)));
         } else if (candidateMessages.length > 0) {
-            // Engagement-scaled heuristic (no free 40-point baseline)
             const engagementFactor = Math.min(1, candidateMessages.length / 3);
             const wordFactor = Math.min(1, avgWords / 40);
             const techFactor = Math.min(1, techHits / 4);
@@ -331,6 +347,49 @@ export const generateAiEvaluation = async ({
         else if (overall >= 50) verdict = 'Needs Improvement';
         else verdict = 'Reject';
 
+        // Extract questions asked by the candidate from transcript
+        const extractedQuestions = [];
+        for (let i = 0; i < transcript.length; i++) {
+            const item = transcript[i];
+            if (item.role === 'candidate' && typeof item.text === 'string') {
+                const trimmed = item.text.trim();
+                const isQuestion = trimmed.endsWith('?') || /^(what|how|why|could|can|is|are|tell me|do you)\b/i.test(trimmed);
+                if (isQuestion && trimmed.length > 12) {
+                    const nextAi = transcript.slice(i + 1).find(t => t.role === 'ai');
+                    extractedQuestions.push({
+                        question: trimmed,
+                        interviewerAnswer: nextAi?.text ? nextAi.text.slice(0, 300) : 'Interviewer discussed and provided context on team operations.',
+                        analysis: 'Candidate demonstrated curiosity about engineering practices, architecture, and team workflows.'
+                    });
+                }
+            }
+        }
+
+        // Heuristic role rubrics feedback mapped to competencies
+        const rubricsFeedback = competenciesList.map(comp => {
+            const compLower = comp.toLowerCase();
+            let score = conceptualScore;
+            if (compLower.includes('code') || compLower.includes('algorithm') || compLower.includes('data structure')) {
+                score = Math.round((codingScore + codeQualityScore) / 2);
+            } else if (compLower.includes('communicat') || compLower.includes('collab') || compLower.includes('culture')) {
+                score = communicationScore;
+            }
+            let status = 'MEETS_EXPECTATIONS';
+            if (score >= 80) status = 'EXCEEDS_EXPECTATIONS';
+            else if (score < 55) status = 'BELOW_EXPECTATIONS';
+
+            return {
+                competency: comp,
+                score,
+                status,
+                feedback: score >= 80
+                    ? `Demonstrated advanced knowledge and thorough reasoning across ${comp}.`
+                    : score >= 55
+                        ? `Adequately addressed core aspects of ${comp}; would benefit from deeper architectural examples.`
+                        : `Showed gaps in ${comp} relative to the ${experienceLevel}-level benchmark.`
+            };
+        });
+
         return {
             scores: {
                 overall: Math.min(100, Math.max(0, overall)),
@@ -340,7 +399,7 @@ export const generateAiEvaluation = async ({
                 communication: Math.min(100, Math.max(0, communicationScore))
             },
             verdict,
-            summary: `Evaluation for ${roleTitle} at ${companyName} (${experienceLevel} level). The candidate answered ${candidateMessages.length} questions with an average response length of ${avgWords} words. ${techHits > 5 ? 'Demonstrated strong technical vocabulary usage across responses.' : 'Technical depth in responses was limited.'} ${totalTests > 0 ? `Passed ${passedTests} of ${totalTests} test cases in the coding round.` : isProjectOnly ? 'Evaluated on project discussion and technical architecture.' : 'No coding test cases were executed.'} Note: This evaluation was generated using heuristic analysis.`,
+            summary: `Evaluation for ${roleTitle} at ${companyName} (${experienceLevel} level). ${companyHistory?.trajectorySummary ? companyHistory.trajectorySummary + ' ' : ''}The candidate answered ${candidateMessages.length} questions with an average response length of ${avgWords} words. ${techHits > 5 ? 'Demonstrated strong technical vocabulary usage across responses.' : 'Technical depth in responses was limited.'} ${totalTests > 0 ? `Passed ${passedTests} of ${totalTests} test cases in the coding round.` : isProjectOnly ? 'Evaluated on project discussion and technical architecture.' : 'No coding test cases were executed.'} Note: This evaluation was generated using heuristic analysis.`,
             strengths: candidateMessages.length > 0
                 ? [
                     `Engaged with ${candidateMessages.length} interview questions`,
@@ -366,7 +425,10 @@ export const generateAiEvaluation = async ({
                     'Review the problem constraints and optimize for edge cases.',
                     'Add input validation and error handling for production readiness.'
                 ]
-            }
+            },
+            roleRubricsFeedback: rubricsFeedback,
+            candidateQuestionsAsked: extractedQuestions,
+            companyHistoryContext: companyHistory
         };
     };
 
@@ -393,6 +455,16 @@ Role: ${roleTitle}
 Target Level: ${experienceLevel}
 Company: ${companyName}
 Format: ${isProjectOnly ? 'PROJECT & TECHNICAL ARCHITECTURE ONLY (No live coding round was scheduled. Focus evaluation on their project discussions, architectural depth, trade-offs, and communication.)' : 'FULL TECHNICAL LOOP (Technical / Project discussion followed by live coding challenge)'}
+
+--- ROLE RUBRICS & KEY COMPETENCIES ---
+Round Focus: ${roundSummary || 'Technical & System Architecture Assessment'}
+Competencies to Evaluate: ${competenciesList.join(', ')}
+${blueprint ? `Hiring Blueprint / Rubric Excerpt:\n${blueprint.slice(0, 1500)}\n` : ''}
+
+--- CANDIDATE HISTORY WITH COMPANY (${companyName}) ---
+Prior Completed Interviews with ${companyName}: ${companyHistory.priorInterviewsCount}
+Trajectory Context: ${companyHistory.trajectorySummary || 'First formal interview loop with company.'}
+${companyHistory.priorScores && companyHistory.priorScores.length > 0 ? `Prior Scores: ${JSON.stringify(companyHistory.priorScores)}` : ''}
 
 ${candidateResume ? `--- CANDIDATE RESUME & PROJECTS CONTEXT ---\n${candidateResume}\n` : ''}
 
@@ -423,10 +495,12 @@ ${formattedTranscript || 'No transcript available.'}
 4. Communication (0-100): Did they articulate architectural trade-offs with precision or speak in vague generalities? If they did not speak, award 0.
 5. Overall Score (0-100): Rigorous weighted average. If abandoned or unanswered, MUST be 0.
 6. Hiring Verdict: Choose strictly one of: 'Strong Hire', 'Hire', 'Needs Improvement', 'Reject'.
-7. Executive Summary: Face-to-face facts. 2 detailed paragraphs analyzing technical competency, real-world readiness, and production risks.
+7. Executive Summary: Face-to-face facts. 2 detailed paragraphs analyzing technical competency, real-world readiness, historical context with ${companyName}, and production risks.
 8. Strengths: 3 to 4 specific technical strengths demonstrated with exact evidence from transcript/code (or state 'None demonstrated' if unattempted).
 9. Areas for Improvement: 2 to 3 unvarnished, actionable technical growth areas.
-10. Code Review: Detailed breakdown of correctness, exact Big-O Time & Space complexity with mathematical proof, and specific actionable refactoring suggestions.
+10. Role Rubrics Feedback: Evaluate each target competency (${competenciesList.join(', ')}). For each, provide a score (0-100), status ("EXCEEDS_EXPECTATIONS" | "MEETS_EXPECTATIONS" | "BELOW_EXPECTATIONS"), and a concise 1-2 sentence evidence-based critique.
+11. Candidate Questions Asked: Identify any questions the candidate asked Rohan (about the company, role, team, technology, or process) in the transcript. For each question, record the exact question, interviewer's response summary, and an analysis of what asking this question signals about their seniority and motivation. If none asked, return [].
+12. Code Review: Detailed breakdown of correctness, exact Big-O Time & Space complexity with mathematical proof, and specific actionable refactoring suggestions.
 
 Return ONLY a JSON object matching this exact schema:
 {
@@ -447,6 +521,21 @@ Return ONLY a JSON object matching this exact schema:
   "areasForImprovement": [
     "Improvement area 1",
     "Improvement area 2"
+  ],
+  "roleRubricsFeedback": [
+    {
+      "competency": "Competency name",
+      "score": 85,
+      "status": "EXCEEDS_EXPECTATIONS",
+      "feedback": "Specific feedback on this rubric competency..."
+    }
+  ],
+  "candidateQuestionsAsked": [
+    {
+      "question": "Candidate question text",
+      "interviewerAnswer": "Summary of Rohan's answer",
+      "analysis": "Analysis of candidate curiosity, seniority, or culture fit"
+    }
   ],
   "codeReview": {
     "correctness": "Detailed correctness evaluation...",
@@ -501,12 +590,19 @@ Return ONLY a JSON object matching this exact schema:
                 summary: parsed.summary || fallbackEvaluation.summary,
                 strengths: parsed.strengths && parsed.strengths.length ? parsed.strengths : fallbackEvaluation.strengths,
                 areasForImprovement: parsed.areasForImprovement && parsed.areasForImprovement.length ? parsed.areasForImprovement : fallbackEvaluation.areasForImprovement,
+                roleRubricsFeedback: Array.isArray(parsed.roleRubricsFeedback) && parsed.roleRubricsFeedback.length > 0 
+                    ? parsed.roleRubricsFeedback 
+                    : fallbackEvaluation.roleRubricsFeedback,
+                candidateQuestionsAsked: Array.isArray(parsed.candidateQuestionsAsked) 
+                    ? parsed.candidateQuestionsAsked 
+                    : fallbackEvaluation.candidateQuestionsAsked,
                 codeReview: {
                     correctness: parsed.codeReview?.correctness || fallbackEvaluation.codeReview.correctness,
                     timeComplexity: parsed.codeReview?.timeComplexity || fallbackEvaluation.codeReview.timeComplexity,
                     spaceComplexity: parsed.codeReview?.spaceComplexity || fallbackEvaluation.codeReview.spaceComplexity,
                     suggestions: parsed.codeReview?.suggestions || fallbackEvaluation.codeReview.suggestions
-                }
+                },
+                companyHistoryContext: companyHistory
             };
         }
     } catch (err) {
@@ -525,7 +621,7 @@ export const evaluateInterviewSession = async (sessionId) => {
         .populate({
             path: 'assessment',
             populate: [
-                { path: 'role', select: 'title' },
+                { path: 'role', select: 'title description' },
                 { path: 'company', select: 'name' }
             ]
         });
@@ -564,24 +660,85 @@ export const evaluateInterviewSession = async (sessionId) => {
         testCases
     );
 
-    // 2. Call Gemini for AI Scoring & Evaluation
-    const roleTitle = session.assessment?.targetRoleTitle || session.assessment?.role?.title || session.assessment?.title || 'Software Engineer';
-    const companyName = session.assessment?.targetCompanyName || session.assessment?.company?.name || 'Engineering Team';
+    // 2. Compute Candidate History Context with Company
+    const candidateId = session.candidate?._id || session.candidate;
+    const companyId = session.assessment?.company?._id || session.assessment?.company;
+    const targetCompanyName = session.assessment?.targetCompanyName || session.assessment?.company?.name || 'Engineering Team';
 
+    let priorEvaluations = [];
+    try {
+        priorEvaluations = await Evaluation.find({
+            candidate: candidateId,
+            session: { $ne: session._id },
+            status: 'COMPLETED'
+        })
+        .populate({
+            path: 'assessment',
+            select: 'company targetCompanyName title role targetRoleTitle'
+        })
+        .sort({ createdAt: -1 })
+        .limit(10);
+    } catch (e) {
+        console.warn('[Evaluation] Could not fetch prior candidate evaluations:', e.message);
+    }
+
+    const companyPriorEvals = priorEvaluations.filter(e => {
+        const evalCompanyId = e.assessment?.company?.toString();
+        const evalCompName = (e.assessment?.targetCompanyName || '').trim().toLowerCase();
+        const currCompName = (targetCompanyName || '').trim().toLowerCase();
+        if (companyId && evalCompanyId === companyId.toString()) return true;
+        if (currCompName && evalCompName && evalCompName === currCompName) return true;
+        return false;
+    });
+
+    const priorScores = companyPriorEvals.map(e => ({
+        overall: e.scores?.overall || 0,
+        date: e.createdAt,
+        roleTitle: e.assessment?.targetRoleTitle || e.assessment?.title || 'Technical Assessment',
+        verdict: e.verdict || 'Evaluated'
+    }));
+
+    let trajectorySummary = '';
+    if (companyPriorEvals.length === 0) {
+        trajectorySummary = `First formal evaluation loop with ${targetCompanyName}.`;
+    } else {
+        const lastEval = companyPriorEvals[0];
+        const lastScore = lastEval.scores?.overall || 0;
+        trajectorySummary = `Candidate has completed ${companyPriorEvals.length} previous round(s) with ${targetCompanyName}. Most recent round score: ${lastScore}/100 (${lastEval.verdict}).`;
+    }
+
+    const companyHistory = {
+        priorInterviewsCount: companyPriorEvals.length,
+        trajectorySummary,
+        priorScores
+    };
+
+    // 3. Extract Role Rubrics & Blueprint Details
+    const blueprint = session.assessment?.blueprint || session.assessment?.scrapedBlueprint || '';
+    const keyCompetencies = session.assessment?.blueprintAnalysis?.keyCompetencies || [];
+    const skills = session.assessment?.skills || [];
+    const roundSummary = session.assessment?.blueprintAnalysis?.roundSummary || '';
+    const roleTitle = session.assessment?.targetRoleTitle || session.assessment?.role?.title || session.assessment?.title || 'Software Engineer';
+
+    // 4. Call Gemini for AI Scoring & Comprehensive Evaluation
     const aiResult = await generateAiEvaluation({
         roleTitle,
-        companyName,
+        companyName: targetCompanyName,
         experienceLevel: session.assessment?.experienceLevel || 'Mid',
-
         transcript: session.transcript || [],
         codingChallenge: session.codingChallenge || {},
         codeSubmission: session.codeSubmission || {},
         testCaseResults,
         candidateResume: session.candidateResume || '',
-        interviewFormat: session.interviewFormat || 'FULL_INTERVIEW'
+        interviewFormat: session.interviewFormat || 'FULL_INTERVIEW',
+        blueprint,
+        roundSummary,
+        keyCompetencies,
+        skills,
+        companyHistory
     });
 
-    // 3. Update and persist Evaluation (including proctoring audit)
+    // 5. Update and persist Evaluation (including proctoring audit)
     const proc = session.proctoring || {};
     const integrityScore = typeof proc.integrityScore === 'number' ? proc.integrityScore : 100;
     let trustLevel = 'HIGH_TRUST';
@@ -594,6 +751,9 @@ export const evaluateInterviewSession = async (sessionId) => {
     evaluation.summary = aiResult.summary;
     evaluation.strengths = aiResult.strengths;
     evaluation.areasForImprovement = aiResult.areasForImprovement;
+    evaluation.roleRubricsFeedback = aiResult.roleRubricsFeedback || [];
+    evaluation.candidateQuestionsAsked = aiResult.candidateQuestionsAsked || [];
+    evaluation.companyHistoryContext = companyHistory;
     evaluation.codeReview = aiResult.codeReview;
     evaluation.testCaseResults = testCaseResults;
     evaluation.proctoringSummary = {
@@ -621,8 +781,8 @@ export const evaluateInterviewSession = async (sessionId) => {
         try {
             await sendEvaluationNotification({
                 candidateEmail: session.candidate.email,
-                companyName: session.assessment?.companyName || 'Engineering Team',
-                roleTitle: session.assessment?.roleTitle || 'Software Engineer',
+                companyName: targetCompanyName,
+                roleTitle,
                 overallScore: evaluation.scores?.overall || 0,
                 verdict: evaluation.verdict,
                 sessionId: session._id

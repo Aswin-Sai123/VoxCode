@@ -655,20 +655,29 @@ const InterviewRoom = () => {
         }
     };
 
-    // 4. Clean Turn-by-Turn Speech Recognition (No live streaming jitter)
+    // 4. Turn-by-Turn Speech Recognition with Continuous Capture & Natural Barge-In
     const toggleSpeechRecognition = () => {
         playClick();
         if (isListening) {
             if (recognitionRef.current) {
-                recognitionRef.current.stop();
+                try { recognitionRef.current.stop(); } catch {}
                 setIsListening(false);
             }
             return;
         }
 
-        // If AI is currently speaking, do not open mic
+        // Barge-in: if AI is currently speaking, immediately interrupt and stop playback
         if (isAiSpeaking) {
-            return;
+            if (activeAudioRef.current) {
+                activeAudioRef.current.pause();
+                activeAudioRef.current.currentTime = 0;
+                activeAudioRef.current = null;
+            }
+            if (window.speechSynthesis) window.speechSynthesis.cancel();
+            setIsAiSpeaking(false);
+            if (captionTimerRef.current) clearTimeout(captionTimerRef.current);
+            setSpokenWordIndex(-1);
+            if (utteranceRef.current) utteranceRef.current = null;
         }
 
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -680,8 +689,8 @@ const InterviewRoom = () => {
 
         setMicError('');
         const recognition = new SpeechRecognition();
-        recognition.continuous = false; // Clean turn-based utterance capture
-        recognition.interimResults = false; // No streaming partial chunks
+        recognition.continuous = true; // Continuous listening so short natural pauses don't abort speech
+        recognition.interimResults = true; // Live interim visual feedback
         recognition.lang = 'en-US';
 
         recognition.onstart = () => {
@@ -690,7 +699,7 @@ const InterviewRoom = () => {
         };
 
         recognition.onresult = (event) => {
-            // Barge-in: cut off AI audio immediately when candidate begins speaking
+            // Cut off AI audio immediately when user speaks
             if (activeAudioRef.current) {
                 activeAudioRef.current.pause();
                 activeAudioRef.current.currentTime = 0;
@@ -703,15 +712,21 @@ const InterviewRoom = () => {
             if (captionTimerRef.current) clearTimeout(captionTimerRef.current);
             setSpokenWordIndex(-1);
             if (utteranceRef.current) utteranceRef.current = null;
+
+            let interimStr = '';
             let finalStr = '';
-            for (let i = 0; i < event.results.length; i++) {
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+                const chunk = event.results[i][0].transcript;
                 if (event.results[i].isFinal) {
-                    finalStr += event.results[i][0].transcript + ' ';
+                    finalStr += chunk + ' ';
+                } else {
+                    interimStr += chunk;
                 }
             }
             if (finalStr.trim()) {
                 setCandidateText(prev => (prev ? prev + ' ' + finalStr.trim() : finalStr.trim()));
             }
+            setInterimSpeech(interimStr.trim());
         };
 
         recognition.onerror = (e) => {
@@ -721,7 +736,7 @@ const InterviewRoom = () => {
                 setMicError('Microphone permission was denied. Please allow microphone in browser or switch to text mode.');
                 setShowTextInput(true);
             } else if (e.error === 'no-speech') {
-                // Ignore benign timeout
+                // Ignore benign silence timeout
             } else {
                 setMicError(`Voice recognition notice: ${e.error}. Feel free to review/edit text below.`);
             }
@@ -744,8 +759,12 @@ const InterviewRoom = () => {
 
     // 5. Send Candidate Answer to Backend + Gemini
     const handleSendMessage = async (customText) => {
-        // Only submit finalized text or explicit customText (never send stray unreviewed interim fragments alone)
-        const textToSend = (customText || candidateText || (isListening ? interimSpeech : '')).trim();
+        // Stop active speech recognition and combine all spoken content
+        if (recognitionRef.current && isListening) {
+            try { recognitionRef.current.stop(); } catch {}
+            setIsListening(false);
+        }
+        const textToSend = (customText || (candidateText + (interimSpeech ? ' ' + interimSpeech : ''))).trim();
         if (!textToSend || isSending) return;
 
         if (recognitionRef.current && isListening) {
@@ -1611,22 +1630,39 @@ const InterviewRoom = () => {
 
                                 <div className="border-t border-[#232330] pt-3 space-y-2">
                                     <div className="flex gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={toggleSpeechRecognition}
+                                            className={`p-2 rounded-lg text-xs flex items-center justify-center transition-colors flex-shrink-0 ${
+                                                isListening
+                                                    ? 'bg-red-600 text-white animate-pulse'
+                                                    : 'studio-btn-secondary text-[#8B8B9E] hover:text-[#EDEDF0]'
+                                            }`}
+                                            title={isListening ? "Stop voice listening" : "Click to speak to Rohan"}
+                                        >
+                                            {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                                        </button>
                                         <input
                                             type="text"
                                             value={candidateText}
                                             onChange={(e) => setCandidateText(e.target.value)}
                                             onKeyDown={(e) => { if (e.key === 'Enter') handleSendMessage(); }}
-                                            placeholder="Ask a question or explain your approach..."
+                                            placeholder={isListening ? "Listening to microphone..." : "Ask a question or explain your approach..."}
                                             className="studio-input text-xs"
                                         />
                                         <button
                                             onClick={() => handleSendMessage()}
-                                            disabled={isSending || !candidateText.trim()}
+                                            disabled={isSending || (!candidateText.trim() && !interimSpeech.trim())}
                                             className="btn-primary px-3 text-xs"
                                         >
                                             Send
                                         </button>
                                     </div>
+                                    {interimSpeech && (
+                                        <p className="text-[10px] text-[#8B8B9E] italic px-1">
+                                            Hearing: {interimSpeech}
+                                        </p>
+                                    )}
                                 </div>
                             </div>
                         )}
