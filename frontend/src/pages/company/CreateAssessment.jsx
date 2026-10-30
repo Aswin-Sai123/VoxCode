@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../services/api';
+import { REALISTIC_BLUEPRINT_TEMPLATES } from '../../data/blueprintTemplates';
 import { 
     ArrowRight, 
     Copy, 
@@ -12,7 +13,11 @@ import {
     FileText,
     UploadCloud,
     Sparkles,
-    Trash2
+    Trash2,
+    BookOpen,
+    X,
+    MessageSquare,
+    Terminal
 } from 'lucide-react';
 
 const CreateAssessment = () => {
@@ -34,7 +39,11 @@ const CreateAssessment = () => {
     const [accessType, setAccessType] = useState('PUBLIC');
     const [eligibleEmails, setEligibleEmails] = useState('');
     const [codingRoundEnabled, setCodingRoundEnabled] = useState(true);
-    const [voiceRoundEnabled, setVoiceRoundEnabled] = useState(true);
+    const voiceRoundEnabled = true; // Always conversational voice dialogue with Rohan
+
+    // blueprint template modal state
+    const [showTemplateModal, setShowTemplateModal] = useState(false);
+    const [activeTemplateIdx, setActiveTemplateIdx] = useState(0);
 
     // other state
     const [roles, setRoles] = useState([]);
@@ -133,6 +142,24 @@ const CreateAssessment = () => {
         }
     };
 
+    const applyTemplate = (tmpl) => {
+        setBlueprintMode('text');
+        setBlueprint(tmpl.blueprintText);
+        setBlueprintFile(null);
+        if (tmpl.suggestedDuration) {
+            setDurationMinutes(tmpl.suggestedDuration);
+        }
+        if (tmpl.suggestedSkills && tmpl.suggestedSkills.length > 0) {
+            setSkills(tmpl.suggestedSkills);
+        }
+        if (tmpl.codingRoundEnabled !== undefined) {
+            setCodingRoundEnabled(tmpl.codingRoundEnabled);
+        }
+        setShowTemplateModal(false);
+        // Automatically trigger AI synthesis for the selected template
+        triggerSynthesis({ text: tmpl.blueprintText });
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
@@ -143,6 +170,10 @@ const CreateAssessment = () => {
         }
         if (!roleId) {
             setError('Please select a job role');
+            return;
+        }
+        if (!blueprint.trim() && !blueprintFile) {
+            setError('Interview blueprint is required. Please paste your interview guidelines or upload a document so the AI interviewer can configure the round structure.');
             return;
         }
 
@@ -388,40 +419,55 @@ const CreateAssessment = () => {
 
                         {/* AI Interview Blueprint Studio */}
                         <div className="bg-[#0A0A0B] border border-[#232330] rounded-xl p-4 sm:p-5 space-y-4">
-                            <div className="flex items-start justify-between gap-4">
-                                <div>
-                                    <h3 className="text-xs font-semibold text-[#EDEDF0] flex items-center gap-1.5">
-                                        <Sparkles className="w-3.5 h-3.5 text-blue-400" />
-                                        <span>Interview Blueprint & Hiring Directive</span>
-                                    </h3>
-                                    <p className="text-[11px] text-[#8B8B9E] mt-0.5 leading-relaxed">
-                                        Upload your hiring document (.pdf, .docx, .txt) or paste your internal rubric to automatically configure competencies and interview format.
+                            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                                <div className="space-y-1">
+                                    <div className="flex items-center gap-2">
+                                        <h3 className="text-xs font-semibold text-[#EDEDF0] flex items-center gap-1.5">
+                                            <Sparkles className="w-3.5 h-3.5 text-blue-400" />
+                                            <span>Interview Blueprint & Hiring Directive</span>
+                                        </h3>
+                                        <span className="text-[11px] font-semibold text-red-400">* Required</span>
+                                    </div>
+                                    <p className="text-[11px] text-[#8B8B9E] leading-relaxed">
+                                        Upload your hiring document (.pdf, .docx, .txt) or paste your internal rubric. The AI interviewer derives interview phases, live coding requirements, and question counts directly from this blueprint.
                                     </p>
                                 </div>
 
-                                <div className="segmented-pill-container flex-shrink-0 text-[11px]">
+                                <div className="flex items-center gap-2 self-start flex-shrink-0">
                                     <button
                                         type="button"
-                                        onClick={() => setBlueprintMode('text')}
-                                        className={`px-2.5 py-1 font-medium transition-all ${
-                                            blueprintMode === 'text'
-                                                ? 'segmented-pill-btn-active'
-                                                : 'segmented-pill-btn-inactive'
-                                        }`}
+                                        onClick={() => setShowTemplateModal(true)}
+                                        className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 border border-blue-500/20 transition-all"
+                                        title="View realistic production templates"
                                     >
-                                        Paste Text
+                                        <BookOpen className="w-3.5 h-3.5" />
+                                        <span>Format Guide</span>
                                     </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setBlueprintMode('file')}
-                                        className={`px-2.5 py-1 font-medium transition-all ${
-                                            blueprintMode === 'file'
-                                                ? 'segmented-pill-btn-active'
-                                                : 'segmented-pill-btn-inactive'
-                                        }`}
-                                    >
-                                        Upload File
-                                    </button>
+
+                                    <div className="segmented-pill-container text-[11px]">
+                                        <button
+                                            type="button"
+                                            onClick={() => setBlueprintMode('text')}
+                                            className={`px-2.5 py-1 font-medium transition-all ${
+                                                blueprintMode === 'text'
+                                                    ? 'segmented-pill-btn-active'
+                                                    : 'segmented-pill-btn-inactive'
+                                            }`}
+                                        >
+                                            Paste Text
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setBlueprintMode('file')}
+                                            className={`px-2.5 py-1 font-medium transition-all ${
+                                                blueprintMode === 'file'
+                                                    ? 'segmented-pill-btn-active'
+                                                    : 'segmented-pill-btn-inactive'
+                                            }`}
+                                        >
+                                            Upload File
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
 
@@ -550,14 +596,14 @@ const CreateAssessment = () => {
                             )}
 
                             {blueprintAnalysis && (
-                                <div className="p-3.5 bg-[#141419] border border-blue-500/30 rounded-xl space-y-2.5 text-xs">
+                                <div className="p-3.5 bg-[#141419] border border-blue-500/30 rounded-xl space-y-3 text-xs">
                                     <div className="flex items-center justify-between">
                                         <span className="font-semibold text-[#EDEDF0] flex items-center gap-1.5">
                                             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                                            <span>Structured Round Format</span>
+                                            <span>Derived Interview Blueprint Structure</span>
                                         </span>
                                         <span className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                                            {blueprintAnalysis.roundType}
+                                            {blueprintAnalysis.roundType?.replace(/_/g, ' ')}
                                         </span>
                                     </div>
 
@@ -565,16 +611,50 @@ const CreateAssessment = () => {
                                         {blueprintAnalysis.roundSummary}
                                     </p>
 
-                                    <div className="flex items-center gap-2 pt-1 text-[11px]">
-                                        <span className="text-[#8B8B9E]">Coding Round:</span>
-                                        <span className={codingRoundEnabled ? 'text-emerald-400 font-medium' : 'text-purple-400 font-medium'}>
-                                            {codingRoundEnabled ? 'Live Coding IDE Enabled' : 'Discussion & Architecture Focus'}
-                                        </span>
+                                    {/* Phases & Coding Status */}
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-[11px]">
+                                        <div className="p-2.5 rounded-lg bg-[#0A0A0B] border border-[#232330] space-y-1">
+                                            <span className="text-[#8B8B9E] block">Live Coding Phase:</span>
+                                            <span className={`font-semibold flex items-center gap-1.5 ${codingRoundEnabled ? 'text-emerald-400' : 'text-purple-400'}`}>
+                                                {codingRoundEnabled ? (
+                                                    <>
+                                                        <Terminal className="w-3.5 h-3.5" />
+                                                        <span>Monaco IDE Challenge Enabled</span>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <MessageSquare className="w-3.5 h-3.5" />
+                                                        <span>Verbal Problem Solving (No IDE)</span>
+                                                    </>
+                                                )}
+                                            </span>
+                                        </div>
+
+                                        <div className="p-2.5 rounded-lg bg-[#0A0A0B] border border-[#232330] space-y-1">
+                                            <span className="text-[#8B8B9E] block">Estimated Questions:</span>
+                                            <span className="font-semibold text-[#EDEDF0]">
+                                                {blueprintAnalysis.estimatedQuestions || '4-5 Questions across phases'}
+                                            </span>
+                                        </div>
                                     </div>
+
+                                    {blueprintAnalysis.phases && blueprintAnalysis.phases.length > 0 && (
+                                        <div className="space-y-1.5 pt-1">
+                                            <span className="text-[#8B8B9E] text-[10px] uppercase font-semibold block">Sequential Round Phases:</span>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                                                {blueprintAnalysis.phases.map((phase, idx) => (
+                                                    <div key={idx} className="p-2 rounded bg-[#0A0A0B] border border-[#232330] text-[11px] text-[#EDEDF0] flex items-center gap-1.5">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />
+                                                        <span>{phase}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
 
                                     {blueprintAnalysis.keyCompetencies && blueprintAnalysis.keyCompetencies.length > 0 && (
                                         <div className="pt-1">
-                                            <span className="text-[#8B8B9E] text-[10px] uppercase font-semibold block mb-1">Target Competencies:</span>
+                                            <span className="text-[#8B8B9E] text-[10px] uppercase font-semibold block mb-1">Target Evaluation Competencies:</span>
                                             <div className="flex flex-wrap gap-1">
                                                 {blueprintAnalysis.keyCompetencies.map((comp, idx) => (
                                                     <span key={idx} className="px-2 py-0.5 rounded bg-[#0A0A0B] border border-[#232330] text-[10px] text-[#8B8B9E]">
@@ -669,26 +749,46 @@ const CreateAssessment = () => {
                             )}
                         </div>
 
-                        {/* Round Flags */}
-                        <div className="grid grid-cols-2 gap-2 pt-1 font-mono text-xs">
-                            <label className="flex items-center gap-2 p-2.5 rounded-lg bg-[#0A0A0B] border border-[#232330] hover:border-[#363645] cursor-pointer transition-colors">
-                                <input
-                                    type="checkbox"
-                                    checked={voiceRoundEnabled}
-                                    onChange={(e) => setVoiceRoundEnabled(e.target.checked)}
-                                    className="accent-blue-500 rounded"
-                                />
-                                <span className="text-[#EDEDF0]">Voice Screening Round</span>
-                            </label>
-                            <label className="flex items-center gap-2 p-2.5 rounded-lg bg-[#0A0A0B] border border-[#232330] hover:border-[#363645] cursor-pointer transition-colors">
-                                <input
-                                    type="checkbox"
-                                    checked={codingRoundEnabled}
-                                    onChange={(e) => setCodingRoundEnabled(e.target.checked)}
-                                    className="accent-blue-500 rounded"
-                                />
-                                <span className="text-[#EDEDF0]">Polyglot Coding Round</span>
-                            </label>
+                        {/* Derived Interview Execution Directive */}
+                        <div className="p-3.5 bg-[#0A0A0B] border border-[#232330] rounded-xl space-y-2.5 text-xs">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                                <div className="space-y-0.5">
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-semibold text-[#EDEDF0]">Interview Format & Live Coding</span>
+                                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${codingRoundEnabled ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-purple-500/10 text-purple-400 border-purple-500/20'}`}>
+                                            {codingRoundEnabled ? 'Live Monaco Coding' : 'Verbal Technical Discussion'}
+                                        </span>
+                                    </div>
+                                    <p className="text-[11px] text-[#8B8B9E] leading-relaxed">
+                                        {codingRoundEnabled
+                                            ? 'Derived from blueprint: Spoken technical evaluation followed by hands-on algorithmic coding and test execution in Monaco IDE.'
+                                            : 'Derived from blueprint: In-depth conversational architecture & verbal coding. Any technical problem solving is explained verbally with zero live coding.'}
+                                    </p>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setCodingRoundEnabled(!codingRoundEnabled)}
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors flex items-center gap-1.5 self-start sm:self-center flex-shrink-0 ${
+                                        codingRoundEnabled
+                                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20'
+                                            : 'bg-purple-500/10 text-purple-400 border-purple-500/30 hover:bg-purple-500/20'
+                                    }`}
+                                    title="Manual override for live coding IDE challenge"
+                                >
+                                    {codingRoundEnabled ? (
+                                        <>
+                                            <Terminal className="w-3.5 h-3.5" />
+                                            <span>Coding IDE: On</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <MessageSquare className="w-3.5 h-3.5" />
+                                            <span>Verbal Only</span>
+                                        </>
+                                    )}
+                                </button>
+                            </div>
                         </div>
 
                         <button
@@ -760,32 +860,189 @@ const CreateAssessment = () => {
                                     ))}
                                 </div>
                             </div>
-                            {blueprintAnalysis && (
-                                <div className="pt-1 border-t border-[#232330]">
-                                    <span className="text-[#8B8B9E] block mb-1">Round Format</span>
+
+                            {blueprintAnalysis ? (
+                                <div className="pt-2 border-t border-[#232330] space-y-2 text-xs">
                                     <div className="flex items-center justify-between">
-                                        <span className="text-xs font-medium text-blue-400">
-                                            {blueprintAnalysis.roundType}
-                                        </span>
-                                        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${codingRoundEnabled ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-purple-500/10 text-purple-400 border border-purple-500/20'}`}>
-                                            {codingRoundEnabled ? 'IDE Coding' : 'Discussion Only'}
+                                        <span className="text-[#8B8B9E]">Round Format</span>
+                                        <span className="font-medium text-blue-400">
+                                            {blueprintAnalysis.roundType?.replace(/_/g, ' ')}
                                         </span>
                                     </div>
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[#8B8B9E]">Coding Phase</span>
+                                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${codingRoundEnabled ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-purple-500/10 text-purple-400 border-purple-500/20'}`}>
+                                            {codingRoundEnabled ? 'Monaco IDE Challenge' : 'Verbal Only'}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[#8B8B9E]">Questions</span>
+                                        <span className="text-[#EDEDF0] font-medium text-[11px]">
+                                            {blueprintAnalysis.estimatedQuestions || '4-5 Questions across phases'}
+                                        </span>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="pt-2 border-t border-[#232330] text-xs text-[#8B8B9E] space-y-1">
+                                    <span className="text-[#8B8B9E] block">Round Format</span>
+                                    <span className="text-[11px] text-[#555568] block">Will be structured automatically from your interview blueprint.</span>
                                 </div>
                             )}
                         </div>
 
-                        <div className="p-3 bg-[#0A0A0B] border border-[#232330] rounded-lg text-xs text-[#8B8B9E] space-y-1">
-                            <span className="text-[#EDEDF0] font-medium block">Interview Structure</span>
-                            <p>
+                        <div className="p-3 bg-[#0A0A0B] border border-[#232330] rounded-lg text-xs text-[#8B8B9E] space-y-1.5">
+                            <span className="text-[#EDEDF0] font-medium block">Interviewer Pipeline</span>
+                            <p className="text-[11px] leading-relaxed">
                                 {codingRoundEnabled 
-                                    ? 'Rohan conducts conversational technical reasoning followed by a live coding challenge in the Monaco IDE.'
-                                    : 'Rohan conducts an in-depth systems & architecture interview based on your blueprint.'}
+                                    ? 'Rohan conducts natural spoken technical rounds followed by a live coding challenge with automated test runs in Monaco IDE.'
+                                    : 'Rohan conducts an in-depth conversational architecture and technical reasoning session with zero IDE coding.'}
                             </p>
                         </div>
                     </div>
                 </div>
             </div>
+
+            {/* Realistic Blueprint Format & Templates Modal */}
+            {showTemplateModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-[#141419] border border-[#232330] rounded-2xl max-w-3xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+                        {/* Modal Header */}
+                        <div className="flex items-center justify-between p-5 border-b border-[#232330]">
+                            <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+                                    <BookOpen className="w-4 h-4" />
+                                </div>
+                                <div>
+                                    <h3 className="text-base font-semibold text-[#EDEDF0]">
+                                        Interview Blueprint Format & Realistic Examples
+                                    </h3>
+                                    <p className="text-xs text-[#8B8B9E]">
+                                        Production-grade templates showing how real companies structure conversational technical rounds.
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setShowTemplateModal(false)}
+                                className="p-1.5 rounded-lg text-[#8B8B9E] hover:text-[#EDEDF0] hover:bg-[#1C1C24] transition-colors"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        {/* Modal Body */}
+                        <div className="p-5 overflow-y-auto space-y-4 flex-1">
+                            {/* Explanation Banner */}
+                            <div className="p-3.5 bg-[#0A0A0B] border border-[#232330] rounded-xl text-xs space-y-2 text-[#8B8B9E] leading-relaxed">
+                                <span className="font-semibold text-[#EDEDF0] flex items-center gap-1.5">
+                                    <Sparkles className="w-3.5 h-3.5 text-blue-400" />
+                                    <span>How VoxCode's Autonomous Interviewer Uses Your Blueprint</span>
+                                </span>
+                                <p>
+                                    Your blueprint tells Rohan the round timeline, whether to open the Monaco code editor or evaluate verbally, and the depth of system design to probe.
+                                </p>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-[11px]">
+                                    <div className="p-2 rounded bg-[#141419] border border-[#232330] space-y-0.5">
+                                        <span className="font-semibold text-emerald-400 flex items-center gap-1">
+                                            <Terminal className="w-3 h-3" />
+                                            <span>Rounds with Coding</span>
+                                        </span>
+                                        <p className="text-[#8B8B9E]">
+                                            Rohan leads conversational technical warmup and architecture, then transitions the candidate to live problem-solving in Monaco IDE.
+                                        </p>
+                                    </div>
+                                    <div className="p-2 rounded bg-[#141419] border border-[#232330] space-y-0.5">
+                                        <span className="font-semibold text-purple-400 flex items-center gap-1">
+                                            <MessageSquare className="w-3 h-3" />
+                                            <span>Architecture & Verbal Rounds</span>
+                                        </span>
+                                        <p className="text-[#8B8B9E]">
+                                            Candidates explain architectural trade-offs, algorithms, and pseudo-code verbally without touching a code editor.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Template Tabs */}
+                            <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                                {REALISTIC_BLUEPRINT_TEMPLATES.map((tmpl, idx) => (
+                                    <button
+                                        key={tmpl.id}
+                                        type="button"
+                                        onClick={() => setActiveTemplateIdx(idx)}
+                                        className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap border transition-all ${
+                                            activeTemplateIdx === idx
+                                                ? 'bg-[#1C1C24] text-[#EDEDF0] border-blue-500/40 shadow-sm'
+                                                : 'text-[#8B8B9E] border-[#232330] hover:text-[#EDEDF0] hover:bg-[#1C1C24]/50'
+                                        }`}
+                                    >
+                                        <span>{tmpl.title}</span>
+                                    </button>
+                                ))}
+                            </div>
+
+                            {/* Active Template Card */}
+                            {REALISTIC_BLUEPRINT_TEMPLATES[activeTemplateIdx] && (
+                                <div className="space-y-3">
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 bg-[#0A0A0B] border border-[#232330] rounded-xl text-xs">
+                                        <div>
+                                            <span className="text-[#8B8B9E] block text-[11px]">Role & Focus</span>
+                                            <span className="font-semibold text-[#EDEDF0] block text-sm">
+                                                {REALISTIC_BLUEPRINT_TEMPLATES[activeTemplateIdx].role}
+                                            </span>
+                                            <p className="text-[#8B8B9E] text-[11px] mt-0.5">
+                                                {REALISTIC_BLUEPRINT_TEMPLATES[activeTemplateIdx].summary}
+                                            </p>
+                                        </div>
+                                        <div className="flex items-center gap-2 self-start sm:self-center flex-shrink-0">
+                                            <span className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${
+                                                REALISTIC_BLUEPRINT_TEMPLATES[activeTemplateIdx].codingRoundEnabled
+                                                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                                    : 'bg-purple-500/10 text-purple-400 border-purple-500/20'
+                                            }`}>
+                                                {REALISTIC_BLUEPRINT_TEMPLATES[activeTemplateIdx].badge}
+                                            </span>
+                                            <span className="px-2 py-0.5 rounded text-[10px] bg-[#1C1C24] border border-[#232330] text-[#8B8B9E]">
+                                                {REALISTIC_BLUEPRINT_TEMPLATES[activeTemplateIdx].suggestedDuration} mins
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Blueprint Text Preview */}
+                                    <div className="relative">
+                                        <textarea
+                                            readOnly
+                                            rows={12}
+                                            value={REALISTIC_BLUEPRINT_TEMPLATES[activeTemplateIdx].blueprintText}
+                                            className="w-full p-3.5 bg-[#0A0A0B] border border-[#232330] rounded-xl font-mono text-xs text-[#EDEDF0] leading-relaxed resize-none focus:outline-none"
+                                        />
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className="p-4 border-t border-[#232330] flex items-center justify-between gap-3 bg-[#0E0E12]">
+                            <button
+                                type="button"
+                                onClick={() => setShowTemplateModal(false)}
+                                className="studio-btn-secondary px-4 py-2 text-xs font-medium"
+                            >
+                                Close
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => applyTemplate(REALISTIC_BLUEPRINT_TEMPLATES[activeTemplateIdx])}
+                                className="btn-primary px-4 py-2 text-xs font-medium flex items-center gap-1.5"
+                            >
+                                <Sparkles className="w-3.5 h-3.5" />
+                                <span>Use This Blueprint Template</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

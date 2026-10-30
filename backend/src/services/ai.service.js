@@ -477,6 +477,13 @@ export const synthesizeInterviewBlueprint = async ({
         roundSummary: `Comprehensive ${experienceLevel}-level technical assessment evaluating software engineering principles, system design, and algorithmic problem solving.`,
         codingRoundEnabled: true,
         interviewFormat: 'FULL_INTERVIEW',
+        estimatedQuestions: '4-5 Questions (System Architecture & Live Monaco Coding)',
+        phases: [
+            '01. Warmup & Production Project Context',
+            '02. System Architecture & Trade-off Deep-Dive',
+            '03. Live Coding Challenge in Monaco IDE',
+            '04. Candidate Wrap-up & Debrief'
+        ],
         keyCompetencies: skills && skills.length ? skills : ['Software Engineering', 'System Design', 'Problem Solving', 'Data Structures'],
         interviewerPersonaPrompt: `Evaluate candidate's technical competence, system design reasoning, trade-offs, and practical coding abilities for a ${experienceLevel} ${roleTitle} position at ${companyName}. Maintain high engineering standards and probe production trade-offs.`
     };
@@ -494,7 +501,7 @@ Analyze and decide:
 1. "roundType": The exact interview round type.
    Options:
    - "FULL_TECHNICAL_AND_CODING": (Deep technical architecture discussion followed by live coding/DSA implementation).
-   - "TECHNICAL_ARCHITECTURE": (Pure project architecture, system design, scalability, and engineering trade-offs with ZERO live coding).
+   - "TECHNICAL_ARCHITECTURE": (Pure project architecture, system design, scalability, and engineering trade-offs with ZERO live coding; candidate explains algorithms verbally).
    - "BEHAVIORAL_LEADERSHIP": (Behavioral, leadership principles, conflict management, cross-functional collaboration, with ZERO live coding).
    - "PRACTICAL_STACK": (Hands-on framework/language practical assessment).
 2. "codingRoundEnabled": boolean
@@ -505,9 +512,12 @@ Analyze and decide:
    - "PROJECT_AND_TECHNICAL_ONLY" if codingRoundEnabled is false and technical/architecture.
    - "BEHAVIORAL_ONLY" if purely behavioral/HR.
 4. "roundSummary": A crisp, professional 2-sentence executive summary of what this interview round evaluates and the company's expectations.
-5. "keyCompetencies": Array of 4 to 6 specific technical/behavioral concepts to rigorously probe based on the company's blueprint.
-6. "interviewerPersonaPrompt": A comprehensive, authoritative master prompt directive written for Rohan (the AI interviewer).
+5. "estimatedQuestions": A short string describing question distribution (e.g. "4-5 Questions: 2 Architecture, 1-2 Live Coding, 1 Wrap-up").
+6. "phases": Array of 3-4 string descriptions of the phases (e.g. ["01. Warmup & Production Project Context", "02. System Architecture & Trade-offs", "03. Live Coding Challenge in Monaco IDE", "04. Wrap-up & Q&A"]).
+7. "keyCompetencies": Array of 4 to 6 specific technical/behavioral concepts to rigorously probe based on the company's blueprint.
+8. "interviewerPersonaPrompt": A comprehensive, authoritative master prompt directive written for Rohan (the AI interviewer).
    - Direct Rohan on what specific architecture questions, scenarios, or trade-offs to probe.
+   - If codingRoundEnabled is false, instruct Rohan that this round has NO live coding, so any coding questions should be explained verbally by the candidate.
    - Specify the depth and rigor expected by this company.
    - Mention any company-specific values, architectural patterns, or red flags to watch for.
    This prompt will be injected directly into the live speech interviewer brain!
@@ -518,6 +528,8 @@ Return ONLY a JSON object:
   "codingRoundEnabled": true | false,
   "interviewFormat": "FULL_INTERVIEW" | "PROJECT_AND_TECHNICAL_ONLY" | "BEHAVIORAL_ONLY",
   "roundSummary": "2-sentence summary...",
+  "estimatedQuestions": "4-5 Questions...",
+  "phases": ["01. Phase", "02. Phase", "03. Phase"],
   "keyCompetencies": ["Competency 1", "Competency 2"],
   "interviewerPersonaPrompt": "Authoritative directive for Rohan..."
 }`;
@@ -558,6 +570,13 @@ Return ONLY a JSON object:
                 codingRoundEnabled: isCoding,
                 interviewFormat: parsed.interviewFormat || (isCoding ? 'FULL_INTERVIEW' : 'PROJECT_AND_TECHNICAL_ONLY'),
                 roundSummary: parsed.roundSummary || fallbackResult.roundSummary,
+                estimatedQuestions: parsed.estimatedQuestions || (isCoding ? '4-5 Questions (Architecture & Live Monaco Coding)' : '4-5 Questions (System Architecture & Verbal Problem Solving)'),
+                phases: Array.isArray(parsed.phases) && parsed.phases.length ? parsed.phases : (isCoding ? fallbackResult.phases : [
+                    '01. Warmup & Production Project Context',
+                    '02. System Architecture & Scalability Deep-Dive',
+                    '03. Technical Problem Solving & Verbal Coding',
+                    '04. Candidate Wrap-up & Debrief'
+                ]),
                 keyCompetencies: Array.isArray(parsed.keyCompetencies) && parsed.keyCompetencies.length ? parsed.keyCompetencies : fallbackResult.keyCompetencies,
                 interviewerPersonaPrompt: parsed.interviewerPersonaPrompt || fallbackResult.interviewerPersonaPrompt
             };

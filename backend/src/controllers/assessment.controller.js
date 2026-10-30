@@ -88,6 +88,16 @@ export const createAssessment = asyncHandler(async (req, res) => {
         throw new ApiError(400, 'Role and title are required');
     }
 
+    // Default blueprint fallback if not provided via API
+    let effectiveBlueprint = blueprint?.trim() || '';
+    if (!effectiveBlueprint && !req.body.blueprintFileName) {
+        if (req.body.blueprintAnalysis?.roundSummary) {
+            effectiveBlueprint = req.body.blueprintAnalysis.roundSummary;
+        } else {
+            effectiveBlueprint = `Standard ${experienceLevel || 'Mid'}-level technical assessment for ${title}.`;
+        }
+    }
+
     const parsedDuration = (durationMinutes !== undefined && durationMinutes !== null) ? parseInt(durationMinutes, 10) : 30;
     if (isNaN(parsedDuration) || parsedDuration < 5 || parsedDuration > 240) {
         throw new ApiError(400, 'Assessment duration must be an integer between 5 and 240 minutes');
@@ -171,7 +181,7 @@ export const createAssessment = asyncHandler(async (req, res) => {
         skills: skills || [],
         experienceLevel: experienceLevel || 'Entry',
         durationMinutes: parsedDuration,
-        blueprint: blueprint || '',
+        blueprint: effectiveBlueprint,
         blueprintFileName: req.body.blueprintFileName || '',
         blueprintAnalysis: finalAnalysis,
         interviewFormat: effectiveFormat,
