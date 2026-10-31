@@ -107,55 +107,86 @@ export const LiveTranscript = ({
                 </div>
             </div>
 
-            {/* Scrollable messages container */}
+            {/* Scrollable messages container - Displays only current turn (Current AI question & current candidate answer) */}
             <div 
                 ref={containerRef}
                 className="flex-1 overflow-y-auto p-4 space-y-3.5 scrollbar-thin scrollbar-thumb-[#232330] scrollbar-track-transparent text-sm"
             >
-                {transcript.length === 0 && !streamingAiText && !candidateInterimText && (
-                    <div className="flex flex-col items-center justify-center h-full text-[#8B8B9E] space-y-2 py-8">
-                        <Activity className="w-8 h-8 opacity-40 animate-pulse text-blue-400" />
-                        <p className="text-xs">Interview session active. Spoken dialogue and AI responses will stream here in real time.</p>
-                    </div>
-                )}
+                {(() => {
+                    // Extract current turn: latest AI question and latest candidate answer
+                    let latestAi = null;
+                    let latestCandidate = null;
 
-                {transcript.map((msg, idx) => {
-                    const isAi = msg.role === 'ai' || msg.role === 'assistant';
+                    for (let i = transcript.length - 1; i >= 0; i--) {
+                        const m = transcript[i];
+                        const isAi = m.role === 'ai' || m.role === 'assistant';
+                        if (isAi && !latestAi) {
+                            latestAi = m;
+                        } else if (!isAi && !latestCandidate && !latestAi) {
+                            // Candidate answer responding to the previous question
+                            latestCandidate = m;
+                        } else if (!isAi && !latestCandidate && latestAi) {
+                            latestCandidate = m;
+                        }
+                        if (latestAi && latestCandidate) break;
+                    }
+
+                    // Active turn list
+                    const activeTurns = [];
+                    if (latestAi && !streamingAiText) activeTurns.push(latestAi);
+                    if (latestCandidate && !candidateInterimText) activeTurns.push(latestCandidate);
+
+                    const hasContent = activeTurns.length > 0 || streamingAiText || candidateInterimText;
+
                     return (
-                        <div 
-                            key={idx}
-                            className={`flex gap-3 ${isAi ? 'items-start' : 'items-start flex-row-reverse'}`}
-                        >
-                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 text-xs font-semibold ${
-                                isAi 
-                                    ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' 
-                                    : 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30'
-                            }`}>
-                                {isAi ? <Bot className="w-4 h-4" /> : <User className="w-4 h-4" />}
-                            </div>
-
-                            <div className={`max-w-[85%] rounded-xl px-3.5 py-2.5 text-xs leading-relaxed border ${
-                                isAi 
-                                    ? 'bg-[#181822] border-[#2A2A3C] text-[#EDEDF0]' 
-                                    : 'bg-[#13221E] border-[#1C3A30] text-[#D1F2E8]'
-                            }`}>
-                                <div className="flex items-center justify-between gap-4 mb-1 text-[10px] text-[#8B8B9E]">
-                                    <span className="font-semibold text-[#A0A0B2]">
-                                        {isAi ? interviewerName : 'You'}
-                                    </span>
-                                    {msg.timestamp && (
-                                        <span className="font-mono">
-                                            {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                                        </span>
-                                    )}
+                        <>
+                            {!hasContent && (
+                                <div className="flex flex-col items-center justify-center h-full text-[#8B8B9E] space-y-2 py-8">
+                                    <Activity className="w-8 h-8 opacity-40 animate-pulse text-blue-400" />
+                                    <p className="text-xs">Interview session active. Spoken dialogue and responses will appear here.</p>
                                 </div>
-                                <div className="whitespace-pre-wrap">{msg.text}</div>
-                            </div>
-                        </div>
-                    );
-                })}
+                            )}
 
-                {/* Streaming AI response tokens */}
+                            {activeTurns.map((msg, idx) => {
+                                const isAi = msg.role === 'ai' || msg.role === 'assistant';
+                                return (
+                                    <div 
+                                        key={idx}
+                                        className={`flex gap-3 ${isAi ? 'items-start' : 'items-start flex-row-reverse'}`}
+                                    >
+                                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 text-xs font-semibold ${
+                                            isAi 
+                                                ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' 
+                                                : 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30'
+                                        }`}>
+                                            {isAi ? <Bot className="w-4 h-4" /> : <User className="w-4 h-4" />}
+                                        </div>
+
+                                        <div className={`max-w-[85%] rounded-xl px-3.5 py-2.5 text-xs leading-relaxed border ${
+                                            isAi 
+                                                ? 'bg-[#181822] border-[#2A2A3C] text-[#EDEDF0]' 
+                                                : 'bg-[#13221E] border-[#1C3A30] text-[#D1F2E8]'
+                                        }`}>
+                                            <div className="flex items-center justify-between gap-4 mb-1 text-[10px] text-[#8B8B9E]">
+                                                <span className="font-semibold text-[#A0A0B2]">
+                                                    {isAi ? `${interviewerName} (Current Question)` : 'Your Answer'}
+                                                </span>
+                                                {msg.timestamp && (
+                                                    <span className="font-mono">
+                                                        {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="whitespace-pre-wrap">{msg.text}</div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </>
+                    );
+                })()}
+
+                {/* Streaming AI response tokens (current question in progress) */}
                 {streamingAiText && (
                     <div className="flex gap-3 items-start animate-fadeIn">
                         <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 bg-blue-600/20 text-blue-400 border border-blue-500/30">
