@@ -45,6 +45,7 @@ export function useInterviewSocket({
     onAiInterrupted,
     onAiCodeComment,
     onCriUpdate,
+    onStageTransition,
     onError,
     autoConnect = true,
     maxReconnectAttempts = 6
@@ -70,6 +71,7 @@ export function useInterviewSocket({
     const onAiInterruptedRef = useRef(onAiInterrupted);
     const onAiCodeCommentRef = useRef(onAiCodeComment);
     const onCriUpdateRef = useRef(onCriUpdate);
+    const onStageTransitionRef = useRef(onStageTransition);
     const onErrorRef = useRef(onError);
 
     useEffect(() => {
@@ -78,8 +80,9 @@ export function useInterviewSocket({
         onAiInterruptedRef.current = onAiInterrupted;
         onAiCodeCommentRef.current = onAiCodeComment;
         onCriUpdateRef.current = onCriUpdate;
+        onStageTransitionRef.current = onStageTransition;
         onErrorRef.current = onError;
-    }, [onTextToken, onAudioChunk, onAiInterrupted, onAiCodeComment, onCriUpdate, onError]);
+    }, [onTextToken, onAudioChunk, onAiInterrupted, onAiCodeComment, onCriUpdate, onStageTransition, onError]);
 
     const clearReconnectTimer = () => {
         if (reconnectTimerRef.current) {
@@ -214,6 +217,12 @@ export function useInterviewSocket({
                     }
                     if (onCriUpdateRef.current) {
                         onCriUpdateRef.current(msg.cri, msg.signal, msg);
+                    }
+                    break;
+
+                case 'STAGE_TRANSITION':
+                    if (onStageTransitionRef.current) {
+                        onStageTransitionRef.current(msg.stage, msg.codingChallenge, msg);
                     }
                     break;
 

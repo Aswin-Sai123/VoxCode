@@ -7,6 +7,7 @@ import { transcribeAudioBuffer } from '../services/stt.service.js';
 import { generateNextInterviewStep } from '../services/ai.service.js';
 import { scoreSingleAnswer } from '../services/evaluation.service.js';
 import { updateCandidateProfile } from '../utils/candidateProfileTracker.js';
+import { getActivePhaseInfo, buildDefaultTimeline } from '../utils/blueprintParser.js';
 
 /**
  * Generates natural interviewer observation commentary on live code
@@ -315,6 +316,33 @@ export function mountInterviewSocket(server) {
                 state.wasInterrupted = false;
             }
 
+            // Timing & pacing context from session blueprint
+            const startedAt = session.startedAt || session.createdAt || new Date();
+            const elapsedMs = Math.max(0, Date.now() - new Date(startedAt).getTime());
+            const elapsedMinutes = Math.floor(elapsedMs / (60 * 1000));
+            const totalDurationMinutes = session.durationMinutes || session.assessment?.durationMinutes || 30;
+            const remainingMinutes = Math.max(0, Math.ceil(((totalDurationMinutes * 60 * 1000) - elapsedMs) / (60 * 1000)));
+
+            let timeline = session.assessment?.blueprintAnalysis?.timeline;
+            if (!timeline || !timeline.length) {
+                timeline = buildDefaultTimeline(
+                    totalDurationMinutes,
+                    session.interviewFormat !== 'PROJECT_AND_TECHNICAL_ONLY' && session.assessment?.codingRoundEnabled !== false
+                );
+            }
+            const timingContext = getActivePhaseInfo(timeline, elapsedMinutes, totalDurationMinutes);
+
+            // Detect if candidate is explicitly asking to code or shift to practical coding round
+            const wantsToCode = /(shift|move|switch|transition|go|start|jump|ready|let'?s?)\s+(to|for|over\s+to|into)?\s*(the\s+)?(cod|dsa|problem|editor|practical|exercise|implementation)/i.test(trimmedText) ||
+                /(can\s+we|shall\s+we|should\s+we|may\s+i|i\s+want\s+to|i'd\s+like\s+to)\s+(code|start\s+coding|do\s+the\s+coding|solve\s+the\s+problem)/i.test(trimmedText);
+
+            if (wantsToCode && session.interviewFormat !== 'PROJECT_AND_TECHNICAL_ONLY' && session.assessment?.codingRoundEnabled !== false) {
+                if (timingContext) {
+                    timingContext.isPastCodingPhase = true;
+                    timingContext.isNearCodingPhase = true;
+                }
+            }
+
             let aiResponse;
             try {
                 aiResponse = await generateNextInterviewStep({
@@ -323,11 +351,18 @@ export function mountInterviewSocket(server) {
                     skills: session.assessment?.skills || [],
                     experienceLevel: session.assessment?.experienceLevel || 'Mid',
                     blueprint: session.assessment?.blueprint || '',
+                    blueprintAnalysis: session.assessment?.blueprintAnalysis || null,
                     candidateResume: session.candidateResume || '',
+                    interviewFormat: session.interviewFormat || 'FULL_INTERVIEW',
                     transcript: session.transcript,
                     candidateMessage: trimmedText,
                     currentStage: session.stage || 'CONCEPTUAL',
-                    currentCode: session.liveCode || ''
+                    currentChallenge: session.codingChallenge,
+                    currentCode: session.liveCode || '',
+                    topics: session.topics || [],
+                    currentTopicIndex: session.currentTopicIndex || 0,
+                    timingContext,
+                    voiceModel: session.voiceModel || ''
                 });
             } catch (aiErr) {
                 if (signal.aborted) return;
@@ -383,10 +418,35 @@ export function mountInterviewSocket(server) {
                 timestamp: new Date(),
                 evaluation: aiResponse?.feedback || aiResponse?.answerEvaluation || null
             });
+
+            // Stage Transition (e.g. CONCEPTUAL -> CODING)
+            let stageChanged = false;
+            let activeChallenge = session.codingChallenge;
+
             if (aiResponse?.nextStage && aiResponse.nextStage !== session.stage) {
                 session.stage = aiResponse.nextStage;
+                stageChanged = true;
             }
+
+            if (aiResponse?.codingChallenge) {
+                session.codingChallenge = aiResponse.codingChallenge;
+                activeChallenge = aiResponse.codingChallenge;
+            }
+
+            if (session.stage === 'CODING' && !session.codingChallenge) {
+                session.codingChallenge = aiResponse?.codingChallenge;
+            }
+
             await session.save();
+
+            // Dispatch STAGE_TRANSITION event to frontend over WebSocket
+            if (stageChanged || (session.stage === 'CODING' && aiResponse?.codingChallenge)) {
+                ws.send(JSON.stringify({
+                    type: 'STAGE_TRANSITION',
+                    stage: session.stage,
+                    codingChallenge: activeChallenge
+                }));
+            }
 
             state.abortController = null;
         }
