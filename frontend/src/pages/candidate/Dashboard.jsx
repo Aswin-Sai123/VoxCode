@@ -21,7 +21,6 @@ import {
     FileText,
     UploadCloud
 } from 'lucide-react';
-import SpotlightCard from '../../components/common/SpotlightCard';
 import { CardSkeleton, TableSkeleton } from '../../components/common/Skeleton';
 import EmptyState from '../../components/common/EmptyState';
 import CopyButton from '../../components/common/CopyButton';
@@ -269,10 +268,7 @@ const Dashboard = () => {
             {/* 2 Main Action Cards: Real-Time Scraped Mock Studio vs Join Official Assessment */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 {/* 1. Real-Time Scraped Mock Assessment Studio Card */}
-                <SpotlightCard
-                    spotlightColor="rgba(59, 130, 246, 0.15)"
-                    className="p-6 border-blue-500/30 hover:border-blue-500/60"
-                >
+                <div className="bg-[#141419] border border-[#232330] rounded-xl p-6 flex flex-col justify-between">
                     <div className="space-y-4">
                         <div className="space-y-2">
                             <div className="flex items-center justify-between">
@@ -312,13 +308,10 @@ const Dashboard = () => {
                             <ArrowRight className="w-4 h-4 ml-auto" />
                         </button>
                     </div>
-                </SpotlightCard>
+                </div>
 
                 {/* 2. Official Company Assessment Card */}
-                <SpotlightCard
-                    spotlightColor="rgba(16, 185, 129, 0.15)"
-                    className="p-6 border-emerald-500/30 hover:border-emerald-500/60"
-                >
+                <div className="bg-[#141419] border border-[#232330] rounded-xl p-6 flex flex-col justify-between">
                     <div className="space-y-4">
                         <div className="space-y-2">
                             <div className="flex items-center justify-between">
@@ -372,7 +365,7 @@ const Dashboard = () => {
                             )}
                         </form>
                     </div>
-                </SpotlightCard>
+                </div>
             </div>
 
             {/* Bespoke Candidate Readiness Index (Replaces generic 3-card number strip) */}

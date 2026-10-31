@@ -27,7 +27,6 @@ import {
     User
 } from 'lucide-react';
 import { toast } from 'sonner';
-import confetti from 'canvas-confetti';
 import { playChime, playClick, playSuccess } from '../../utils/soundEffects';
 import { getActivePhaseInfo, buildDefaultTimeline } from '../../utils/blueprintParser';
 import VoiceVisualizerOrb from '../../components/common/VoiceVisualizerOrb';
@@ -1106,7 +1105,6 @@ const InterviewRoom = () => {
                     output: executionOutput
                 }
             });
-            confetti();
             toast.success('Interview successfully submitted');
             setStage('COMPLETED');
             if (window.speechSynthesis) window.speechSynthesis.cancel();

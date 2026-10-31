@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import api from '../../services/api';
 import { 
@@ -12,7 +12,6 @@ import {
     CheckCircle2,
     Loader2,
     FileText,
-    Sparkles,
     FolderGit2,
     CheckCircle,
     Camera,
@@ -703,7 +702,7 @@ const AssessmentLobby = () => {
                                                 </>
                                             ) : (
                                                 <>
-                                                    <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                                                    <FileText className="w-3.5 h-3.5 text-emerald-400" />
                                                     <span>Parse Text</span>
                                                 </>
                                             )}
@@ -879,7 +878,7 @@ const AssessmentLobby = () => {
                                     </div>
                                 </div>
                                 <span className="text-[10px] text-emerald-400 font-semibold px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 flex-shrink-0">
-                                    100% Free
+                                    Default Voice
                                 </span>
                             </div>
 

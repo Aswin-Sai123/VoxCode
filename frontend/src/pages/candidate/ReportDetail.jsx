@@ -11,7 +11,6 @@ import {
     ShieldCheck,
     Target,
     HelpCircle,
-    Sparkles,
     Clock
 } from 'lucide-react';
 
@@ -564,7 +563,7 @@ const ReportDetail = () => {
                                 )}
                                 {qa.analysis && (
                                     <div className="bg-[#141419] p-2.5 rounded border border-[#232330] text-[11px] text-emerald-400/90 leading-relaxed flex items-center gap-2">
-                                        <Sparkles className="w-3.5 h-3.5 flex-shrink-0 text-emerald-400" />
+                                        <HelpCircle className="w-3.5 h-3.5 flex-shrink-0 text-emerald-400" />
                                         <span>Signal: {qa.analysis}</span>
                                     </div>
                                 )}
