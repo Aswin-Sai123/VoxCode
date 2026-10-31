@@ -219,7 +219,7 @@ export function mountInterviewSocket(server) {
         };
 
         // 5. Handler for candidate spoken or typed turn
-        async function handleCandidateTurn(candidateText) {
+        async function handleCandidateTurn(candidateText, options = {}) {
             if (!candidateText || typeof candidateText !== 'string' || !candidateText.trim()) {
                 ws.send(JSON.stringify({ type: 'ERROR', message: 'Message text cannot be empty' }));
                 return;
@@ -373,8 +373,8 @@ export function mountInterviewSocket(server) {
 
             if (signal.aborted || state.isInterrupted) return;
 
-            let replyText = (aiResponse?.message || aiResponse?.text || '').trim();
-            if (ackPrefix) {
+            let replyText = options.forcePrompt ? options.forcePrompt : (aiResponse?.message || aiResponse?.text || '').trim();
+            if (ackPrefix && !options.forcePrompt) {
                 replyText = ackPrefix + replyText;
             }
 
@@ -507,6 +507,18 @@ export function mountInterviewSocket(server) {
                                 }
                             }, debounceMs);
                         }
+                        break;
+                    }
+
+                    case 'SILENCE_TIMEOUT': {
+                        if (session.stage === 'COMPLETED') break;
+                        const silencePhrases = [
+                            "Take your time, but if you're not entirely sure, feel free to share your initial thoughts or we can move forward.",
+                            "No worries if you're unsure on this one. Would you like a small hint, or should we skip to the next part?",
+                            "I notice you're thinking through this. Do you want to talk through your current intuition, or would you prefer we move on?"
+                        ];
+                        const randomNudge = silencePhrases[Math.floor(Math.random() * silencePhrases.length)];
+                        await handleCandidateTurn('[Candidate remained silent / paused for an extended duration. Nudge gently.]', { forcePrompt: randomNudge });
                         break;
                     }
 

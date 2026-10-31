@@ -126,6 +126,10 @@ export function useInterviewSocket({
         return sendMessage({ type: 'INTERRUPT' });
     }, [sendMessage]);
 
+    const sendSilenceTimeout = useCallback(() => {
+        return sendMessage({ type: 'SILENCE_TIMEOUT' });
+    }, [sendMessage]);
+
     /**
      * Connect or initiate WebSocket connection
      */
@@ -307,6 +311,7 @@ export function useInterviewSocket({
         sendAudioChunk,
         sendCodeSnapshot,
         sendInterrupt,
+        sendSilenceTimeout,
         sendMessage,
         connect,
         disconnect

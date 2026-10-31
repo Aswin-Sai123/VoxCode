@@ -156,7 +156,8 @@ const InterviewRoom = () => {
         sendTextMessage,
         sendAudioChunk,
         sendCodeSnapshot,
-        sendInterrupt
+        sendInterrupt,
+        sendSilenceTimeout
     } = useInterviewSocket({
         sessionId: session?._id,
         autoConnect: Boolean(session?._id),
@@ -260,6 +261,30 @@ const InterviewRoom = () => {
             if (streamCommitTimerRef.current) clearTimeout(streamCommitTimerRef.current);
         };
     }, [isQueuePlaying, streamingAiText]);
+
+    // Realistic 12-14s silence/hesitation detector: nudges candidate when silent
+    const silenceTimerRef = useRef(null);
+    useEffect(() => {
+        if (silenceTimerRef.current) {
+            clearTimeout(silenceTimerRef.current);
+            silenceTimerRef.current = null;
+        }
+
+        // Only monitor silence when AI is NOT speaking, user is NOT actively speaking or typing, and interview is running
+        if (!isAiSpeaking && !isQueuePlaying && !isListening && !isSending && !candidateText.trim() && stage !== 'COMPLETED' && session?._id) {
+            silenceTimerRef.current = setTimeout(() => {
+                if (isWsConnected) {
+                    sendSilenceTimeout();
+                }
+            }, 12000); // 12 seconds realistic interview pause
+        }
+
+        return () => {
+            if (silenceTimerRef.current) {
+                clearTimeout(silenceTimerRef.current);
+            }
+        };
+    }, [isAiSpeaking, isQueuePlaying, isListening, isSending, candidateText, stage, session?._id, isWsConnected, sendSilenceTimeout]);
 
     const handleSelectVoiceModel = (modelId) => {
         setSelectedVoiceModel(modelId);
