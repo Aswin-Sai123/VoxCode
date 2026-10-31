@@ -85,93 +85,57 @@ export const sendAssessmentInvite = async ({
     const formattedOpen = formatDateTime(openingTime);
     const formattedClose = formatDateTime(closingTime);
 
-    let scheduleHtml = '';
+    let scheduleText = '';
     if (formattedOpen || formattedClose) {
-        scheduleHtml = `
-            <div style="background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.25); border-radius: 10px; padding: 14px 16px; margin: 16px 0;">
-              <div style="font-size: 11px; font-weight: 700; color: #a5b4fc; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">
-                🗓️ Interview Schedule & Availability Window
-              </div>
-              ${formattedOpen ? `<div class="detail-row"><span class="label">Opens / Starts:</span><span class="val">${formattedOpen}</span></div>` : ''}
-              ${formattedClose ? `<div class="detail-row"><span class="label">Deadline / Closes:</span><span class="val" style="color: #f87171;">${formattedClose}</span></div>` : ''}
-            </div>
+        scheduleText = `
+        <p style="margin: 12px 0 6px 0; color: #333333; font-size: 14px;"><strong>Interview Schedule:</strong></p>
+        <ul style="margin: 0 0 16px 20px; padding: 0; color: #444444; font-size: 14px; line-height: 1.5;">
+            ${formattedOpen ? `<li><strong>Opens:</strong> ${formattedOpen}</li>` : ''}
+            ${formattedClose ? `<li><strong>Deadline:</strong> ${formattedClose}</li>` : ''}
+        </ul>
         `;
     }
 
     const mailOptions = {
-        from: `"${safeCompany} Recruiting via VoxCode" <no-reply@voxcode.ai>`,
+        from: `"${safeCompany}" <no-reply@voxcode.ai>`,
         to: safeEmail,
-        subject: `Interview Invitation: ${safeRole} at ${safeCompany} (${safeCode})`,
+        subject: `Interview Invitation: ${safeRole} - ${safeCompany}`,
+        text: `Hi,\n\nYou have been invited to complete a technical interview for the ${safeRole} position at ${safeCompany}.\n\nDuration: ${durationMinutes} minutes\n${formattedOpen ? `Opens: ${formattedOpen}\n` : ''}${formattedClose ? `Deadline: ${formattedClose}\n` : ''}\nYou can start your interview directly by clicking the link below:\n${magicLink}\n\nYour Assessment Code: ${safeCode}\n\nBest regards,\n${safeCompany} Recruiting Team`,
         html: `
         <!DOCTYPE html>
         <html>
         <head>
           <meta charset="utf-8">
-          <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0b0f17; color: #e2e8f0; margin: 0; padding: 24px; }
-            .card { max-width: 580px; margin: 0 auto; background-color: #121824; border: 1px solid #1e293b; border-radius: 16px; padding: 32px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
-            .header { text-align: center; margin-bottom: 24px; }
-            .badge { display: inline-block; background-color: rgba(99, 102, 241, 0.15); border: 1px solid #6366f1; color: #a5b4fc; font-weight: bold; font-size: 11px; padding: 4px 12px; border-radius: 9999px; text-transform: uppercase; letter-spacing: 1px; }
-            h1 { color: #ffffff; font-size: 22px; font-weight: 800; margin: 12px 0 6px 0; }
-            p { color: #94a3b8; font-size: 14px; line-height: 1.6; margin: 8px 0; }
-            .code-box { background-color: #0b0f17; border: 1px solid #334155; border-radius: 12px; padding: 16px; text-align: center; margin: 24px 0; }
-            .code { font-family: Courier, monospace; font-size: 24px; font-weight: 800; color: #38bdf8; letter-spacing: 3px; }
-            .details { background-color: #1a2233; border-radius: 10px; padding: 16px; margin: 16px 0; }
-            .detail-row { display: flex; justify-content: space-between; font-size: 13px; padding: 4px 0; }
-            .label { color: #64748b; }
-            .val { color: #f1f5f9; font-weight: 600; }
-            .btn { display: block; width: 100%; text-align: center; background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%); color: #ffffff; text-decoration: none; font-weight: 700; font-size: 15px; padding: 14px 0; border-radius: 12px; margin: 24px 0; box-shadow: 0 4px 15px rgba(99, 102, 241, 0.35); }
-            .footer { font-size: 11px; color: #475569; text-align: center; margin-top: 24px; border-top: 1px solid #1e293b; padding-top: 16px; }
-          </style>
         </head>
-        <body>
-          <div class="card">
-            <div class="header">
-              <span class="badge">AI Technical Assessment</span>
-              <h1>You're Invited to Interview!</h1>
-              <p><strong>${safeCompany}</strong> has invited you to complete an adaptive technical interview for the <strong>${safeRole}</strong> role.</p>
-            </div>
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #222222; background-color: #ffffff; margin: 0; padding: 24px; font-size: 14px; line-height: 1.6;">
+          <p>Hi,</p>
 
-            ${customMessage ? `<p style="font-style: italic; background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; border-left: 3px solid #6366f1;">"${customMessage}"</p>` : ''}
+          <p>You have been invited by <strong>${safeCompany}</strong> to complete a technical interview for the <strong>${safeRole}</strong> role.</p>
 
-            <div class="details">
-              <div class="detail-row">
-                <span class="label">Role:</span>
-                <span class="val">${safeRole}</span>
-              </div>
-              <div class="detail-row">
-                <span class="label">Company:</span>
-                <span class="val">${safeCompany}</span>
-              </div>
-              <div class="detail-row">
-                <span class="label">Duration:</span>
-                <span class="val">${durationMinutes} Minutes</span>
-              </div>
-              <div class="detail-row">
-                <span class="label">Format:</span>
-                <span class="val">2-Stage Voice Q&A + Live Coding</span>
-              </div>
-            </div>
+          ${customMessage ? `<p style="color: #555555; border-left: 2px solid #0066cc; padding-left: 10px; margin: 14px 0;">${customMessage}</p>` : ''}
 
-            ${scheduleHtml}
+          <p style="margin: 14px 0 6px 0;"><strong>Details:</strong></p>
+          <ul style="margin: 0 0 16px 20px; padding: 0; color: #444444;">
+            <li><strong>Role:</strong> ${safeRole}</li>
+            <li><strong>Company:</strong> ${safeCompany}</li>
+            <li><strong>Duration:</strong> ${durationMinutes} minutes</li>
+            <li><strong>Assessment Code:</strong> ${safeCode}</li>
+          </ul>
 
-            <div class="code-box">
-              <div style="font-size: 11px; color: #64748b; margin-bottom: 6px; text-transform: uppercase;">Your Assessment Code</div>
-              <div class="code">${safeCode}</div>
-            </div>
+          ${scheduleText}
 
-            <a href="${magicLink}" class="btn">Start Technical Assessment →</a>
+          <p style="margin: 20px 0;">
+            Please click the link below to begin your interview:
+            <br>
+            <a href="${magicLink}" style="color: #0066cc; text-decoration: underline; font-weight: 500; font-size: 15px; word-break: break-all;">
+              ${magicLink}
+            </a>
+          </p>
 
-            <p style="font-size: 12px; text-align: center; color: #64748b;">
-              Direct Link: <a href="${magicLink}" style="color: #38bdf8; word-break: break-all;">${magicLink}</a>
-              <br/>Or navigate to <code>${frontendUrl}/candidate/dashboard</code> and enter code <strong>${safeCode}</strong>.
-            </p>
-
-            <div class="footer">
-              Powered by VoxCode • Adaptive AI Interview Platform with Rohan<br>
-              Good luck with your interview!
-            </div>
-          </div>
+          <p style="margin-top: 28px; color: #666666; font-size: 13px;">
+            Best regards,<br>
+            <strong>${safeCompany} Recruiting Team</strong>
+          </p>
         </body>
         </html>
         `
