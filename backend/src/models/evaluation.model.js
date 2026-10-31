@@ -114,6 +114,10 @@ const evaluationSchema = new Schema({
             penalty: { type: Number, default: 0 }
         }]
     },
+    deepEvaluation: {
+        type: Schema.Types.Mixed,
+        default: null
+    },
     status: {
         type: String,
         enum: ['PENDING', 'COMPLETED', 'FAILED'],

@@ -344,7 +344,7 @@ const AssessmentResults = () => {
                                             </td>
                                             <td className="py-4 px-5 text-right">
                                                 <Link
-                                                    to={`/candidate/report/${ev.session?._id || ev.session}`}
+                                                    to={`/candidate/reports/${ev.session?._id || ev.session}`}
                                                     className="studio-btn-secondary text-xs py-1.5 px-3"
                                                 >
                                                     <span>View details</span>

@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
 import { 
     CheckCircle2, 
     Lightbulb, 
     Target, 
-    ArrowRight, 
     ShieldCheck, 
     Cpu, 
     MessageSquare, 
@@ -27,54 +25,55 @@ export const CandidateReadinessIndex = ({ stats, recentReports = [] }) => {
     const highestScore = stats?.highestScore || 0;
     const competencies = stats?.competencies || {};
 
-    // Competency axis data (with sensible defaults when candidate is starting out)
+    // Competency axis data — all scores default to 0 for new candidates.
+    // Values are populated from analysis/reports (stats.competencies) once available.
     const axes = [
-        { 
-            key: 'systemArchitecture', 
-            label: 'System Architecture', 
+        {
+            key: 'systemArchitecture',
+            label: 'System Architecture',
             short: 'Sys Arch',
-            score: competencies.systemArchitecture || (totalInterviews > 0 ? 82 : 75), 
+            score: competencies.systemArchitecture || 0,
             icon: Cpu,
             benchmark: 'Top 15%'
         },
-        { 
-            key: 'codingAlgorithms', 
-            label: 'Algorithms & Data Structures', 
+        {
+            key: 'codingAlgorithms',
+            label: 'Algorithms & Data Structures',
             short: 'Algorithms',
-            score: competencies.codingAlgorithms || (totalInterviews > 0 ? 88 : 80), 
+            score: competencies.codingAlgorithms || 0,
             icon: Code,
             benchmark: 'Top 10%'
         },
-        { 
-            key: 'codeHygiene', 
-            label: 'Code Hygiene & Modularity', 
+        {
+            key: 'codeHygiene',
+            label: 'Code Hygiene & Modularity',
             short: 'Clean Code',
-            score: competencies.codeHygiene || (totalInterviews > 0 ? 84 : 78), 
+            score: competencies.codeHygiene || 0,
             icon: ShieldCheck,
             benchmark: 'Top 18%'
         },
-        { 
-            key: 'communication', 
-            label: 'Technical Spoken Communication', 
+        {
+            key: 'communication',
+            label: 'Technical Spoken Communication',
             short: 'Voice Dialogue',
-            score: competencies.communication || (totalInterviews > 0 ? 90 : 85), 
+            score: competencies.communication || 0,
             icon: MessageSquare,
             benchmark: 'Top 8%'
         },
-        { 
-            key: 'problemDefense', 
-            label: 'Trade-off & Resume Defense', 
+        {
+            key: 'problemDefense',
+            label: 'Trade-off & Resume Defense',
             short: 'Defense',
-            score: Math.round(((competencies.systemArchitecture || 82) + (competencies.communication || 90)) / 2), 
+            score: Math.round(((competencies.systemArchitecture || 0) + (competencies.communication || 0)) / 2),
             icon: Target,
             benchmark: 'Top 12%'
-        }
+        },
     ];
 
     const readinessIndex = competencies.readinessIndex || (
-        totalInterviews > 0 
+        totalInterviews > 0
             ? Math.round(axes.reduce((acc, a) => acc + a.score, 0) / axes.length)
-            : 84
+            : 0
     );
 
     // Active hovered competency state
@@ -132,7 +131,7 @@ export const CandidateReadinessIndex = ({ stats, recentReports = [] }) => {
                         </span>
                         <div className="flex items-baseline gap-1">
                             <span className={`text-2xl font-bold font-mono tabular-nums ${isDark ? 'text-[#EDEDF0]' : 'text-slate-900'}`}>
-                                {highestScore > 0 ? highestScore : 92}%
+                                {highestScore > 0 ? highestScore : 0}%
                             </span>
                         </div>
                     </div>
@@ -247,27 +246,7 @@ export const CandidateReadinessIndex = ({ stats, recentReports = [] }) => {
                 </div>
             </div>
 
-            {/* Chronological Question & Audio Replay Jump Bar */}
-            {recentReports.length > 0 && (
-                <div className={`pt-3 border-t flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs ${
-                    isDark ? 'border-[#232330]' : 'border-slate-200'
-                }`}>
-                    <div className={`flex items-center gap-2 ${isDark ? 'text-[#8B8B9E]' : 'text-slate-600'}`}>
-                        <span className={`text-[11px] font-medium ${isDark ? 'text-[#8B8B9E]' : 'text-slate-500'}`}>Latest:</span>
-                        <span className={`font-medium ${isDark ? 'text-[#EDEDF0]' : 'text-slate-900'}`}>{recentReports[0]?.assessmentTitle}</span>
-                        <span className={isDark ? 'text-[#3F3F4E]' : 'text-slate-300'}>•</span>
-                        <span className="text-emerald-500 font-medium">{recentReports[0]?.verdict || 'Strong Hire'}</span>
-                    </div>
 
-                    <Link
-                        to={`/candidate/report/${recentReports[0]?.sessionId || recentReports[0]?._id}`}
-                        className="inline-flex items-center gap-1.5 text-xs text-blue-500 hover:text-blue-600 font-medium transition-colors"
-                    >
-                        <span>View report</span>
-                        <ArrowRight className="w-3.5 h-3.5" />
-                    </Link>
-                </div>
-            )}
         </div>
     );
 };

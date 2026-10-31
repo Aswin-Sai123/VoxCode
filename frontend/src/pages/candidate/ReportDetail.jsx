@@ -25,6 +25,9 @@ const ReportDetail = () => {
     const [error, setError] = useState(null);
 
     useEffect(() => {
+        // Simulate report generation time (e.g., LLM processing)
+        const MIN_GENERATION_TIME_MS = 3000; // 3 seconds
+        const startTime = Date.now();
         const fetchEvaluation = async () => {
             try {
                 const res = await api.get(`/evaluation/session/${sessionId}`);
@@ -35,7 +38,10 @@ const ReportDetail = () => {
                 console.error('Failed to load evaluation', err);
                 setError(err.response?.data?.message || 'Could not load evaluation report.');
             } finally {
-                setLoading(false);
+                // Ensure we wait at least MIN_GENERATION_TIME_MS before clearing loading
+                const elapsed = Date.now() - startTime;
+                const remaining = Math.max(0, MIN_GENERATION_TIME_MS - elapsed);
+                setTimeout(() => setLoading(false), remaining);
             }
         };
 

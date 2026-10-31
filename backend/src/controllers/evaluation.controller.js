@@ -2,7 +2,7 @@ import { Evaluation } from '../models/evaluation.model.js';
 import { InterviewSession } from '../models/interviewSession.model.js';
 import { Assessment } from '../models/assessment.model.js';
 import '../models/candidate.model.js';
-import { evaluateInterviewSession } from '../services/evaluation.service.js';
+import { evaluateInterviewSession, captureSessionOutcome } from '../services/evaluation.service.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import { ApiError } from '../utils/ApiError.js';
@@ -145,6 +145,21 @@ export const updateRecruiterDecision = asyncHandler(async (req, res) => {
 
     if (recruiterDecision) {
         evaluation.recruiterDecision = recruiterDecision;
+        const dec = String(recruiterDecision).toUpperCase();
+        const isHireable = ['SHORTLISTED', 'ACCEPTED', 'HIRED', 'NEXT_ROUND'].includes(dec);
+        const isReject = ['REJECTED', 'FAILED', 'NO_HIRE'].includes(dec);
+        if (isHireable || isReject) {
+            try {
+                await captureSessionOutcome(evaluation.session, {
+                    hireable: isHireable,
+                    evaluationAccuracy: evaluation.scores?.overall
+                        ? (isHireable ? (evaluation.scores.overall >= 70 ? 0.95 : 0.6) : (evaluation.scores.overall < 70 ? 0.90 : 0.4))
+                        : 0.85
+                });
+            } catch (outcomeErr) {
+                console.warn('[captureSessionOutcome] Non-fatal outcome sync warning:', outcomeErr.message);
+            }
+        }
     }
     if (recruiterNotes !== undefined) {
         evaluation.recruiterNotes = recruiterNotes;

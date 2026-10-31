@@ -6,11 +6,14 @@
  * - Dynamic proportional timelines when time is specified without phase breakdowns
  */
 
-export function extractBlueprintDurationAndTimeline(blueprintText) {
+export function extractBlueprintDurationAndTimeline(blueprintText, experienceLevel = 'Mid') {
+    // Dynamic duration baseline tailored to seniority
+    const defaultForLevel = (/staff|principal|lead/i.test(experienceLevel)) ? 60 : (/senior/i.test(experienceLevel)) ? 45 : 30;
+
     if (!blueprintText || typeof blueprintText !== 'string') {
         return { 
-            totalDurationMinutes: 30, 
-            timeline: buildDefaultTimeline(30, true), 
+            totalDurationMinutes: defaultForLevel, 
+            timeline: buildDefaultTimeline(defaultForLevel, true, experienceLevel), 
             source: 'default' 
         };
     }
@@ -67,7 +70,7 @@ export function extractBlueprintDurationAndTimeline(blueprintText) {
         }
     }
 
-    const finalDuration = detectedDuration || 30;
+    const finalDuration = detectedDuration || ((/staff|principal|lead/i.test(experienceLevel)) ? 60 : (/senior/i.test(experienceLevel)) ? 45 : 30);
 
     // 3. Parse explicit phase lines if present
     const lines = text.split('\n');

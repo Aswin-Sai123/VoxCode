@@ -6,7 +6,8 @@ import {
     sendCandidateMessage,
     runCandidateCode,
     submitSession,
-    recordProctoringEvent
+    recordProctoringEvent,
+    recordSessionOutcomeController
 } from '../controllers/interview.controller.js';
 
 const router = Router();
@@ -22,5 +23,7 @@ router.post('/run-code', protect(['CANDIDATE']), runCandidateCode);
 router.post('/execute', protect(['CANDIDATE']), runCandidateCode);
 router.post('/submit', protect(['CANDIDATE']), submitSession);
 router.post('/session/:sessionId/complete', protect(['CANDIDATE']), submitSession);
+router.post('/session/:sessionId/outcome', protect(['CANDIDATE', 'COMPANY']), recordSessionOutcomeController);
+router.patch('/session/:sessionId/outcome', protect(['CANDIDATE', 'COMPANY']), recordSessionOutcomeController);
 
 export default router;

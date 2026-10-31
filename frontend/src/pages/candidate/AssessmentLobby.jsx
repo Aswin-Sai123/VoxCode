@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import api from '../../services/api';
 import { 
@@ -146,7 +146,7 @@ const AssessmentLobby = () => {
                     setCandidateSummary(data.summary || '');
                     setCandidateSkills(data.skills || []);
                     setParseSuccess(true);
-                    toast.success('Resume parsed and contextualized');
+                    
                     setTimeout(() => setParseSuccess(false), 5000);
                 }
             } catch (err) {
@@ -241,7 +241,7 @@ const AssessmentLobby = () => {
             setIsTestingVoice(false);
         };
         window.speechSynthesis.speak(u);
-        toast.info(`Playing sample via Browser Voice Engine (${model?.name || 'Local'})`);
+        
     };
 
     const handleTestVoiceAudio = async () => {
@@ -312,7 +312,7 @@ const AssessmentLobby = () => {
             micStreamRef.current = stream;
             setMicTesting(true);
             setMicVerified(true);
-            toast.success('Microphone connected successfully! Speak to test volume levels.');
+            
 
             const AudioCtx = window.AudioContext || window.webkitAudioContext;
             const ctx = new AudioCtx();
@@ -1026,7 +1026,7 @@ const AssessmentLobby = () => {
                             <div className="flex items-center justify-between">
                                 <span className="text-[#8B8B9E]">Interviewer:</span>
                                 <span className="font-medium text-[#EDEDF0]">
-                                    Rohan (Tech Lead)
+                                    {selectedVoiceModel?.includes('neerja') || selectedVoiceModel?.includes('female') ? 'Neerja (Tech Lead)' : 'Prabhat (Tech Lead)'}
                                 </span>
                             </div>
                             <div className="flex items-center justify-between">

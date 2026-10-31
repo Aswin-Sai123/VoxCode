@@ -252,3 +252,137 @@ ${code}
         }, 1000);
     }
 };
+
+/**
+ * Attempts to execute code within an isolated Docker container
+ */
+const tryDockerExecution = async ({ language, code, customInput = '', timeoutMs = 8000 }) => {
+    return new Promise((resolve) => {
+        const lang = (language || '').toLowerCase();
+        let cmdArgs = [];
+
+        switch (lang) {
+            case 'javascript':
+            case 'node':
+            case 'js':
+                cmdArgs = ['run', '--rm', '-i', '--network=none', '--memory=256m', '--cpus=1.0', 'node:20-alpine', 'node', '-e', code];
+                break;
+            case 'python':
+            case 'python3':
+            case 'py':
+                cmdArgs = ['run', '--rm', '-i', '--network=none', '--memory=256m', '--cpus=1.0', 'python:3.11-alpine', 'python3', '-c', code];
+                break;
+            default:
+                return resolve({ dockerUnavailable: true });
+        }
+
+        const startTime = Date.now();
+        let stdout = '';
+        let stderr = '';
+        let killed = false;
+
+        let proc;
+        try {
+            proc = spawn('docker', cmdArgs, { env: getSafeEnv() });
+        } catch {
+            return resolve({ dockerUnavailable: true });
+        }
+
+        const timer = setTimeout(() => {
+            killed = true;
+            try { proc.kill('SIGKILL'); } catch {}
+            resolve({
+                output: `Docker execution timed out (${(timeoutMs / 1000).toFixed(0)}s limit)`,
+                hasError: true,
+                executionTime: `${((Date.now() - startTime) / 1000).toFixed(2)}s`,
+                exitCode: 124
+            });
+        }, timeoutMs);
+
+        if (customInput && proc.stdin) {
+            try {
+                proc.stdin.write(customInput);
+                proc.stdin.end();
+            } catch {}
+        }
+
+        proc.stdout?.on('data', (d) => { stdout += d.toString(); });
+        proc.stderr?.on('data', (d) => { stderr += d.toString(); });
+
+        proc.on('error', () => {
+            clearTimeout(timer);
+            resolve({ dockerUnavailable: true });
+        });
+
+        proc.on('close', (code) => {
+            clearTimeout(timer);
+            if (killed) return;
+            const fullErr = (stderr || '').toLowerCase();
+            if (
+                fullErr.includes('cannot connect to the docker daemon') ||
+                fullErr.includes('failed to connect to the docker api') ||
+                fullErr.includes('is the docker daemon running') ||
+                fullErr.includes('error response from daemon') ||
+                fullErr.includes('the system cannot find the file specified') ||
+                code === 125 ||
+                code === 127
+            ) {
+                return resolve({ dockerUnavailable: true });
+            }
+
+            const executionTime = `${((Date.now() - startTime) / 1000).toFixed(2)}s`;
+            const cleanOutput = (stdout + (stderr ? (stdout ? '\n' : '') + stderr : '')).trim();
+            resolve({
+                output: cleanOutput || 'Program executed successfully with no output.',
+                hasError: code !== 0,
+                executionTime,
+                exitCode: code,
+                isDocker: true
+            });
+        });
+    });
+};
+
+/**
+ * Universal code executor: attempts Docker container isolation first,
+ * seamlessly falling back to local child_process sandbox execution if Docker is unavailable.
+ */
+export const executeCode = async (langOrConfig, code = '', customInput = '', options = {}) => {
+    let language = langOrConfig;
+    let actualCode = code;
+    let actualInput = customInput;
+    let actualOptions = options;
+
+    if (typeof langOrConfig === 'object' && langOrConfig !== null) {
+        language = langOrConfig.language;
+        actualCode = langOrConfig.code;
+        actualInput = langOrConfig.customInput || '';
+        actualOptions = langOrConfig.options || langOrConfig;
+    }
+
+    const timeoutMs = actualOptions?.timeoutMs || 8000;
+
+    // 1. Try Docker container execution
+    try {
+        const dockerRes = await tryDockerExecution({
+            language,
+            code: actualCode,
+            customInput: actualInput,
+            timeoutMs
+        });
+        if (dockerRes && !dockerRes.dockerUnavailable) {
+            return dockerRes;
+        }
+    } catch {
+        // Fall back cleanly on any Docker error
+    }
+
+    // 2. Fall back to local child_process sandbox
+    return await executeCodeSandbox({
+        language,
+        code: actualCode,
+        customInput: actualInput,
+        timeoutMs
+    });
+};
+

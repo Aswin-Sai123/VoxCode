@@ -523,9 +523,6 @@ const CreateAssessment = () => {
                                         </h3>
                                         <span className="text-[11px] font-semibold text-red-400">* Required</span>
                                     </div>
-                                    <p className="text-[11px] text-[#8B8B9E] leading-relaxed">
-                                        Upload your hiring document (.pdf, .docx, .txt) or paste your internal rubric. The AI interviewer derives interview phases, live coding requirements, and question counts directly from this blueprint.
-                                    </p>
                                 </div>
 
                                 <div className="flex items-center gap-2 self-start flex-shrink-0">
@@ -1119,7 +1116,7 @@ const CreateAssessment = () => {
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
                     <div className="bg-[#141419] border border-[#232330] rounded-2xl max-w-2xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
                         {/* Modal Header */}
-                        <div className="flex items-center justify-between p-5 border-b border-[#232330]">
+                        <div className="flex items-center p-5 border-b border-[#232330]">
                             <div className="flex items-center gap-2.5">
                                 <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
                                     <BookOpen className="w-4 h-4" />
@@ -1133,13 +1130,6 @@ const CreateAssessment = () => {
                                     </p>
                                 </div>
                             </div>
-                            <button
-                                type="button"
-                                onClick={() => setShowTemplateModal(false)}
-                                className="p-1.5 rounded-lg text-[#8B8B9E] hover:text-[#EDEDF0] hover:bg-[#1C1C24] transition-colors"
-                            >
-                                <X className="w-5 h-5" />
-                            </button>
                         </div>
 
                         {/* Modal Body: Universal Text Only */}
@@ -1150,36 +1140,6 @@ const CreateAssessment = () => {
                                 value={UNIVERSAL_BLUEPRINT_FORMAT}
                                 className="w-full p-4 bg-[#0A0A0B] border border-[#232330] rounded-xl font-mono text-xs text-[#EDEDF0] leading-relaxed resize-none focus:outline-none select-all"
                             />
-                        </div>
-
-                        {/* Modal Footer */}
-                        <div className="p-4 border-t border-[#232330] flex items-center justify-between gap-3 bg-[#0E0E12]">
-                            <button
-                                type="button"
-                                onClick={copyUniversalFormat}
-                                className="studio-btn-secondary px-3.5 py-2 text-xs font-medium flex items-center gap-1.5 text-[#EDEDF0]"
-                            >
-                                {formatCopied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-[#8B8B9E]" />}
-                                <span>{formatCopied ? 'Copied' : 'Copy Format'}</span>
-                            </button>
-
-                            <div className="flex items-center gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setShowTemplateModal(false)}
-                                    className="studio-btn-secondary px-3.5 py-2 text-xs font-medium"
-                                >
-                                    Close
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={applyUniversalFormat}
-                                    className="btn-primary px-4 py-2 text-xs font-medium flex items-center gap-1.5"
-                                >
-                                    <Sparkles className="w-3.5 h-3.5" />
-                                    <span>Insert into Blueprint</span>
-                                </button>
-                            </div>
                         </div>
                     </div>
                 </div>

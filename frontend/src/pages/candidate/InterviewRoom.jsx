@@ -19,18 +19,23 @@ import {
     Maximize2, 
     Minimize2, 
     FileText, 
-    Sparkles, 
+    MessageSquareCode, 
     Sun, 
     Moon, 
     Code,
-    HelpCircle
+    HelpCircle,
+    User
 } from 'lucide-react';
 import { toast } from 'sonner';
 import confetti from 'canvas-confetti';
 import { playChime, playClick, playSuccess } from '../../utils/soundEffects';
 import { getActivePhaseInfo, buildDefaultTimeline } from '../../utils/blueprintParser';
 import VoiceVisualizerOrb from '../../components/common/VoiceVisualizerOrb';
-import VoiceModelSelectorModal from '../../components/common/VoiceModelSelectorModal';
+import useInterviewSocket from '../../hooks/useInterviewSocket';
+import useVAD from '../../hooks/useVAD';
+import useAudioQueue from '../../hooks/useAudioQueue';
+import LiveTranscript from '../../components/interview/LiveTranscript';
+import AudioVisualizer from '../../components/interview/AudioVisualizer';
 
 // Live YouTube/Karaoke-style dynamic animated speech caption renderer
 const LiveCaptionsText = ({ text, isSpeaking, activeWordIndex }) => {
@@ -127,8 +132,119 @@ const InterviewRoom = () => {
     const [selectedVoiceModel, setSelectedVoiceModel] = useState(() => {
         return location.state?.voiceModel || sessionStorage.getItem(`voxcode_voice_model_${code}`) || localStorage.getItem('voxcode_voice_model') || localStorage.getItem('voxcode_preferred_voice_model') || 'edge-neural-neerja';
     });
-    const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
     const activeAudioRef = useRef(null);
+
+    // Audio Queue for streaming chunks with sample-accurate scheduling & instantaneous flush
+    const {
+        queueAudioChunk,
+        flushQueue,
+        isPlaying: isQueuePlaying,
+        analyser: queueAnalyser
+    } = useAudioQueue();
+
+    // Streaming & Real-time State
+    const [streamingAiText, setStreamingAiText] = useState('');
+    const [runningCri, setRunningCri] = useState(null);
+    const [runningCriSignal, setRunningCriSignal] = useState(null);
+    const [aiCodeComment, setAiCodeComment] = useState(null);
+    const codeSnapshotTimerRef = useRef(null);
+    const streamCommitTimerRef = useRef(null);
+
+    // Persistent WebSocket Connection to /ws/interview
+    const {
+        connectionState: wsConnectionState,
+        isConnected: isWsConnected,
+        sendTextMessage,
+        sendAudioChunk,
+        sendCodeSnapshot,
+        sendInterrupt
+    } = useInterviewSocket({
+        sessionId: session?._id,
+        autoConnect: Boolean(session?._id),
+        onTextToken: (token) => {
+            setIsAiSpeaking(true);
+            setStreamingAiText(prev => prev + token);
+        },
+        onAudioChunk: (base64Audio, msg) => {
+            setIsAiSpeaking(true);
+            queueAudioChunk(base64Audio);
+            if (msg?.sentence) {
+                setSpeakingText(msg.sentence);
+            }
+        },
+        onAiInterrupted: () => {
+            flushQueue();
+            setIsAiSpeaking(false);
+            setStreamingAiText('');
+            
+        },
+        onAiCodeComment: (commentText) => {
+            setAiCodeComment(commentText);
+            toast(`${interviewerName}'s Note`, {
+                description: commentText,
+                
+            });
+        },
+        onCriUpdate: (newCri, newSignal) => {
+            setRunningCri(newCri);
+            setRunningCriSignal(newSignal);
+        },
+        onError: (errMsg) => {
+            console.warn('[InterviewRoom WS Error]', errMsg);
+        }
+    });
+
+    // Voice Activity Detection (VAD) for natural barge-in
+    const {
+        isSpeaking: isUserSpeakingVAD,
+        volume: userVolume,
+        startListening: startVAD,
+        stopListening: stopVAD,
+        isListening: isVADListening
+    } = useVAD({
+        onSpeechStart: () => {
+            if (isAiSpeaking || isQueuePlaying) {
+                flushQueue();
+                if (isWsConnected) {
+                    sendInterrupt();
+                }
+                if (activeAudioRef.current) {
+                    activeAudioRef.current.pause();
+                    activeAudioRef.current.currentTime = 0;
+                    activeAudioRef.current = null;
+                }
+                if (window.speechSynthesis) window.speechSynthesis.cancel();
+                setIsAiSpeaking(false);
+                setStreamingAiText('');
+                if (captionTimerRef.current) clearTimeout(captionTimerRef.current);
+                setSpokenWordIndex(-1);
+            }
+        },
+        speechThreshold: 0.04
+    });
+
+    // Auto-commit streamed response to transcript when queue playback concludes or idle
+    useEffect(() => {
+        if (!isQueuePlaying && streamingAiText) {
+            if (streamCommitTimerRef.current) clearTimeout(streamCommitTimerRef.current);
+            streamCommitTimerRef.current = setTimeout(() => {
+                const fullText = streamingAiText.trim();
+                if (fullText) {
+                    setLatestAiMessage(fullText);
+                    setTranscript(prev => {
+                        const last = prev[prev.length - 1];
+                        if (last?.role === 'ai' && last?.text === fullText) return prev;
+                        return [...prev, { role: 'ai', text: fullText, timestamp: new Date() }];
+                    });
+                    setStreamingAiText('');
+                    setIsAiSpeaking(false);
+                }
+            }, 1200);
+        }
+        return () => {
+            if (streamCommitTimerRef.current) clearTimeout(streamCommitTimerRef.current);
+        };
+    }, [isQueuePlaying, streamingAiText]);
 
     const handleSelectVoiceModel = (modelId) => {
         setSelectedVoiceModel(modelId);
@@ -136,6 +252,13 @@ const InterviewRoom = () => {
             localStorage.setItem('voxcode_voice_model', modelId);
         } catch {}
     };
+
+    const getInterviewerName = (modelId) => {
+        const id = (modelId || '').toLowerCase();
+        if (id.includes('neerja') || id.includes('female')) return 'Neerja';
+        return 'Prabhat';
+    };
+    const interviewerName = getInterviewerName(selectedVoiceModel);
 
     const getActiveVoiceLabel = (modelId) => {
         switch (modelId) {
@@ -170,6 +293,9 @@ const InterviewRoom = () => {
             [selectedLanguage]: editorCode
         }));
         setSelectedLanguage(newLang);
+        try {
+            localStorage.setItem(`voxcode_lang_${code}`, newLang);
+        } catch {}
 
         // If candidate already wrote or switched to this language, restore it
         if (codeByLanguage[newLang] !== undefined) {
@@ -209,6 +335,17 @@ const InterviewRoom = () => {
     const [cameraError, setCameraError] = useState('');
     const [audioLevel, setAudioLevel] = useState(0);
     const [isWebcamMinimized, setIsWebcamMinimized] = useState(false);
+
+    // Ensure webcam video element maintains srcObject if re-rendered
+    useEffect(() => {
+        if (!isWebcamMinimized && videoRef.current && mediaStreamRef.current) {
+            if (videoRef.current.srcObject !== mediaStreamRef.current) {
+                videoRef.current.srcObject = mediaStreamRef.current;
+            }
+            videoRef.current.play().catch(() => {});
+        }
+    }, [isWebcamMinimized]);
+
     const [isFullscreen, setIsFullscreen] = useState(false);
 
     // Monaco IDE Pro Bar & Customization state
@@ -502,8 +639,8 @@ const InterviewRoom = () => {
 
         // Paced word-ticker fallback / duration-based karaoke sync
         const startWordTicker = (totalDurationMs) => {
-            const estDuration = totalDurationMs || (words.length * 280);
-            const interval = Math.max(120, Math.floor(estDuration / Math.max(1, words.length)));
+            const estDuration = totalDurationMs || (words.length * 180);
+            const interval = Math.max(80, Math.floor(estDuration / Math.max(1, words.length)));
 
             const advanceWord = () => {
                 if (boundaryHandled) return;
@@ -571,7 +708,7 @@ const InterviewRoom = () => {
                     if (indianVoice) utterance.voice = indianVoice;
                 }
 
-                utterance.rate = 1.05;
+                utterance.rate = 1.15;
                 utterance.pitch = 0.98;
 
                 utterance.onstart = () => {
@@ -667,7 +804,11 @@ const InterviewRoom = () => {
         }
 
         // Barge-in: if AI is currently speaking, immediately interrupt and stop playback
-        if (isAiSpeaking) {
+        if (isAiSpeaking || isQueuePlaying) {
+            flushQueue();
+            if (isWsConnected) {
+                sendInterrupt();
+            }
             if (activeAudioRef.current) {
                 activeAudioRef.current.pause();
                 activeAudioRef.current.currentTime = 0;
@@ -699,6 +840,10 @@ const InterviewRoom = () => {
         };
 
         recognition.onresult = (event) => {
+            flushQueue();
+            if (isWsConnected) {
+                sendInterrupt();
+            }
             // Cut off AI audio immediately when user speaks
             if (activeAudioRef.current) {
                 activeAudioRef.current.pause();
@@ -773,6 +918,7 @@ const InterviewRoom = () => {
         }
         if (window.speechSynthesis) window.speechSynthesis.cancel();
         setIsAiSpeaking(false);
+        flushQueue();
 
         setIsSending(true);
         setCandidateText('');
@@ -780,6 +926,17 @@ const InterviewRoom = () => {
 
         const userEntry = { role: 'candidate', text: textToSend, timestamp: new Date() };
         setTranscript(prev => [...prev, userEntry]);
+        if (isWsConnected) {
+            try {
+                const sent = sendTextMessage(textToSend);
+                if (sent) {
+                    setIsSending(false);
+                    return;
+                }
+            } catch (wsErr) {
+                console.warn('[handleSendMessage] WebSocket send failed, falling back to REST:', wsErr);
+            }
+        }
 
         try {
             const res = await api.post('/interview/message', {
@@ -787,7 +944,8 @@ const InterviewRoom = () => {
                 code,
                 message: textToSend,
                 currentCode: editorCode,
-                executionOutput: executionOutput
+                executionOutput,
+                voiceModel: selectedVoiceModel
             });
 
             if (res.data.success) {
@@ -826,7 +984,7 @@ const InterviewRoom = () => {
             }
         } catch (err) {
             console.error('Failed to send answer', err);
-            const errorMsg = 'Could not get response from AI interviewer. Please try sending again.';
+            const errorMsg = 'Connection interrupted. Please repeat your response or send via text.';
             setTranscript(prev => [...prev, { role: 'ai', text: errorMsg, timestamp: new Date() }]);
         } finally {
             setIsSending(false);
@@ -895,7 +1053,7 @@ const InterviewRoom = () => {
             const res = await api.post('/interview/run-code', {
                 language: selectedLanguage,
                 code: editorCode,
-                customInput: useCustomInput ? customInputText : undefined
+                customInput: customInputText ? customInputText : undefined
             });
             if (res.data.success) {
                 const out = res.data.data.output || 'Code executed with no stdout output.';
@@ -908,7 +1066,7 @@ const InterviewRoom = () => {
                 });
                 if (!hasErr) {
                     playSuccess();
-                    toast.success('Code executed successfully');
+                    
                 } else {
                     toast.error('Execution returned runtime or test failure');
                 }
@@ -1058,7 +1216,7 @@ const InterviewRoom = () => {
 
                             <div className="space-y-2 pt-2">
                                 <button
-                                    onClick={() => navigate(`/candidate/report/${session?._id}`)}
+                                    onClick={() => navigate(`/candidate/reports/${session?._id}`)}
                                     className="btn-primary w-full py-2.5 text-xs font-medium"
                                 >
                                     <span>View Assessment Report</span>
@@ -1211,38 +1369,7 @@ const InterviewRoom = () => {
                         {isFullscreen ? <Minimize2 className="w-4 h-4 text-emerald-400" /> : <Maximize2 className="w-4 h-4 text-[#8B8B9E]" />}
                     </button>
 
-                    {/* Voice Model Switcher Pill */}
-                    <button
-                        onClick={() => setIsVoiceModalOpen(true)}
-                        className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#141419] border border-[#232330] hover:border-blue-500/40 text-xs font-mono transition-colors active:scale-[0.98] cursor-pointer"
-                        title="Change AI Interviewer Voice Model"
-                    >
-                        <Volume2 className="w-3.5 h-3.5 text-blue-400" />
-                        <span className="text-[#EDEDF0] text-[11px]">{getActiveVoiceLabel(selectedVoiceModel)}</span>
-                        <span className="text-[10px] text-emerald-400 font-bold ml-0.5">• Free</span>
-                    </button>
-
-                    {/* Mute Toggle */}
-                    <button
-                        onClick={() => {
-                            const newMuted = !isMuted;
-                            isMutedRef.current = newMuted;
-                            if (newMuted) {
-                                if (activeAudioRef.current) {
-                                    activeAudioRef.current.pause();
-                                    activeAudioRef.current.currentTime = 0;
-                                    activeAudioRef.current = null;
-                                }
-                                if (window.speechSynthesis) window.speechSynthesis.cancel();
-                                setIsAiSpeaking(false);
-                            }
-                            setIsMuted(newMuted);
-                        }}
-                        className="studio-btn-secondary p-2"
-                        title={isMuted ? 'Unmute AI Voice' : 'Mute AI Voice'}
-                    >
-                        {isMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4 text-[#8B8B9E]" />}
-                    </button>
+                    
 
                     {/* End & Submit Button */}
                     <button
@@ -1264,87 +1391,64 @@ const InterviewRoom = () => {
             {/* MAIN CONTENT AREA */}
             {stage === 'CONCEPTUAL' ? (
                 /* ================= STAGE 1: VOICE DISCUSSION STUDIO ================= */
-                <main className="flex-1 flex flex-col items-center justify-center p-6 max-w-3xl mx-auto w-full space-y-6">
-                    {/* Visualizer Module */}
-                    <div className="w-full bg-[#141419] border border-[#232330] rounded-xl p-6 flex flex-col items-center space-y-4">
-                        <div className="flex items-center justify-between w-full border-b border-[#232330] pb-3 text-xs">
-                            <span className="text-[#8B8B9E] flex items-center gap-2">
-                                <span className={`w-2 h-2 rounded-full ${
-                                    isAiSpeaking ? 'bg-emerald-400 animate-pulse' : isSending ? 'bg-amber-400 animate-pulse' : 'bg-[#555568]'
-                                }`}></span>
-                                <span className="font-medium text-[#EDEDF0]">Rohan</span>
-                                <span className="text-[#555568]">• Lead Interviewer</span>
-                            </span>
-                            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-[#0A0A0B] text-[#8B8B9E] border border-[#232330]">
-                                {isAiSpeaking ? 'Speaking' : isSending ? 'Thinking...' : isListening ? 'Listening' : 'Ready'}
-                            </span>
+                <main className="flex-1 flex flex-col items-center p-4 sm:p-6 max-w-3xl mx-auto w-full space-y-5 overflow-y-auto pb-24">
+                    {/* Interviewer Profile Avatar Card */}
+                    <div className="w-full bg-[#141419] border border-[#232330] rounded-xl p-5 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="relative">
+                                <div className="w-11 h-11 rounded-full bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 font-semibold text-sm">
+                                    <User className="w-5 h-5" />
+                                </div>
+                                <span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[#141419] ${
+                                    isAiSpeaking ? 'bg-emerald-400 animate-pulse' : isSending ? 'bg-amber-400 animate-pulse' : isListening ? 'bg-blue-400 animate-ping' : 'bg-[#555568]'
+                                }`} />
+                            </div>
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <span className="font-medium text-[#EDEDF0] text-sm">{interviewerName}</span>
+                                    <span className="text-[#555568] text-xs">• Lead Technical Interviewer</span>
+                                </div>
+                                <p className="text-[11px] text-[#8B8B9E]">1-on-1 Technical Dialogue ? Live</p>
+                            </div>
                         </div>
-
-                        {/* Real-Time Web Audio Waveform & Glowing Voice Orb */}
-                        <VoiceVisualizerOrb
-                            isAiSpeaking={isAiSpeaking}
-                            isListening={isListening}
-                            isSending={isSending}
-                            audioLevel={audioLevel}
-                        />
-
-                        <span className="text-xs text-[#555568]">
-                            Interactive voice response active
+                        <div className="flex items-center gap-3">
+                            <AudioVisualizer
+                                analyser={queueAnalyser}
+                                isActive={isAiSpeaking || isQueuePlaying || isListening || isUserSpeakingVAD}
+                                barColor="#3B82F6"
+                                width={120}
+                                height={26}
+                            />
+                            <span className={`px-2.5 py-1 rounded-full text-xs font-medium border flex items-center gap-1.5 ${
+                            isAiSpeaking
+                                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                                : isSending
+                                    ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                                    : isListening
+                                        ? 'bg-blue-500/10 text-blue-400 border-blue-500/30'
+                                        : 'bg-[#0A0A0B] text-[#8B8B9E] border-[#232330]'
+                        }`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${
+                                isAiSpeaking ? 'bg-emerald-400 animate-pulse' : isSending ? 'bg-amber-400 animate-pulse' : isListening ? 'bg-blue-400 animate-ping' : 'bg-[#555568]'
+                            }`} />
+                            <span>{(isAiSpeaking || isQueuePlaying) ? 'Speaking' : isSending ? 'Thinking...' : (isListening || isUserSpeakingVAD) ? 'Listening' : 'Ready'}</span>
                         </span>
+                        </div>
                     </div>
 
-                    {/* Question Card */}
-                    <div className="w-full bg-[#141419] border border-[#232330] rounded-xl p-6 sm:p-7 space-y-4 relative overflow-hidden">
-                        {isAiSpeaking && (
-                            <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-amber-400 to-transparent animate-pulse" />
-                        )}
-                        <div className="flex items-center justify-between flex-wrap gap-2">
-                            <div className="flex items-center gap-2 flex-wrap">
-                                <span className="px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 text-xs font-medium flex items-center gap-1.5">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse"></span>
-                                    <span>
-                                        {currentTopic
-                                            ? `Topic ${Math.min(currentTopicIndex + 1, totalTopics)}/${totalTopics}: ${currentTopic}`
-                                            : 'Live Technical Discussion'}
-                                    </span>
-                                </span>
-                                {isAiSpeaking && (
-                                    <span className="px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 text-[10px] font-mono font-semibold flex items-center gap-1.5 animate-pulse">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
-                                        <span>Live Captions</span>
-                                    </span>
-                                )}
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <button
-                                    onClick={() => setIsVoiceModalOpen(true)}
-                                    className="studio-btn-secondary text-xs py-1 px-2.5 flex items-center gap-1.5 active:scale-[0.98] transition-transform cursor-pointer"
-                                    title="Choose AI Interviewer Voice Model"
-                                >
-                                    <Volume2 className="w-3 h-3 text-blue-400" />
-                                    <span className="font-mono text-[11px] text-[#EDEDF0]">{getActiveVoiceLabel(selectedVoiceModel)}</span>
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                                </button>
-
-                                <button
-                                    id="btn-repeat-question"
-                                    data-testid="repeat-question-btn"
-                                    onClick={() => speakAiMessage(latestAiMessage)}
-                                    className="studio-btn-secondary text-xs py-1 px-2.5 flex items-center gap-1.5 active:scale-[0.98] transition-transform cursor-pointer"
-                                    title="Repeat question using current voice model"
-                                >
-                                    <RotateCcw className="w-3 h-3 text-[#8B8B9E]" />
-                                    <span>Repeat question</span>
-                                </button>
-                            </div>
-                        </div>
-                        <div className="text-base sm:text-lg font-medium leading-relaxed min-h-[3.5rem] flex items-center">
-                            <LiveCaptionsText
-                                text={latestAiMessage || 'Initializing interview questions...'}
-                                isSpeaking={isAiSpeaking}
-                                activeWordIndex={spokenWordIndex}
-                            />
-                        </div>
+                    {/* Unified Conversation Dialogue Feed (No duplicate text card) */}
+                    <div className="w-full flex-1 min-h-[320px] max-h-[520px]">
+                        <LiveTranscript
+                            transcript={transcript}
+                            streamingAiText={streamingAiText}
+                            candidateInterimText={interimSpeech}
+                            isAiSpeaking={isAiSpeaking || isQueuePlaying}
+                            isCandidateSpeaking={isListening || isUserSpeakingVAD}
+                            cri={runningCri}
+                            criSignal={runningCriSignal}
+                            interviewerName={interviewerName}
+                            connectionState={wsConnectionState}
+                        />
                     </div>
 
                     {/* Mic Error Banner */}
@@ -1521,9 +1625,7 @@ const InterviewRoom = () => {
                                             {codingChallenge?.difficulty || 'Medium'}
                                         </span>
                                     </div>
-                                    <p className="text-xs text-[#555568]">
-                                        Estimated time: 20 minutes • Isolated sandbox execution
-                                    </p>
+                                    <p className="text-xs text-[#555568]">Solve in the editor and verify against test cases.</p>
                                 </div>
 
                                 <div className="space-y-2">
@@ -1561,6 +1663,37 @@ const InterviewRoom = () => {
                                     </div>
                                 </div>
 
+                                {/* LeetCode-style Examples Section */}
+                                {((codingChallenge?.sampleTestCases && codingChallenge.sampleTestCases.length > 0)
+                                    ? codingChallenge.sampleTestCases
+                                    : [
+                                        { input: 'nums = [2, 7, 11, 15], target = 9', expectedOutput: '[0, 1]', explanation: 'Because nums[0] + nums[1] == 9, we return [0, 1].' },
+                                        { input: 'nums = [3, 2, 4], target = 6', expectedOutput: '[1, 2]' }
+                                    ]
+                                ).map((tc, idx) => (
+                                    <div key={idx} className="space-y-1.5 p-3 rounded-lg bg-[#0A0A0B] border border-[#232330]">
+                                        <span className="text-xs font-semibold text-[#EDEDF0] block">
+                                            Example {idx + 1}:
+                                        </span>
+                                        <div className="space-y-1 font-mono text-[11px]">
+                                            <div>
+                                                <span className="text-[#8B8B9E]">Input: </span>
+                                                <span className="text-[#EDEDF0]">{tc.input}</span>
+                                            </div>
+                                            <div>
+                                                <span className="text-[#8B8B9E]">Output: </span>
+                                                <span className="text-emerald-400">{tc.expectedOutput}</span>
+                                            </div>
+                                            {tc.explanation && (
+                                                <div className="font-sans text-xs text-[#8B8B9E] pt-0.5">
+                                                    <span className="text-[#555568]">Explanation: </span>
+                                                    {tc.explanation}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+
                                 {codingChallenge?.constraints && codingChallenge.constraints.length > 0 && (
                                     <div className="space-y-1.5">
                                         <span className="text-xs font-medium text-[#EDEDF0] block">
@@ -1585,47 +1718,33 @@ const InterviewRoom = () => {
                                     <div className="p-2.5 bg-[#0A0A0B] border border-[#232330] rounded-lg flex items-center justify-between">
                                         <div className="flex items-center gap-2">
                                             <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-                                            <span className="font-medium text-[#EDEDF0]">Rohan (Tech Lead)</span>
+                                            <span className="font-medium text-[#EDEDF0]">{interviewerName} (Tech Lead)</span>
                                         </div>
-                                        <span className="text-xs text-[#555568]">Online</span>
+                                        <div className="flex items-center gap-3">
+                                            <AudioVisualizer
+                                                analyser={queueAnalyser}
+                                                isActive={isAiSpeaking || isQueuePlaying || isListening || isUserSpeakingVAD}
+                                                barColor="#3B82F6"
+                                                width={90}
+                                                height={20}
+                                            />
+                                            <span className="text-xs text-[#555568]">Online</span>
+                                        </div>
                                     </div>
 
-                                    {transcript.map((msg, i) => {
-                                        const isLatestAi = msg.role === 'ai' && i === transcript.length - 1;
-                                        return (
-                                            <div
-                                                key={i}
-                                                className={`p-3 rounded-lg text-xs space-y-1 ${
-                                                    msg.role === 'ai'
-                                                        ? 'bg-[#0A0A0B] border border-[#232330] text-[#EDEDF0]'
-                                                        : 'bg-[#1C1C24] border border-[#363645] text-[#EDEDF0] ml-4'
-                                                }`}
-                                            >
-                                                <div className="flex items-center justify-between">
-                                                    <span className="text-[11px] font-medium text-[#8B8B9E] block">
-                                                        {msg.role === 'ai' ? 'Rohan (Tech Lead)' : 'You'}
-                                                    </span>
-                                                    {isLatestAi && isAiSpeaking && (
-                                                        <span className="text-[10px] text-amber-300 font-mono flex items-center gap-1 animate-pulse">
-                                                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
-                                                            speaking...
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                {isLatestAi && isAiSpeaking ? (
-                                                    <div className="leading-relaxed">
-                                                        <LiveCaptionsText
-                                                            text={msg.text}
-                                                            isSpeaking={true}
-                                                            activeWordIndex={spokenWordIndex}
-                                                        />
-                                                    </div>
-                                                ) : (
-                                                    <p className="whitespace-pre-line leading-relaxed">{msg.text}</p>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
+                                    <div className="h-80 w-full">
+                                        <LiveTranscript
+                                            transcript={transcript}
+                                            streamingAiText={streamingAiText}
+                                            candidateInterimText={interimSpeech}
+                                            isAiSpeaking={isAiSpeaking || isQueuePlaying}
+                                            isCandidateSpeaking={isListening || isUserSpeakingVAD}
+                                            cri={runningCri}
+                                            criSignal={runningCriSignal}
+                                            interviewerName={interviewerName}
+                                            connectionState={wsConnectionState}
+                                        />
+                                    </div>
                                 </div>
 
                                 <div className="border-t border-[#232330] pt-3 space-y-2">
@@ -1638,7 +1757,7 @@ const InterviewRoom = () => {
                                                     ? 'bg-red-600 text-white animate-pulse'
                                                     : 'studio-btn-secondary text-[#8B8B9E] hover:text-[#EDEDF0]'
                                             }`}
-                                            title={isListening ? "Stop voice listening" : "Click to speak to Rohan"}
+                                            title={isListening ? "Stop voice listening" : `Click to speak to ${interviewerName}`}
                                         >
                                             {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
                                         </button>
@@ -1697,79 +1816,18 @@ const InterviewRoom = () => {
                                     <option value="cpp">C++ (GCC 6.3 / C++17)</option>
                                     <option value="java">Java (OpenJDK 24)</option>
                                 </select>
-
-                                {/* Theme Switcher */}
-                                <div className="hidden sm:flex items-center gap-1.5 pl-1">
-                                    <span className="text-[11px] text-[#8B8B9E] font-mono">Theme:</span>
-                                    <select
-                                        value={editorTheme}
-                                        onChange={(e) => setEditorTheme(e.target.value)}
-                                        className="bg-[#0A0A0B] border border-[#232330] text-xs text-[#EDEDF0] px-1.5 py-1 rounded-md focus:outline-none focus:border-blue-500 font-mono text-[11px]"
-                                    >
-                                        <option value="vs-dark">Dark (VS Dark)</option>
-                                        <option value="vs">Light (VS Light)</option>
-                                        <option value="hc-black">High Contrast</option>
-                                    </select>
-                                </div>
-
-                                {/* Font Size Switcher */}
-                                <div className="hidden md:flex items-center gap-1.5 pl-1">
-                                    <span className="text-[11px] text-[#8B8B9E] font-mono">Font:</span>
-                                    <select
-                                        value={editorFontSize}
-                                        onChange={(e) => setEditorFontSize(Number(e.target.value))}
-                                        className="bg-[#0A0A0B] border border-[#232330] text-xs text-[#EDEDF0] px-1.5 py-1 rounded-md focus:outline-none focus:border-blue-500 font-mono text-[11px]"
-                                    >
-                                        <option value={12}>12px</option>
-                                        <option value={13}>13px</option>
-                                        <option value={14}>14px</option>
-                                        <option value={16}>16px</option>
-                                    </select>
-                                </div>
                             </div>
 
                             <div className="flex items-center gap-1.5 sm:gap-2">
-                                {/* Format Code Button */}
-                                <button
-                                    onClick={() => {
-                                        if (monacoEditorRef.current) {
-                                            monacoEditorRef.current.getAction('editor.action.formatDocument')?.run();
-                                            toast.success('Document formatted');
-                                        }
-                                    }}
-                                    className="studio-btn-secondary text-xs py-1 px-2.5 font-mono"
-                                    title="Prettier Format Code (Shift+Alt+F)"
-                                >
-                                    <Code className="w-3 h-3 text-[#8B8B9E]" />
-                                    <span className="hidden sm:inline">Format</span>
-                                </button>
-
-                                {/* Keyboard Shortcuts Cheatsheet Modal Trigger */}
-                                <button
-                                    onClick={() => setShowCheatsheet(true)}
-                                    className="studio-btn-secondary text-xs py-1 px-2"
-                                    title="IDE & Interview Keyboard Shortcuts (?)"
-                                >
-                                    <HelpCircle className="w-3.5 h-3.5 text-[#8B8B9E]" />
-                                </button>
-
-                                <button
-                                    onClick={() => setEditorCode(codingChallenge?.starterCode || '')}
-                                    className="studio-btn-secondary text-xs py-1 px-2.5"
-                                    title="Reset code to default starter template"
-                                >
-                                    <RotateCcw className="w-3 h-3 text-[#8B8B9E]" />
-                                    <span className="hidden sm:inline">Reset</span>
-                                </button>
                                 <button
                                     onClick={() => {
                                         setLeftTab('guidance');
-                                        handleSendMessage("I've finished writing and testing my solution. Rohan, please review it and walk through the implementation with me!");
+                                        handleSendMessage(`I've finished writing and testing my solution. ${interviewerName}, please review it and walk through the implementation with me!`);
                                     }}
                                     className="studio-btn-secondary text-xs py-1 px-2.5 text-blue-400 hover:text-blue-300"
-                                    title="Discuss solution with AI interviewer"
+                                    title="Discuss solution with your interviewer"
                                 >
-                                    <Sparkles className="w-3 h-3" />
+                                    <MessageSquareCode className="w-3.5 h-3.5" />
                                     <span>Discuss solution</span>
                                 </button>
                             </div>
@@ -1781,7 +1839,7 @@ const InterviewRoom = () => {
                                 <div className="flex items-center gap-1.5 flex-shrink-0">
                                     <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
                                     <span className="text-[10px] font-mono font-bold text-amber-300 uppercase tracking-wider">
-                                        Rohan:
+                                        {interviewerName}:
                                     </span>
                                 </div>
                                 <div className="text-xs text-[#EDEDF0] leading-relaxed flex-1 truncate sm:overflow-visible">
@@ -1794,6 +1852,23 @@ const InterviewRoom = () => {
                             </div>
                         )}
 
+                        {/* Live AI Code Commentary Banner */}
+                        {aiCodeComment && (
+                            <div className="h-auto py-2 bg-[#181824] border-b border-amber-500/30 px-4 flex items-center justify-between gap-2 flex-shrink-0 animate-fadeIn">
+                                <div className="flex items-center gap-2 text-xs text-amber-300">
+                                    <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />
+                                    <span className="font-semibold text-amber-400">Interviewer Note:</span>
+                                    <span className="italic">{aiCodeComment}</span>
+                                </div>
+                                <button
+                                    onClick={() => setAiCodeComment(null)}
+                                    className="text-[10px] text-[#8B8B9E] hover:text-white px-2 py-0.5 rounded bg-[#232330]"
+                                >
+                                    Dismiss
+                                </button>
+                            </div>
+                        )}
+
                         {/* Monaco Editor Canvas */}
                         <div className="flex-1 min-h-0 bg-[#0A0A0B] overflow-hidden">
                             <Editor
@@ -1801,7 +1876,19 @@ const InterviewRoom = () => {
                                 language={selectedLanguage}
                                 theme={editorTheme || (isDark ? "vs-dark" : "vs")}
                                 value={editorCode}
-                                onChange={(value) => setEditorCode(value || '')}
+                                onChange={(value) => {
+                                    const val = value || '';
+                                    setEditorCode(val);
+                                    try {
+                                        localStorage.setItem(`voxcode_code_${code}_${selectedLanguage}`, val);
+                                    } catch {}
+                                    if (isWsConnected) {
+                                        if (codeSnapshotTimerRef.current) clearTimeout(codeSnapshotTimerRef.current);
+                                        codeSnapshotTimerRef.current = setTimeout(() => {
+                                            sendCodeSnapshot(val, selectedLanguage);
+                                        }, 800);
+                                    }
+                                }}
                                 onMount={(editor) => {
                                     monacoEditorRef.current = editor;
                                 }}
@@ -1834,42 +1921,21 @@ const InterviewRoom = () => {
                         >
                             {/* Console Header Bar */}
                             <div className="h-9 border-b border-[#232330] bg-[#141419] px-3 flex items-center justify-between flex-shrink-0 text-xs">
-                                <div className="flex items-center gap-1.5">
-                                    <button
-                                        onClick={() => setConsoleTab('testcases')}
-                                        className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
-                                            consoleTab === 'testcases'
-                                                ? 'bg-[#1C1C24] text-[#EDEDF0] border border-[#232330]'
-                                                : 'text-[#8B8B9E] hover:text-[#EDEDF0]'
-                                        }`}
-                                    >
-                                        Test Cases
-                                    </button>
-                                    <button
-                                        onClick={() => setConsoleTab('results')}
-                                        className={`px-3 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 ${
-                                            consoleTab === 'results'
-                                                ? 'bg-[#1C1C24] text-[#EDEDF0] border border-[#232330]'
-                                                : 'text-[#8B8B9E] hover:text-[#EDEDF0]'
-                                        }`}
-                                    >
-                                        Execution Output
-                                        {executionDetails.output && (
-                                            <span className={`w-1.5 h-1.5 rounded-full ${executionDetails.hasError ? 'bg-red-400' : 'bg-emerald-400'}`}></span>
-                                        )}
-                                    </button>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs font-mono font-medium text-[#EDEDF0]">Custom Input</span>
+                                    {executionDetails.output && (
+                                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border ${
+                                            executionDetails.hasError
+                                                ? 'text-red-400 bg-red-500/10 border-red-500/20'
+                                                : 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
+                                        }`}>
+                                            <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                                            <span>{executionDetails.hasError ? 'Error' : 'Output ready'}</span>
+                                        </span>
+                                    )}
                                 </div>
 
-                                <div className="flex items-center gap-3 text-xs">
-                                    <label className="flex items-center gap-1.5 text-xs text-[#8B8B9E] hover:text-[#EDEDF0] cursor-pointer">
-                                        <input
-                                            type="checkbox"
-                                            checked={useCustomInput}
-                                            onChange={(e) => setUseCustomInput(e.target.checked)}
-                                            className="rounded border-[#232330] bg-[#0A0A0B] text-blue-500 focus:ring-0 w-3.5 h-3.5"
-                                        />
-                                        <span>Custom input</span>
-                                    </label>
+                                <div className="flex items-center gap-2">
                                     <button
                                         onClick={() => setConsoleHeight(consoleHeight <= 90 ? 250 : 80)}
                                         className="text-xs text-[#8B8B9E] hover:text-[#EDEDF0]"
@@ -1879,109 +1945,47 @@ const InterviewRoom = () => {
                                 </div>
                             </div>
 
-                            {/* Console Body Area */}
+                            {/* Console Body Area: Custom input & Execution output side-by-side or stacked */}
                             <div className="flex-1 min-h-0 p-3 overflow-y-auto text-xs text-[#EDEDF0] bg-[#0A0A0B]">
-                                {useCustomInput ? (
-                                    <div className="h-full flex flex-col space-y-1">
-                                        <span className="text-xs text-[#8B8B9E]">Custom stdin input:</span>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 h-full">
+                                    <div className="flex flex-col h-full min-h-[90px]">
+                                        <div className="flex items-center justify-between mb-1">
+                                            <span className="text-[11px] font-mono text-[#8B8B9E]">Standard Input (stdin)</span>
+                                            {customInputText && (
+                                                <button
+                                                    onClick={() => setCustomInputText('')}
+                                                    className="text-[10px] text-[#555568] hover:text-[#8B8B9E]"
+                                                >
+                                                    Clear
+                                                </button>
+                                            )}
+                                        </div>
                                         <textarea
                                             value={customInputText}
                                             onChange={(e) => setCustomInputText(e.target.value)}
-                                            placeholder="Enter input values..."
-                                            className="flex-1 bg-[#141419] border border-[#232330] rounded-lg p-2.5 text-xs font-mono text-[#EDEDF0] resize-none focus:outline-none focus:border-blue-500"
+                                            placeholder="Input test case..."
+                                            className="flex-1 w-full bg-[#141419] border border-[#232330] rounded-lg p-2.5 text-xs font-mono text-[#EDEDF0] resize-none focus:outline-none focus:border-blue-500 min-h-[70px]"
                                         />
                                     </div>
-                                ) : consoleTab === 'testcases' ? (
-                                    <div className="space-y-2.5">
-                                        <div className="flex items-center gap-1.5">
-                                            {((codingChallenge?.sampleTestCases && codingChallenge.sampleTestCases.length > 0)
-                                                ? codingChallenge.sampleTestCases
-                                                : [
-                                                    { input: 'nums = [2, 7, 11, 15], target = 9', expectedOutput: '[0, 1]' },
-                                                    { input: 'nums = [3, 2, 4], target = 6', expectedOutput: '[1, 2]' }
-                                                ]
-                                            ).map((_, idx) => (
-                                                <button
-                                                    key={idx}
-                                                    onClick={() => setActiveTestCase(idx)}
-                                                    className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
-                                                        activeTestCase === idx
-                                                            ? 'bg-[#1C1C24] text-[#EDEDF0] border border-[#363645]'
-                                                            : 'text-[#8B8B9E] hover:text-[#EDEDF0]'
-                                                    }`}
-                                                >
-                                                    Example {idx + 1}
-                                                </button>
-                                            ))}
-                                        </div>
 
-                                        {((codingChallenge?.sampleTestCases && codingChallenge.sampleTestCases.length > 0)
-                                            ? codingChallenge.sampleTestCases
-                                            : [
-                                                { input: 'nums = [2, 7, 11, 15], target = 9', expectedOutput: '[0, 1]' },
-                                                { input: 'nums = [3, 2, 4], target = 6', expectedOutput: '[1, 2]' }
-                                            ]
-                                        )[activeTestCase] && (
-                                            <div className="grid grid-cols-2 gap-3 text-xs">
-                                                <div className="space-y-1">
-                                                    <span className="text-xs text-[#8B8B9E] block">Input</span>
-                                                    <pre className="p-2.5 bg-[#141419] border border-[#232330] rounded-lg text-xs text-[#EDEDF0] font-mono overflow-x-auto">
-                                                        {((codingChallenge?.sampleTestCases && codingChallenge.sampleTestCases.length > 0)
-                                                            ? codingChallenge.sampleTestCases
-                                                            : [
-                                                                { input: 'nums = [2, 7, 11, 15], target = 9', expectedOutput: '[0, 1]' }
-                                                            ]
-                                                        )[activeTestCase]?.input}
-                                                    </pre>
+                                    <div className="flex flex-col h-full min-h-[90px]">
+                                        <span className="text-[11px] font-mono text-[#8B8B9E] mb-1">Execution Output</span>
+                                        <div className="flex-1 w-full bg-[#141419] border border-[#232330] rounded-lg p-2.5 text-xs font-mono overflow-y-auto min-h-[70px]">
+                                            {isRunningCode ? (
+                                                <div className="flex items-center gap-2 text-[#8B8B9E] py-2">
+                                                    <div className="w-3.5 h-3.5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                                                    <span>Compiling and executing...</span>
                                                 </div>
-                                                <div className="space-y-1">
-                                                    <span className="text-xs text-[#8B8B9E] block">Expected Output</span>
-                                                    <pre className="p-2.5 bg-[#141419] border border-[#232330] rounded-lg text-xs text-emerald-400 font-mono overflow-x-auto">
-                                                        {((codingChallenge?.sampleTestCases && codingChallenge.sampleTestCases.length > 0)
-                                                            ? codingChallenge.sampleTestCases
-                                                            : [
-                                                                { expectedOutput: '[0, 1]' }
-                                                            ]
-                                                        )[activeTestCase]?.expectedOutput}
-                                                    </pre>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                ) : (
-                                    /* Execution Results */
-                                    <div>
-                                        {isRunningCode ? (
-                                            <div className="flex items-center gap-2 text-[#8B8B9E] py-3 text-xs">
-                                                <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                                                <span>Compiling and running tests...</span>
-                                            </div>
-                                        ) : executionDetails.output ? (
-                                            <div className="space-y-2">
-                                                <div className="flex items-center justify-between text-xs">
-                                                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${
-                                                        executionDetails.hasError
-                                                            ? 'text-red-400 bg-red-500/10 border-red-500/20'
-                                                            : 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
-                                                    }`}>
-                                                        <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
-                                                        <span>{executionDetails.hasError ? 'Execution error' : 'Output verified'}</span>
-                                                    </span>
-                                                    <span className="text-xs text-[#555568]">
-                                                        Time: {executionDetails.executionTime || '0.20s'}
-                                                    </span>
-                                                </div>
-                                                <pre className="p-3 bg-[#141419] border border-[#232330] rounded-lg text-xs font-mono whitespace-pre-wrap text-[#EDEDF0] overflow-x-auto">
+                                            ) : executionDetails.output ? (
+                                                <pre className="whitespace-pre-wrap text-[#EDEDF0]">
                                                     {executionDetails.output}
                                                 </pre>
-                                            </div>
-                                        ) : (
-                                            <p className="text-xs text-[#555568] py-3">
-                                                Click "Run Code" below to execute against test cases.
-                                            </p>
-                                        )}
+                                            ) : (
+                                                <span className="text-[#555568] italic">No output yet</span>
+                                            )}
+                                        </div>
                                     </div>
-                                )}
+                                </div>
                             </div>
 
                             {/* Live Interview Action Dock (h-12) */}
@@ -1991,14 +1995,12 @@ const InterviewRoom = () => {
                                         onClick={handleRunCode}
                                         disabled={isRunningCode}
                                         className="btn-primary text-xs py-1.5 px-3.5"
-                                        title="Run code with test inputs"
+                                        title="Run code with custom input"
                                     >
                                         <Play className="w-3.5 h-3.5 fill-current" />
                                         <span>{isRunningCode ? 'Running...' : 'Run Code'}</span>
                                     </button>
-                                    <span className="text-xs text-[#8B8B9E] hidden sm:inline">
-                                        {isRunningCode ? 'Executing...' : 'Runner ready'}
-                                    </span>
+                                    
                                 </div>
                             </div>
                         </div>
@@ -2095,13 +2097,7 @@ const InterviewRoom = () => {
                 </div>
             )}
 
-            {/* Voice Model Selector Modal */}
-            <VoiceModelSelectorModal
-                isOpen={isVoiceModalOpen}
-                onClose={() => setIsVoiceModalOpen(false)}
-                selectedVoiceModel={selectedVoiceModel}
-                onSelectVoiceModel={handleSelectVoiceModel}
-            />
+            
         </div>
     );
 };

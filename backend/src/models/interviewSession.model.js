@@ -168,6 +168,50 @@ const interviewSessionSchema = new Schema({
     evaluation: {
         type: Schema.Types.ObjectId,
         ref: 'Evaluation'
+    },
+    candidateProfile: {
+        topicScores: { type: Schema.Types.Mixed, default: () => ({}) },
+        overallSignal: { type: String, enum: ['strong', 'adequate', 'weak', 'unknown'], default: 'unknown' },
+        communicationScore: { type: Number, default: 0 },
+        technicalDepth: { type: Number, default: 0 },
+        responseCount: { type: Number, default: 0 },
+        weakTopics: { type: [String], default: [] }
+    },
+    microScores: [{
+        question: String,
+        answer: String,
+        topic: String,
+        score: Number,
+        signal: String,
+        dimensions: {
+            correctness: Number,
+            depth: Number,
+            communication: Number,
+            practical_application: Number
+        },
+        keyInsight: String,
+        timestamp: { type: Date, default: Date.now }
+    }],
+    trainingSignals: {
+        questionEffectiveness: [{
+            question: String,
+            candidateSignal: String,
+            topicCoverage: Number,
+            discriminativeness: Number
+        }],
+        sessionOutcome: {
+            hireable: { type: Boolean, required: false },
+            candidateRating: Number,
+            evaluationAccuracy: Number
+        }
+    },
+    liveCode: {
+        type: String,
+        default: ''
+    },
+    calibrated: {
+        type: Boolean,
+        default: false
     }
 }, { timestamps: true });
 
@@ -182,5 +226,8 @@ interviewSessionSchema.index(
     }
 );
 
+interviewSessionSchema.index({ calibrated: 1, 'trainingSignals.sessionOutcome.hireable': 1 });
+
 export const InterviewSession = mongoose.model('InterviewSession', interviewSessionSchema);
+export default InterviewSession;
 

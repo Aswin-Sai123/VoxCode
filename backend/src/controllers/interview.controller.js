@@ -7,8 +7,9 @@ import { Evaluation } from '../models/evaluation.model.js';
 import { ApiError } from '../utils/ApiError.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
-import { generateOpeningGreeting, generateNextInterviewStep } from '../services/ai.service.js';
-import { evaluateInterviewSession } from '../services/evaluation.service.js';
+import { generateOpeningGreeting, generateNextInterviewStep, preBakeQuestions, generateConversationalReply, evaluateTurnAndPrefetch } from '../services/ai.service.js';
+import { evaluateInterviewSession, captureSessionOutcome } from '../services/evaluation.service.js';
+import { calculateQuestionEffectivenessSignal } from '../ws/interviewSocket.js';
 import { executeCodeSandbox } from '../services/sandbox.service.js';
 import {
     buildInitialStateMachine,
@@ -207,26 +208,53 @@ export const startSession = asyncHandler(async (req, res) => {
             if (existing) {
                 session = existing;
             } else {
+                const selectedVoiceModel = req.body?.voiceModel || '';
                 const candidate = await Candidate.findById(candidateId);
                 const companyName = assessment.targetCompanyName || assessment.company?.name || 'our company';
                 const roleTitle = assessment.targetRoleTitle || assessment.role?.title || assessment.title || 'Software Engineer';
 
-                const opening = await generateOpeningGreeting({
+                // PRE-BAKE Q1 + Q2 in parallel for zero-latency start
+                const preBakePromise = preBakeQuestions({
                     companyName,
                     candidateName: candidate?.name || req.user?.name || '',
                     roleTitle,
-                    skills: assessment.skills,
-                    experienceLevel: assessment.experienceLevel,
+                    skills: assessment.skills || [],
+                    experienceLevel: assessment.experienceLevel || 'Mid',
+                    blueprint: assessment.blueprint || assessment.scrapedBlueprint || '',
+                    candidateResume,
+                    durationMinutes: assessment.durationMinutes || 30,
+                    voiceModel: selectedVoiceModel
+                });
+
+                const openingPromise = generateOpeningGreeting({
+                    companyName,
+                    candidateName: candidate?.name || req.user?.name || '',
+                    roleTitle,
+                    skills: assessment.skills || [],
+                    experienceLevel: assessment.experienceLevel || 'Mid',
                     blueprint: assessment.blueprint || assessment.scrapedBlueprint || '',
                     blueprintAnalysis: assessment.blueprintAnalysis || null,
                     candidateResume,
                     interviewFormat: selectedFormat,
-                    durationMinutes: assessment.durationMinutes || 30
+                    durationMinutes: assessment.durationMinutes || 30,
+                    voiceModel: selectedVoiceModel
                 });
+
+                let preBaked = { q1: null, q2: null };
+                let opening = { message: null, nextStage: 'CONCEPTUAL' };
+                try {
+                    [preBaked, opening] = await Promise.all([preBakePromise, openingPromise]);
+                } catch (pbErr) {
+                    console.warn('[PreBake] parallel fetch error, falling back:', pbErr.message);
+                    opening = await openingPromise.catch(() => ({ message: null, nextStage: 'CONCEPTUAL' }));
+                }
+
+                const q1Text = preBaked?.q1 || opening?.message || `Hey, great to connect! I'm your interviewer today at ${companyName}. Could you start by telling me a bit about yourself and what you've been working on recently?`;
+                const q2Text = preBaked?.q2 || '';
 
                 const initialTranscript = [{
                     role: 'ai',
-                    text: opening.message,
+                    text: q1Text,
                     timestamp: new Date()
                 }];
 
@@ -252,9 +280,11 @@ export const startSession = asyncHandler(async (req, res) => {
                         codingChallenge: null,
                         candidateResume,
                         interviewFormat: selectedFormat,
-                    durationMinutes: assessment.durationMinutes || 30,
                         durationMinutes: assessment.durationMinutes || 30,
-                        startedAt: new Date()
+                        startedAt: new Date(),
+                        voiceModel: selectedVoiceModel,
+                        prebaked: [q1Text, q2Text].filter(Boolean),
+                        nextQuestionBuffer: q2Text || ''
                     });
                 } catch (err) {
                     if (err.code === 11000 || (err.message && err.message.includes('E11000'))) {
@@ -401,7 +431,7 @@ export const startPracticeSession = asyncHandler(async (req, res) => {
 export const sendCandidateMessage = asyncHandler(async (req, res) => {
     const sessionId = req.params.sessionId || req.body.sessionId;
     const rawMessage = req.body.message !== undefined ? req.body.message : req.body.answer;
-    const { currentCode, executionOutput } = req.body;
+    const { currentCode, executionOutput, voiceModel } = req.body;
     const candidateId = req.user?.id || req.user?._id;
 
     if (!sessionId) {
@@ -519,27 +549,81 @@ export const sendCandidateMessage = asyncHandler(async (req, res) => {
     }
     const timingContext = getActivePhaseInfo(timeline, elapsedMinutes, totalDurationMinutes);
 
-    const aiResponse = await generateNextInterviewStep({
-        companyName,
-        roleTitle,
-        skills,
-        experienceLevel,
-        blueprint,
-        blueprintAnalysis: session.assessment?.blueprintAnalysis || null,
-        candidateResume: session.candidateResume || '',
-        interviewFormat: session.interviewFormat || 'FULL_INTERVIEW',
-        transcript: session.transcript,
-        candidateMessage: message.trim(),
-        currentStage: session.stage,
-        currentChallenge: session.codingChallenge,
-        currentCode: effectiveCode,
-        executionOutput: effectiveOutput,
-        topics,
-        currentTopicIndex,
-        questionsInCurrentTopic,
-        stateMachine: session.stateMachine || null,
-        timingContext
-    });
+    // ── DUAL-MODEL ZERO-LATENCY PIPELINE ───────────────────────────────────────
+    const needsFullEngine = (
+        session.stage === 'CODING' ||
+        timingContext?.isPastCodingPhase ||
+        timingContext?.isNearWrapUp ||
+        timingContext?.isFinalClosing ||
+        session.transcript.length <= 3
+    );
+
+    let aiResponse;
+    if (needsFullEngine) {
+        aiResponse = await generateNextInterviewStep({
+            companyName,
+            roleTitle,
+            skills,
+            experienceLevel,
+            blueprint,
+            blueprintAnalysis: session.assessment?.blueprintAnalysis || null,
+            candidateResume: session.candidateResume || '',
+            interviewFormat: session.interviewFormat || 'FULL_INTERVIEW',
+            transcript: session.transcript,
+            candidateMessage: message.trim(),
+            currentStage: session.stage,
+            currentChallenge: session.codingChallenge,
+            currentCode: effectiveCode,
+            executionOutput: effectiveOutput,
+            topics,
+            currentTopicIndex,
+            questionsInCurrentTopic,
+            stateMachine: session.stateMachine || null,
+            timingContext,
+            voiceModel: voiceModel || session.voiceModel || ''
+        });
+    } else {
+        const bufferedNextQ = session.nextQuestionBuffer || '';
+        const fastReply = await generateConversationalReply({
+            interviewerName: 'Prabhat',
+            companyName,
+            roleTitle,
+            candidateMessage: message.trim(),
+            currentStage: session.stage,
+            recentTranscript: session.transcript.slice(-6),
+            nextQuestionBuffer: bufferedNextQ,
+            blueprint,
+            voiceModel: voiceModel || session.voiceModel || ''
+        });
+        session.nextQuestionBuffer = '';
+
+        aiResponse = {
+            message: fastReply.message,
+            nextStage: fastReply.nextStage || session.stage,
+            stateAction: 'DRILL_DEEPER',
+            answerEvaluation: null,
+            codingChallenge: null,
+            interviewerThought: '(fast conversational reply)'
+        };
+
+        // Fire-and-forget: background judge grades and pre-fetches next question asynchronously
+        setImmediate(() => {
+            evaluateTurnAndPrefetch({
+                sessionId: session._id,
+                companyName,
+                roleTitle,
+                skills,
+                experienceLevel,
+                blueprint,
+                candidateMessage: message.trim(),
+                recentTranscript: session.transcript.slice(-8),
+                currentStage: session.stage,
+                InterviewSessionModel: InterviewSession
+            }).catch(err => {
+                console.warn('[BackgroundJudge] async eval failed:', err.message);
+            });
+        });
+    }
 
     // Pacing & Buffer Safeguards (guarantee adherence to blueprint timeline):
     if (timingContext.isPastCodingPhase && session.stage === 'CONCEPTUAL' && session.interviewFormat !== 'PROJECT_AND_TECHNICAL_ONLY' && session.assessment?.codingRoundEnabled !== false) {
@@ -561,6 +645,28 @@ export const sendCandidateMessage = asyncHandler(async (req, res) => {
         evaluation: aiResponse.answerEvaluation || null,
         topic: currentTopicName
     });
+
+    // Record question effectiveness training signal
+    if (!session.trainingSignals) {
+        session.trainingSignals = { questionEffectiveness: [], sessionOutcome: {} };
+    }
+    if (!Array.isArray(session.trainingSignals.questionEffectiveness)) {
+        session.trainingSignals.questionEffectiveness = [];
+    }
+    const priorAiTurns = (session.transcript || []).filter(t => t.role === 'ai');
+    const lastAiQuestion = priorAiTurns.length > 0 ? priorAiTurns[priorAiTurns.length - 1].text : 'Technical question';
+    const evalScore = aiResponse.answerEvaluation?.score || (aiResponse.answerEvaluation?.correctness ? (aiResponse.answerEvaluation.correctness + (aiResponse.answerEvaluation.depth || 6)) / 2 : 6);
+    const evalSig = (aiResponse.answerEvaluation?.correctness >= 8) ? 'strong' : (aiResponse.answerEvaluation?.correctness < 5 ? 'weak' : 'adequate');
+    session.trainingSignals.questionEffectiveness.push(
+        calculateQuestionEffectivenessSignal(lastAiQuestion, message.trim(), {
+            score: evalScore,
+            signal: evalSig,
+            dimensions: {
+                correctness: aiResponse.answerEvaluation?.correctness || 6,
+                depth: aiResponse.answerEvaluation?.depth || 6
+            }
+        })
+    );
 
     // Append AI's response to transcript
     session.transcript.push({
@@ -821,4 +927,24 @@ export const recordProctoringEvent = asyncHandler(async (req, res) => {
         pasteCount: session.proctoring.pasteCount,
         blurCount: session.proctoring.windowBlurCount
     }, 'Proctoring telemetry recorded'));
+});
+
+/**
+ * Capture post-session training outcomes (hireable, candidateRating, evaluationAccuracy)
+ */
+export const recordSessionOutcomeController = asyncHandler(async (req, res) => {
+    const sessionId = req.params.sessionId || req.body.sessionId;
+    const { hireable, candidateRating, evaluationAccuracy } = req.body;
+
+    if (!sessionId) {
+        throw new ApiError(400, 'Session ID is required');
+    }
+
+    const session = await captureSessionOutcome(sessionId, {
+        hireable,
+        candidateRating,
+        evaluationAccuracy
+    });
+
+    res.status(200).json(new ApiResponse(200, session.trainingSignals.sessionOutcome, 'Session outcome recorded successfully'));
 });

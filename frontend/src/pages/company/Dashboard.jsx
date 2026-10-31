@@ -8,6 +8,8 @@ import {
     Play, 
     Layers, 
     ChevronRight,
+    ChevronDown,
+    Users,
     AlertCircle,
     Loader2,
     Activity,
@@ -24,6 +26,7 @@ const Dashboard = () => {
     const [interviews, setInterviews] = useState({ ongoing: [], completed: [] });
     const [loadingAssessments, setLoadingAssessments] = useState(true);
     const [loadingInterviews, setLoadingInterviews] = useState(true);
+    const [expandedLiveAssessments, setExpandedLiveAssessments] = useState({});
 
     // role form state
     const [showRoleForm, setShowRoleForm] = useState(false);

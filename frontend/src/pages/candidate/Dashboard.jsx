@@ -561,7 +561,7 @@ const Dashboard = () => {
                                             <td className="py-4 px-5 text-right">
                                                 {report.isMock ? (
                                                     <Link
-                                                        to={`/candidate/report/${report.sessionId || report.session?._id || report.session}`}
+                                                        to={`/candidate/reports/${report.sessionId || report.session?._id || report.session}`}
                                                         className="studio-btn-secondary text-xs py-1.5 px-3"
                                                     >
                                                         <span>View report</span>

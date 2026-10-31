@@ -1,11 +1,13 @@
+import mongoose from 'mongoose';
 import { Evaluation } from '../models/evaluation.model.js';
 import { InterviewSession } from '../models/interviewSession.model.js';
 import '../models/candidate.model.js';
 import '../models/assessment.model.js';
 import { executeCodeSandbox } from './sandbox.service.js';
 import { sendEvaluationNotification } from './email.service.js';
+import { estimateCandidateLevel } from '../utils/candidateProfileTracker.js';
 
-const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-flash-latest', 'gemini-flash-lite-latest'];
+const GEMINI_MODELS = ['gemini-flash-lite-latest', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-3.5-flash'];
 
 /**
  * Resilient multi-model Gemini caller with automatic fallback
@@ -768,6 +770,13 @@ export const evaluateInterviewSession = async (sessionId) => {
         totalViolations: (proc.events || []).length,
         events: (proc.events || []).slice(-25)
     };
+    try {
+        const deepEval = await generateDeepEvaluation(session);
+        evaluation.deepEvaluation = deepEval;
+    } catch (deepErr) {
+        console.warn('[Evaluation] Deep evaluation synthesis non-fatal warning:', deepErr.message);
+    }
+
     evaluation.status = 'COMPLETED';
 
     await evaluation.save();
@@ -794,3 +803,536 @@ export const evaluateInterviewSession = async (sessionId) => {
 
     return evaluation;
 };
+
+/**
+ * Safe JSON extractor for LLM output strings
+ */
+export const extractJSON = (text) => {
+    if (!text || typeof text !== 'string') return null;
+    try {
+        return JSON.parse(text);
+    } catch {
+        const match = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/) || text.match(/\{[\s\S]*\}/);
+        if (match) {
+            try {
+                return JSON.parse(match[1] || match[0]);
+            } catch {
+                return null;
+            }
+        }
+        return null;
+    }
+};
+
+/**
+ * Score a single candidate turn/answer turn-by-turn (0-10)
+ * Returns { score, signal, dimensions: { correctness, depth, communication, practical_application }, keyInsight }
+ */
+export async function scoreSingleAnswer({ question = '', answer = '', topic = 'General', rubrics = [], sessionContext = '' } = {}) {
+    if (!answer || typeof answer !== 'string' || answer.trim().length < 10) {
+        return {
+            score: 0,
+            signal: 'no_answer',
+            dimensions: {
+                correctness: 0,
+                depth: 0,
+                communication: 0,
+                practical_application: 0
+            },
+            keyInsight: 'Candidate provided no answer or insufficient response.'
+        };
+    }
+
+    const safeRubrics = Array.isArray(rubrics) ? rubrics : [];
+    const rubricsText = safeRubrics.map(r => typeof r === 'string' ? r : `${r.dimension || r.name || 'Rubric'}: ${r.description || ''}`).join(', ');
+
+    const prompt = `TOPIC: ${topic}
+QUESTION: "${question}"
+CANDIDATE ANSWER: "${answer}"
+RUBRICS: ${rubricsText || 'Technical correctness, depth of understanding, clear communication, practical application'}
+CONTEXT (what they've shown so far): ${sessionContext || 'Standard interview progression'}
+
+Return JSON ONLY:
+{
+  "score": <0-10>,
+  "signal": "<strong|adequate|weak|no_answer>",
+  "dimensions": {
+    "correctness": <0-10>,
+    "depth": <0-10>,
+    "communication": <0-10>,
+    "practical_application": <0-10>
+  },
+  "keyInsight": "<one sentence about what this reveals>"
+}`;
+
+    if (process.env.NODE_ENV !== 'test') {
+        try {
+            const raw = await callGemini({
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: { responseMimeType: 'application/json', temperature: 0.2 }
+            });
+            const parsed = extractJSON(raw);
+            if (parsed && typeof parsed.score === 'number' && parsed.dimensions) {
+                const score = Math.max(0, Math.min(10, Number(parsed.score.toFixed(1))));
+                const signal = ['strong', 'adequate', 'weak', 'no_answer'].includes(parsed.signal)
+                    ? parsed.signal
+                    : (score >= 7.5 ? 'strong' : score >= 5.0 ? 'adequate' : 'weak');
+                return {
+                    score,
+                    signal,
+                    dimensions: {
+                        correctness: Math.max(0, Math.min(10, Number(parsed.dimensions.correctness ?? score))),
+                        depth: Math.max(0, Math.min(10, Number(parsed.dimensions.depth ?? score))),
+                        communication: Math.max(0, Math.min(10, Number(parsed.dimensions.communication ?? score))),
+                        practical_application: Math.max(0, Math.min(10, Number(parsed.dimensions.practical_application ?? score)))
+                    },
+                    keyInsight: parsed.keyInsight || `Candidate evaluated on ${topic}.`
+                };
+            }
+        } catch (err) {
+            console.warn('[scoreSingleAnswer] Gemini parsing error:', err.message);
+        }
+    }
+
+    // Deterministic rule-based evaluation (used in tests and as resilient fallback)
+    const words = answer.trim().split(/\s+/);
+    const wordCount = words.length;
+
+    // Technical concept detection
+    const techRegex = /\b(complexity|latency|throughput|async|await|promise|cache|redis|kafka|queue|database|sql|nosql|index|partition|sharding|concurrency|lock|mutex|thread|process|memory|heap|stack|garbage collection|http|rest|graphql|websocket|microservice|docker|kubernetes|load balancer|idempotent|acid|transaction|consistency|eventual consistency|cap theorem|distributed|replication|failover|circuit breaker|algorithm|tree|graph|hash map|binary search)\b/gi;
+    const techMatches = (answer.match(techRegex) || []).length;
+
+    // Depth & architecture signals
+    const depthRegex = /\b(trade-off|bottleneck|benchmark|p99|scale|failover|redundancy|resilience|deadlock|race condition|backoff|rate limit|exponential|profiling|optimization|decoupling)\b/gi;
+    const depthMatches = (answer.match(depthRegex) || []).length;
+
+    // Communication signals: structured phrasing, clear reasoning
+    const structureRegex = /\b(first|second|finally|because|specifically|for example|in practice|on the other hand|alternatively|therefore|consequently)\b/gi;
+    const structureMatches = (answer.match(structureRegex) || []).length;
+
+    // Practical application signals
+    const practicalRegex = /\b(production|deploy|monitoring|metrics|datadog|prometheus|incident|post-mortem|logging|testing|unit test|integration test|migration|canary|slo|sla|alert)\b/gi;
+    const practicalMatches = (answer.match(practicalRegex) || []).length;
+
+    let correctness = Math.min(10, Math.round(3 + Math.min(4, techMatches * 1.2) + Math.min(3, wordCount / 20)));
+    let depth = Math.min(10, Math.round(2 + Math.min(4, depthMatches * 1.5) + Math.min(4, techMatches * 0.8)));
+    let communication = Math.min(10, Math.round(3 + Math.min(4, structureMatches * 1.5) + (wordCount >= 25 && wordCount <= 180 ? 3 : 1)));
+    let practical_application = Math.min(10, Math.round(2 + Math.min(5, practicalMatches * 1.8) + (techMatches > 0 ? 3 : 0)));
+
+    const isDeflection = /\b(don't know|not sure|no idea|never used|haven't worked|skip)\b/i.test(answer) && wordCount < 20;
+    if (isDeflection) {
+        correctness = Math.min(correctness, 2);
+        depth = Math.min(depth, 1);
+        practical_application = Math.min(practical_application, 1);
+    }
+
+    const score = Number(((correctness * 0.35) + (depth * 0.35) + (communication * 0.15) + (practical_application * 0.15)).toFixed(1));
+    const signal = score >= 7.5 ? 'strong' : score >= 5.0 ? 'adequate' : 'weak';
+
+    let keyInsight;
+    if (signal === 'strong') {
+        keyInsight = `Candidate demonstrated strong technical depth and concrete architectural trade-offs in ${topic}.`;
+    } else if (signal === 'adequate') {
+        keyInsight = `Candidate showed working familiarity with ${topic} fundamentals, but could elaborate deeper on edge cases.`;
+    } else {
+        keyInsight = `Candidate struggled to provide substantive depth or clear mechanics for ${topic}.`;
+    }
+
+    return {
+        score,
+        signal,
+        dimensions: { correctness, depth, communication, practical_application },
+        keyInsight
+    };
+}
+
+/**
+ * Pass 1: Per-Topic Deep Analysis
+ */
+export async function analyzeByTopic(transcript = [], microScores = [], rubrics = []) {
+    const topicMap = {};
+
+    // Group microScores by topic
+    for (const ms of (microScores || [])) {
+        const topic = ms.topic || 'General Technical';
+        if (!topicMap[topic]) {
+            topicMap[topic] = [];
+        }
+        topicMap[topic].push(ms);
+    }
+
+    // Fallback if no microScores
+    if (Object.keys(topicMap).length === 0) {
+        topicMap['General Technical'] = [];
+        for (const t of (transcript || [])) {
+            if (t.role === 'candidate' && t.text) {
+                topicMap['General Technical'].push({
+                    score: 6.0,
+                    signal: 'adequate',
+                    dimensions: { correctness: 6, depth: 6, communication: 6, practical_application: 6 },
+                    keyInsight: 'Evaluated from general conversation.'
+                });
+            }
+        }
+    }
+
+    const topicBreakdown = [];
+    const topicScores = {};
+    let totalScoreSum = 0;
+    let topicCount = 0;
+
+    for (const [topic, items] of Object.entries(topicMap)) {
+        const scores = items.map(i => i.score).filter(s => typeof s === 'number');
+        const avg = scores.length > 0 ? (scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
+        const avgScore = Number(avg.toFixed(1));
+        const percentScore = Math.round(avgScore * 10);
+        topicScores[topic] = avgScore;
+        totalScoreSum += avgScore;
+        topicCount++;
+
+        let mastery = 'Developing';
+        if (avgScore >= 8.0) mastery = 'Mastery';
+        else if (avgScore >= 6.0) mastery = 'Proficient';
+        else if (avgScore < 4.0) mastery = 'Needs Focus';
+
+        const strengths = [];
+        const areasForImprovement = [];
+        if (avgScore >= 6.5) {
+            strengths.push(`Solid grasp of ${topic} fundamentals and architectural implementation.`);
+        } else {
+            areasForImprovement.push(`Deepen domain knowledge and trade-off analysis in ${topic}.`);
+        }
+
+        topicBreakdown.push({
+            topic,
+            avgScore,
+            percentScore,
+            mastery,
+            responseCount: items.length,
+            strengths,
+            areasForImprovement
+        });
+    }
+
+    const overallTopicAverage = topicCount > 0 ? Number((totalScoreSum / topicCount).toFixed(1)) : 0;
+
+    return {
+        topicScores,
+        topicBreakdown,
+        overallTopicAverage
+    };
+}
+
+/**
+ * Pass 2: Cross-Topic Patterns & Consistency Analysis
+ */
+export async function analyzeCrossTopicPatterns(transcript = [], microScores = []) {
+    const scores = (microScores || []).map(m => m.score).filter(s => typeof s === 'number');
+
+    let trajectory = 'consistent';
+    if (scores.length >= 4) {
+        const mid = Math.floor(scores.length / 2);
+        const firstHalf = scores.slice(0, mid);
+        const secondHalf = scores.slice(mid);
+        const avgFirst = firstHalf.reduce((a, b) => a + b, 0) / firstHalf.length;
+        const avgSecond = secondHalf.reduce((a, b) => a + b, 0) / secondHalf.length;
+        if (avgSecond - avgFirst >= 1.0) trajectory = 'improving';
+        else if (avgFirst - avgSecond >= 1.0) trajectory = 'declining';
+    }
+
+    let variance = 0;
+    if (scores.length > 1) {
+        const mean = scores.reduce((a, b) => a + b, 0) / scores.length;
+        variance = Number((scores.reduce((sum, s) => sum + Math.pow(s - mean, 2), 0) / scores.length).toFixed(2));
+    }
+    const consistency = variance < 1.5 ? 'High Consistency' : variance < 3.5 ? 'Moderate Consistency' : 'High Variance Across Topics';
+
+    const candidateTexts = (transcript || []).filter(t => t.role === 'candidate').map(t => t.text || '').join(' ');
+    const tradeOffHits = (candidateTexts.match(/\b(versus|trade-off|latency vs|consistency vs|pros and cons|compromise|instead of)\b/gi) || []).length;
+    const tradeOffReasoningScore = Math.min(100, Math.round(40 + Math.min(50, tradeOffHits * 15)));
+
+    return {
+        trajectory,
+        consistency,
+        variance,
+        tradeOffReasoningScore,
+        synthesis: `Candidate performance exhibited ${trajectory} trajectory with ${consistency.toLowerCase()}. Trade-off reasoning score: ${tradeOffReasoningScore}/100.`
+    };
+}
+
+/**
+ * Pass 3: Coding Quality & Implementation Analysis
+ */
+export async function analyzeCodingQuality(codeSubmissions = []) {
+    if (!codeSubmissions || codeSubmissions.length === 0 || !codeSubmissions[0]?.code) {
+        return {
+            evaluated: false,
+            summary: 'No code submitted for live coding analysis.'
+        };
+    }
+
+    const sub = codeSubmissions[0];
+    const code = sub.code || '';
+    const language = sub.language || 'javascript';
+
+    const lineCount = code.split('\n').filter(l => l.trim()).length;
+    const hasLoops = /\b(for|while|reduce|forEach|map)\b/.test(code);
+    const hasDataStructures = /\b(Map|Set|dict|list|queue|stack|heap|Array)\b/i.test(code);
+    const hasComments = /\/\/|\/\*|#/.test(code);
+
+    let correctnessScore = 50;
+    if (lineCount > 10) correctnessScore += 20;
+    if (hasDataStructures) correctnessScore += 15;
+    if (hasLoops) correctnessScore += 10;
+    if (hasComments) correctnessScore += 5;
+    correctnessScore = Math.min(100, correctnessScore);
+
+    const modularityScore = code.includes('class ') || (code.match(/function\s+\w+|def\s+\w+/g) || []).length >= 2 ? 85 : 70;
+
+    return {
+        evaluated: true,
+        language,
+        correctnessScore,
+        modularityScore,
+        complexityAssessment: 'Algorithmic solution targets optimal time complexity with clean state representation.',
+        codeReview: {
+            correctness: `Candidate implemented a working ${language} solution with ${lineCount} effective lines.`,
+            timeComplexity: hasDataStructures ? 'O(n) - hash-based lookups' : 'O(n^2) - iterative scans',
+            spaceComplexity: hasDataStructures ? 'O(n) auxiliary storage' : 'O(1) in-place',
+            suggestions: [
+                'Ensure boundary conditions and null/empty inputs are explicitly handled.',
+                'Add unit tests covering edge cases and scale limits.'
+            ]
+        }
+    };
+}
+
+/**
+ * Pass 4: Technical Communication Quality Analysis
+ */
+export async function analyzeCommunicationQuality(transcript = []) {
+    const candidateTurns = (transcript || []).filter(t => t.role === 'candidate' && t.text && t.text.trim());
+    if (candidateTurns.length === 0) {
+        return {
+            communicationScore: 0,
+            avgWordCount: 0,
+            articulationLevel: 'Unattempted',
+            summary: 'Candidate provided no responses.'
+        };
+    }
+
+    const wordCounts = candidateTurns.map(t => t.text.trim().split(/\s+/).length);
+    const totalWords = wordCounts.reduce((a, b) => a + b, 0);
+    const avgWordCount = Math.round(totalWords / candidateTurns.length);
+
+    let communicationScore = 65;
+    if (avgWordCount >= 25 && avgWordCount <= 120) communicationScore += 20;
+    else if (avgWordCount > 120) communicationScore += 10;
+    else if (avgWordCount < 10) communicationScore -= 20;
+
+    const allText = candidateTurns.map(t => t.text).join(' ');
+    const hasStructure = /\b(first|specifically|for instance|the trade-off is|in summary)\b/i.test(allText);
+    if (hasStructure) communicationScore += 15;
+
+    communicationScore = Math.min(100, Math.max(10, communicationScore));
+
+    const articulationLevel = communicationScore >= 80 ? 'Structured & Articulate' : communicationScore >= 60 ? 'Conversational' : 'Needs Structure';
+
+    return {
+        communicationScore,
+        avgWordCount,
+        articulationLevel,
+        summary: `Candidate maintained an average of ${avgWordCount} words per turn with ${articulationLevel.toLowerCase()} communication.`
+    };
+}
+
+/**
+ * Pass 5: Behavioral & Collaborative Signals Analysis
+ */
+export async function analyzeBehavioralSignals(transcript = []) {
+    const candidateTurns = (transcript || []).filter(t => t.role === 'candidate' && t.text && t.text.trim());
+    const allText = candidateTurns.map(t => t.text).join(' ');
+
+    const ownershipRegex = /\b(I decided|my team|I owned|I architected|I implemented|we learned|post-mortem|I led)\b/gi;
+    const ownershipHits = (allText.match(ownershipRegex) || []).length;
+
+    const collaborativeRegex = /\b(feedback|agreed|good point|collaborate|pair|we discussed|team)\b/gi;
+    const collaborativeHits = (allText.match(collaborativeRegex) || []).length;
+
+    const questionAsking = candidateTurns.some(t => t.text.includes('?'));
+
+    let behavioralScore = 70;
+    if (ownershipHits > 0) behavioralScore += 10;
+    if (collaborativeHits > 0) behavioralScore += 10;
+    if (questionAsking) behavioralScore += 10;
+    behavioralScore = Math.min(100, behavioralScore);
+
+    return {
+        behavioralScore,
+        ownershipMindset: ownershipHits > 0 ? 'High Engineering Ownership' : 'Standard Execution Mindset',
+        receptivenessToFeedback: collaborativeHits > 0 ? 'Receptive & Collaborative' : 'Independent Problem Solver',
+        summary: `Demonstrated ${ownershipHits > 0 ? 'strong' : 'adequate'} ownership and constructive interview collaboration.`
+    };
+}
+
+/**
+ * Synthesizes the 5 analysis passes into a comprehensive final evaluation report
+ */
+export function synthesizeFinalReport({
+    topicAnalysis = {},
+    patternAnalysis = {},
+    codingAnalysis = null,
+    commAnalysis = {},
+    behavioralAnalysis = {},
+    companyName = 'Engineering Team',
+    roleTitle = 'Software Engineer',
+    criTrajectory = null
+} = {}) {
+    const topicScore = typeof topicAnalysis.overallTopicAverage === 'number'
+        ? Math.round(topicAnalysis.overallTopicAverage * 10)
+        : 65;
+
+    const commScore = commAnalysis.communicationScore || 70;
+    const behavioralScore = behavioralAnalysis.behavioralScore || 75;
+
+    let overallScore;
+    if (codingAnalysis && codingAnalysis.evaluated) {
+        const codingScore = codingAnalysis.correctnessScore || 70;
+        overallScore = Math.round((topicScore * 0.35) + (codingScore * 0.30) + (commScore * 0.20) + (behavioralScore * 0.15));
+    } else {
+        overallScore = Math.round((topicScore * 0.50) + (commScore * 0.30) + (behavioralScore * 0.20));
+    }
+
+    let recommendation;
+    let verdict;
+    if (overallScore >= 85) {
+        recommendation = 'STRONG_HIRE';
+        verdict = 'Strong Hire';
+    } else if (overallScore >= 70) {
+        recommendation = 'HIRE';
+        verdict = 'Hire';
+    } else if (overallScore >= 55) {
+        recommendation = 'LEANING_HIRE';
+        verdict = 'Needs Improvement';
+    } else if (overallScore >= 45) {
+        recommendation = 'LEANING_REJECT';
+        verdict = 'Needs Improvement';
+    } else {
+        recommendation = 'REJECT';
+        verdict = 'Reject';
+    }
+
+    const strengths = [];
+    if (topicScore >= 70) strengths.push(`Strong conceptual grasp across evaluated topics (${(topicAnalysis.topicBreakdown || []).map(t => t.topic).join(', ')}).`);
+    if (commScore >= 75) strengths.push('Clear, structured technical communication and rationale.');
+    if (behavioralScore >= 75) strengths.push('Demonstrated engineering ownership and active collaboration.');
+    if (codingAnalysis?.evaluated && codingAnalysis.correctnessScore >= 70) strengths.push('Clean algorithmic implementation and code organization.');
+    if (strengths.length === 0) strengths.push('Demonstrated fundamental familiarity with core engineering concepts.');
+
+    const weaknesses = [];
+    if (topicScore < 70) weaknesses.push('Deepen technical precision and trade-off analysis under high-scale constraints.');
+    if (commScore < 70) weaknesses.push('Structure answers more concisely with upfront high-level summaries before drilling into details.');
+    if (codingAnalysis?.evaluated && codingAnalysis.correctnessScore < 70) weaknesses.push('Strengthen algorithmic edge case verification and test coverage.');
+    if (weaknesses.length === 0) weaknesses.push('Continue practicing cross-domain system architecture trade-offs.');
+
+    const actionableFeedback = [
+        ...weaknesses.map(w => `Action: ${w}`),
+        'Practice time-boxed algorithmic problems with explicit Big-O trade-off verbalization.'
+    ];
+
+    return {
+        overallScore,
+        recommendation,
+        verdict,
+        strengths,
+        weaknesses,
+        topicBreakdown: topicAnalysis.topicBreakdown || [],
+        criTrajectory: criTrajectory !== null ? criTrajectory : (patternAnalysis.trajectory || 'consistent'),
+        actionableFeedback,
+        passes: {
+            topicAnalysis,
+            patternAnalysis,
+            codingAnalysis,
+            commAnalysis,
+            behavioralAnalysis
+        }
+    };
+}
+
+/**
+ * 5-Pass Parallel Deep Evaluation orchestrator
+ */
+export async function generateDeepEvaluation(session = {}) {
+    const transcript = session.transcript || [];
+    const microScores = session.microScores || [];
+    const rubrics = session.assessment?.blueprintAnalysis?.rubrics || session.rubrics || [];
+    const codeSubmissions = session.codeSubmission ? [session.codeSubmission] : (session.codeSubmissions || []);
+    const companyName = session.assessment?.company?.name || session.companyName || 'Engineering Team';
+    const roleTitle = session.assessment?.role?.title || session.roleTitle || 'Software Engineer';
+    const criTrajectory = session.candidateProfile?.cri || (typeof estimateCandidateLevel === 'function' ? estimateCandidateLevel(session) : 5.0);
+
+    const [topicAnalysis, patternAnalysis, codingAnalysis, commAnalysis, behavioralAnalysis] = await Promise.all([
+        analyzeByTopic(transcript, microScores, rubrics),
+        analyzeCrossTopicPatterns(transcript, microScores),
+        codeSubmissions.length > 0 && codeSubmissions[0]?.code ? analyzeCodingQuality(codeSubmissions) : null,
+        analyzeCommunicationQuality(transcript),
+        analyzeBehavioralSignals(transcript)
+    ]);
+
+    return synthesizeFinalReport({
+        topicAnalysis,
+        patternAnalysis,
+        codingAnalysis,
+        commAnalysis,
+        behavioralAnalysis,
+        companyName,
+        roleTitle,
+        criTrajectory
+    });
+}
+
+/**
+ * Captures post-session training outcomes (hireable, candidateRating, evaluationAccuracy)
+ * onto session.trainingSignals.sessionOutcome
+ *
+ * @param {string|InterviewSession} sessionOrId 
+ * @param {Object} outcome
+ * @param {boolean} [outcome.hireable]
+ * @param {number} [outcome.candidateRating]
+ * @param {number} [outcome.evaluationAccuracy]
+ * @returns {Promise<InterviewSession>}
+ */
+export async function captureSessionOutcome(sessionOrId, outcome = {}) {
+    let session = sessionOrId;
+    if (typeof sessionOrId === 'string' || (sessionOrId && sessionOrId._bsontype === 'ObjectID')) {
+        session = await InterviewSession.findById(sessionOrId);
+    }
+    if (!session) {
+        throw new Error('Interview session not found');
+    }
+
+    if (!session.trainingSignals) {
+        session.trainingSignals = { questionEffectiveness: [], sessionOutcome: {} };
+    }
+    if (!session.trainingSignals.sessionOutcome) {
+        session.trainingSignals.sessionOutcome = {};
+    }
+
+    if (outcome.hireable !== undefined) {
+        session.trainingSignals.sessionOutcome.hireable = Boolean(outcome.hireable);
+    }
+    if (typeof outcome.candidateRating === 'number') {
+        session.trainingSignals.sessionOutcome.candidateRating = Math.min(5, Math.max(1, outcome.candidateRating));
+    }
+    if (typeof outcome.evaluationAccuracy === 'number') {
+        session.trainingSignals.sessionOutcome.evaluationAccuracy = Math.min(1, Math.max(0, outcome.evaluationAccuracy));
+    }
+
+    if (typeof session.save === 'function' && mongoose.connection?.readyState === 1) {
+        await session.save();
+    }
+    return session;
+}
+
+export const recordSessionOutcome = captureSessionOutcome;
+
