@@ -130,6 +130,10 @@ export function useInterviewSocket({
         return sendMessage({ type: 'SILENCE_TIMEOUT' });
     }, [sendMessage]);
 
+    const sendProctoringEvent = useCallback((eventType, details) => {
+        return sendMessage({ type: 'PROCTORING_EVENT', eventType, details });
+    }, [sendMessage]);
+
     /**
      * Connect or initiate WebSocket connection
      */
@@ -312,6 +316,7 @@ export function useInterviewSocket({
         sendCodeSnapshot,
         sendInterrupt,
         sendSilenceTimeout,
+        sendProctoringEvent,
         sendMessage,
         connect,
         disconnect

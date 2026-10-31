@@ -510,6 +510,73 @@ export function mountInterviewSocket(server) {
                         break;
                     }
 
+                    case 'PROCTORING_EVENT': {
+                        if (!session.proctoring) {
+                            session.proctoring = {
+                                integrityScore: 100,
+                                tabSwitchCount: 0,
+                                windowBlurCount: 0,
+                                pasteCount: 0,
+                                fullscreenExitCount: 0,
+                                faceMissingCount: 0,
+                                multipleFacesCount: 0,
+                                cameraStatus: 'ACTIVE',
+                                micStatus: 'ACTIVE',
+                                events: []
+                            };
+                        }
+                        const eventType = msg.eventType;
+                        const details = msg.details || '';
+                        let penalty = 0;
+                        switch (eventType) {
+                            case 'TAB_SWITCH':
+                                session.proctoring.tabSwitchCount = (session.proctoring.tabSwitchCount || 0) + 1;
+                                penalty = 8;
+                                break;
+                            case 'WINDOW_BLUR':
+                                session.proctoring.windowBlurCount = (session.proctoring.windowBlurCount || 0) + 1;
+                                penalty = 3;
+                                break;
+                            case 'SUSPICIOUS_PASTE':
+                                session.proctoring.pasteCount = (session.proctoring.pasteCount || 0) + 1;
+                                penalty = 12;
+                                break;
+                            case 'FULLSCREEN_EXIT':
+                                session.proctoring.fullscreenExitCount = (session.proctoring.fullscreenExitCount || 0) + 1;
+                                penalty = 5;
+                                break;
+                            case 'LOOKING_DOWN':
+                                penalty = 4;
+                                break;
+                            case 'NO_FACE_DETECTED':
+                            case 'FACE_ABSENT':
+                                session.proctoring.faceMissingCount = (session.proctoring.faceMissingCount || 0) + 1;
+                                penalty = 6;
+                                break;
+                            case 'MULTIPLE_FACES':
+                                session.proctoring.multipleFacesCount = (session.proctoring.multipleFacesCount || 0) + 1;
+                                penalty = 12;
+                                break;
+                            default:
+                                penalty = 2;
+                        }
+                        session.proctoring.integrityScore = Math.max(0, (session.proctoring.integrityScore || 100) - penalty);
+                        session.proctoring.events.push({
+                            type: eventType,
+                            timestamp: new Date(),
+                            details,
+                            penalty
+                        });
+                        await session.save();
+                        ws.send(JSON.stringify({
+                            type: 'PROCTORING_UPDATE',
+                            integrityScore: session.proctoring.integrityScore,
+                            eventType,
+                            penalty
+                        }));
+                        break;
+                    }
+
                     case 'SILENCE_TIMEOUT': {
                         if (session.stage === 'COMPLETED') break;
                         const silencePhrases = [

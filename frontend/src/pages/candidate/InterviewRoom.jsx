@@ -157,7 +157,8 @@ const InterviewRoom = () => {
         sendAudioChunk,
         sendCodeSnapshot,
         sendInterrupt,
-        sendSilenceTimeout
+        sendSilenceTimeout,
+        sendProctoringEvent
     } = useInterviewSocket({
         sessionId: session?._id,
         autoConnect: Boolean(session?._id),
@@ -476,11 +477,103 @@ const InterviewRoom = () => {
         // Clean audio/video presence without surveillance loops
     }, [cameraActive]);
 
-    // Window state and page leave safety handlers
+    // Real-Time Proctoring Telemetry: Tab switches, Window blur, Fullscreen exit, Code pastes
+    const reportProctoring = useCallback((eventType, details) => {
+        if (stage === 'COMPLETED') return;
+        if (isWsConnected) {
+            sendProctoringEvent(eventType, details);
+        } else if (session?._id) {
+            api.post('/interview/proctoring/event', {
+                sessionId: session._id,
+                eventType,
+                details
+            }).catch(() => {});
+        }
+    }, [stage, isWsConnected, sendProctoringEvent, session?._id]);
+
+    // Window blur & tab switch listeners
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            if (document.hidden && stage !== 'COMPLETED') {
+                reportProctoring('TAB_SWITCH', 'Candidate switched to another browser tab or minimized window');
+                toast.warning('Tab Switch Detected: Please remain on the assessment screen.');
+            }
+        };
+
+        const handleWindowBlur = () => {
+            if (stage !== 'COMPLETED') {
+                reportProctoring('WINDOW_BLUR', 'Candidate navigated outside interview window');
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        window.addEventListener('blur', handleWindowBlur);
+
+        return () => {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            window.removeEventListener('blur', handleWindowBlur);
+        };
+    }, [stage, reportProctoring]);
+
+    // Real-Time Face & Gaze Detection Loop (Native FaceDetector API with fallback)
+    useEffect(() => {
+        if (!cameraActive || stage === 'COMPLETED') return;
+
+        let faceCheckInterval = null;
+        let absentCounter = 0;
+        let lookingDownCounter = 0;
+
+        const checkFacePresence = async () => {
+            if (!videoRef.current || videoRef.current.readyState < 2) return;
+
+            try {
+                if (window.FaceDetector) {
+                    const detector = new window.FaceDetector({ fastMode: true, maxDetectedFaces: 5 });
+                    const faces = await detector.detect(videoRef.current);
+                    
+                    if (faces.length === 0) {
+                        absentCounter++;
+                        if (absentCounter === 3) {
+                            reportProctoring('NO_FACE_DETECTED', 'No face detected in webcam frame for 6s');
+                            toast.warning('Face Missing: Please stay facing your camera.');
+                        }
+                    } else if (faces.length > 1) {
+                        absentCounter = 0;
+                        reportProctoring('MULTIPLE_FACES', `Multiple faces detected in frame (${faces.length} people)`);
+                        toast.error('Multiple Faces Detected: Ensure you are alone in the room.');
+                    } else {
+                        absentCounter = 0;
+                        const box = faces[0].boundingBox;
+                        const videoH = videoRef.current.videoHeight || 240;
+                        if (box && box.bottom > videoH * 0.88) {
+                            lookingDownCounter++;
+                            if (lookingDownCounter === 3) {
+                                reportProctoring('LOOKING_DOWN', 'Candidate repeatedly looking down away from monitor');
+                                lookingDownCounter = 0;
+                            }
+                        } else {
+                            lookingDownCounter = 0;
+                        }
+                    }
+                }
+            } catch (err) {
+                // Ignore FaceDetector per-frame transient errors
+            }
+        };
+
+        faceCheckInterval = setInterval(checkFacePresence, 2000);
+
+        return () => {
+            if (faceCheckInterval) clearInterval(faceCheckInterval);
+        };
+    }, [cameraActive, stage, reportProctoring]);
     useEffect(() => {
         const handleFullscreenChange = () => {
             const inFull = !!document.fullscreenElement;
             setIsFullscreen(inFull);
+            if (!inFull && stage !== 'COMPLETED') {
+                reportProctoring('FULLSCREEN_EXIT', 'Candidate exited full screen mode');
+            }
         };
 
         const handleBeforeUnload = (e) => {
