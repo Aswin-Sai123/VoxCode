@@ -1,4 +1,5 @@
 import { extractBlueprintDurationAndTimeline } from '../utils/blueprintParser.js';
+import { getCompanyLeetCodeQuestions } from './leetcodeDataset.service.js';
 
 const GEMINI_MODELS = ['gemini-flash-lite-latest', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-3.5-flash'];
 
@@ -343,9 +344,25 @@ Only ${timingContext.remainingMinutes} minute(s) remain before hard session dead
 
     const interviewerName = (voiceModel && (voiceModel.toLowerCase().includes('neerja') || voiceModel.toLowerCase().includes('female'))) ? 'Neerja' : 'Prabhat';
 
+    // Retrieve company-specific LeetCode problems from the 654-company dataset
+    let companyLeetCodeHints = '';
+    try {
+        const targetDiff = (experienceLevel.toLowerCase().includes('senior') || experienceLevel.toLowerCase().includes('lead') || /sde\s*2|l5|l6/i.test(roleTitle))
+            ? 'med/hard'
+            : 'Medium';
+        const topQuestions = await getCompanyLeetCodeQuestions(companyName, { targetDifficulty: targetDiff });
+        if (topQuestions && topQuestions.length > 0) {
+            const sampleQuestions = topQuestions.slice(0, 5).map(q => `• #${q.number}: ${q.title} (${q.difficulty}, LeetCode: ${q.url})`).join('\n');
+            companyLeetCodeHints = `\n=== AUTHENTIC ${companyName.toUpperCase()} LEETCODE INTERVIEW PROBLEMS ===\nWhen generating a codingChallenge for this candidate, prioritize authentic, highly-frequent ${companyName} problems for ${roleTitle}:\n${sampleQuestions}\nYou may choose one of these problems or an exact variation with starter code and test cases.\n`;
+        }
+    } catch (lcErr) {
+        console.warn('[AI Service] LeetCode hint retrieval failed:', lcErr.message);
+    }
+
     const systemInstruction = `You are ${interviewerName}, a Staff Software Engineer & Technical Lead at ${companyName} conducting a live, realistic technical interview for a ${experienceLevel}-level ${roleTitle} role.
 Target Skills & Stack: ${skills.length ? skills.join(', ') : 'Software Engineering'}
 ${timingPacingPrompt}
+${companyLeetCodeHints}
 
 ${personaDirective ? `=== COMPANY HIRING DIRECTIVE & INTERVIEW BLUEPRINT ===
 Round Focus: ${roundSummary}
