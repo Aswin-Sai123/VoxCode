@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api from '../../services/api';
+import { extractEmailsFromSpreadsheet } from '../../utils/excelParser';
 import { 
     Copy, 
     Check, 
@@ -10,7 +11,10 @@ import {
     ExternalLink, 
     AlertCircle, 
     X,
-    Loader2
+    Loader2,
+    FileSpreadsheet,
+    UploadCloud,
+    Trash2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import EmptyState from '../../components/common/EmptyState';
@@ -35,6 +39,39 @@ const AssessmentResults = () => {
     const [inviteLoading, setInviteLoading] = useState(false);
     const [inviteSuccessData, setInviteSuccessData] = useState(null);
     const [copied, setCopied] = useState(false);
+    const [excelInviteFile, setExcelInviteFile] = useState(null);
+    const [isExtractingEmails, setIsExtractingEmails] = useState(false);
+
+    const handleExcelInviteUpload = async (file) => {
+        if (!file) return;
+        setIsExtractingEmails(true);
+        try {
+            const { emails, fileName } = await extractEmailsFromSpreadsheet(file);
+            if (!emails || emails.length === 0) {
+                toast.error('No valid emails discovered in spreadsheet.');
+                return;
+            }
+
+            setExcelInviteFile({
+                name: fileName,
+                size: (file.size / 1024).toFixed(1) + ' KB',
+                count: emails.length
+            });
+
+            // Merge with existing inviteEmails
+            const existing = inviteEmails
+                ? inviteEmails.split(/[\n,;]+/).map(e => e.trim().toLowerCase()).filter(Boolean)
+                : [];
+            const merged = Array.from(new Set([...existing, ...emails]));
+            setInviteEmails(merged.join('\n'));
+            toast.success(`Extracted ${emails.length} candidate emails from spreadsheet`);
+        } catch (err) {
+            console.error('Failed to parse spreadsheet:', err);
+            toast.error('Failed to read spreadsheet. Ensure it is a valid .xlsx or .csv');
+        } finally {
+            setIsExtractingEmails(false);
+        }
+    };
 
     useEffect(() => {
         const fetchResults = async () => {
@@ -392,27 +429,50 @@ const AssessmentResults = () => {
                                 <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-emerald-400 space-y-1">
                                     <p className="font-semibold text-sm">Invitations Sent Successfully</p>
                                     <p className="text-xs text-[#8B8B9E]">
-                                        Sent to {inviteSuccessData.sentCount} candidate addresses.
+                                        Dispatched invitation emails with direct link and interview schedule to {inviteSuccessData.invitations?.length || 0} candidate(s).
                                     </p>
                                 </div>
 
-                                {inviteSuccessData.previewUrl && (
+                                {inviteSuccessData.magicLink && (
                                     <div className="p-3 bg-[#0A0A0B] border border-[#232330] rounded-lg space-y-1 text-xs">
-                                        <span className="text-[#8B8B9E] block">Ethereal Inbox Preview:</span>
+                                        <span className="text-[#8B8B9E] block">Direct Assessment Link:</span>
+                                        <div className="flex items-center justify-between gap-2">
+                                            <span className="text-blue-400 font-mono text-[11px] truncate">{inviteSuccessData.magicLink}</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    navigator.clipboard.writeText(inviteSuccessData.magicLink);
+                                                    toast.success('Link copied');
+                                                }}
+                                                className="studio-btn-secondary text-[11px] py-1 px-2 flex-shrink-0"
+                                            >
+                                                Copy
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {inviteSuccessData.invitations?.find(i => i.previewUrl) && (
+                                    <div className="p-3 bg-[#0A0A0B] border border-[#232330] rounded-lg space-y-1 text-xs">
+                                        <span className="text-[#8B8B9E] block">Email Preview (Simulated Inbox):</span>
                                         <a
-                                            href={inviteSuccessData.previewUrl}
+                                            href={inviteSuccessData.invitations.find(i => i.previewUrl)?.previewUrl}
                                             target="_blank"
                                             rel="noreferrer"
-                                            className="text-blue-400 underline break-all flex items-center gap-1 hover:text-blue-300"
+                                            className="text-blue-400 underline break-all flex items-center gap-1 hover:text-blue-300 font-medium"
                                         >
-                                            <span>Open Simulated Inbox Preview</span>
+                                            <span>Open Simulated Candidate Inbox Preview</span>
                                             <ExternalLink className="w-3.5 h-3.5" />
                                         </a>
                                     </div>
                                 )}
 
                                 <button
-                                    onClick={() => { setShowInviteModal(false); setInviteSuccessData(null); }}
+                                    onClick={() => { 
+                                        setShowInviteModal(false); 
+                                        setInviteSuccessData(null);
+                                        setExcelInviteFile(null);
+                                    }}
                                     className="btn-primary w-full py-2.5 text-xs font-medium"
                                 >
                                     Done
@@ -420,17 +480,85 @@ const AssessmentResults = () => {
                             </div>
                         ) : (
                             <form onSubmit={handleSendInvites} className="space-y-4">
+                                {/* Excel Upload Widget */}
+                                <div className="space-y-2 p-3 bg-[#0E0E12] border border-[#232330] rounded-lg">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-medium text-[#EDEDF0] flex items-center gap-1.5">
+                                            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+                                            <span>Import from Excel / Spreadsheet</span>
+                                        </span>
+                                        <span className="text-[10px] font-mono text-[#8B8B9E]">.xlsx, .xls, .csv</span>
+                                    </div>
+
+                                    {!excelInviteFile ? (
+                                        <div
+                                            onClick={() => document.getElementById('excel-invite-file-input')?.click()}
+                                            className="border border-dashed border-[#2D2D3D] hover:border-emerald-500/50 bg-[#121217] hover:bg-[#14141C] rounded-lg p-3 text-center cursor-pointer transition-all flex items-center justify-center gap-2"
+                                        >
+                                            <input
+                                                id="excel-invite-file-input"
+                                                type="file"
+                                                accept=".xlsx,.xls,.csv"
+                                                className="hidden"
+                                                onChange={(e) => {
+                                                    if (e.target.files && e.target.files[0]) {
+                                                        handleExcelInviteUpload(e.target.files[0]);
+                                                    }
+                                                }}
+                                            />
+                                            {isExtractingEmails ? (
+                                                <Loader2 className="w-4 h-4 text-emerald-400 animate-spin" />
+                                            ) : (
+                                                <UploadCloud className="w-4 h-4 text-emerald-400" />
+                                            )}
+                                            <span className="text-xs text-[#8B8B9E]">
+                                                {isExtractingEmails ? 'Extracting emails...' : 'Click or drop Excel spreadsheet to auto-fill emails'}
+                                            </span>
+                                        </div>
+                                    ) : (
+                                        <div className="p-2.5 bg-[#14141A] border border-emerald-500/30 rounded-lg flex items-center justify-between text-xs">
+                                            <div className="flex items-center gap-2 min-w-0">
+                                                <FileSpreadsheet className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                                                <div className="min-w-0">
+                                                    <span className="text-[#EDEDF0] truncate block font-medium">{excelInviteFile.name}</span>
+                                                    <span className="text-[10px] text-emerald-400 font-mono">
+                                                        ✓ {excelInviteFile.count} email{excelInviteFile.count !== 1 ? 's' : ''} extracted
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setExcelInviteFile(null);
+                                                    setInviteEmails('');
+                                                }}
+                                                className="text-[#8B8B9E] hover:text-red-400 p-1"
+                                                title="Remove file"
+                                            >
+                                                <Trash2 className="w-3.5 h-3.5" />
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+
                                 <div className="space-y-1.5">
-                                    <label className="text-xs font-medium text-[#8B8B9E] block">
-                                        Candidate Emails (comma or line separated):
-                                    </label>
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-xs font-medium text-[#8B8B9E] block">
+                                            Candidate Emails:
+                                        </label>
+                                        {inviteEmails && (
+                                            <span className="text-[10px] text-blue-400 font-mono">
+                                                {inviteEmails.split(/[\n,;]+/).filter(e => e.trim()).length} recipient(s)
+                                            </span>
+                                        )}
+                                    </div>
                                     <textarea
                                         rows={3}
                                         required
                                         value={inviteEmails}
                                         onChange={(e) => setInviteEmails(e.target.value)}
                                         placeholder="candidate1@example.com, candidate2@example.com"
-                                        className="studio-input resize-none"
+                                        className="studio-input resize-none font-mono text-xs"
                                     />
                                 </div>
 
@@ -443,14 +571,17 @@ const AssessmentResults = () => {
                                         value={inviteMessage}
                                         onChange={(e) => setInviteMessage(e.target.value)}
                                         placeholder="Please complete this technical assessment within 48 hours."
-                                        className="studio-input resize-none"
+                                        className="studio-input resize-none text-xs"
                                     />
                                 </div>
 
                                 <div className="flex justify-end gap-2.5 pt-2">
                                     <button
                                         type="button"
-                                        onClick={() => setShowInviteModal(false)}
+                                        onClick={() => {
+                                            setShowInviteModal(false);
+                                            setExcelInviteFile(null);
+                                        }}
                                         className="studio-btn-secondary text-xs"
                                     >
                                         Cancel

@@ -52,7 +52,17 @@ const getTransporter = async () => {
 const cleanHeader = (val) => String(val || '').replace(/[\r\n]+/g, ' ').trim();
 
 /**
- * Sends a candidate invitation email with a 1-click magic link
+ * Formats a Date object or ISO string into a clean readable date/time (e.g. "Sat, Oct 31, 2026 at 2:30 PM UTC")
+ */
+const formatDateTime = (dateVal) => {
+    if (!dateVal) return null;
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return null;
+    return d.toUTCString().replace(':00 GMT', ' GMT');
+};
+
+/**
+ * Sends a candidate invitation email with schedule, timings, and 1-click magic link
  */
 export const sendAssessmentInvite = async ({
     candidateEmail,
@@ -61,7 +71,9 @@ export const sendAssessmentInvite = async ({
     assessmentTitle = 'Technical Assessment',
     assessmentCode,
     durationMinutes = 45,
-    customMessage = ''
+    customMessage = '',
+    openingTime = null,
+    closingTime = null
 }) => {
     const frontendUrl = getFrontendUrl();
     const safeCode = cleanHeader(assessmentCode);
@@ -69,6 +81,22 @@ export const sendAssessmentInvite = async ({
     const safeRole = cleanHeader(roleTitle);
     const safeEmail = cleanHeader(candidateEmail);
     const magicLink = `${frontendUrl}/candidate/assessment/${safeCode}`;
+
+    const formattedOpen = formatDateTime(openingTime);
+    const formattedClose = formatDateTime(closingTime);
+
+    let scheduleHtml = '';
+    if (formattedOpen || formattedClose) {
+        scheduleHtml = `
+            <div style="background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.25); border-radius: 10px; padding: 14px 16px; margin: 16px 0;">
+              <div style="font-size: 11px; font-weight: 700; color: #a5b4fc; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">
+                🗓️ Interview Schedule & Availability Window
+              </div>
+              ${formattedOpen ? `<div class="detail-row"><span class="label">Opens / Starts:</span><span class="val">${formattedOpen}</span></div>` : ''}
+              ${formattedClose ? `<div class="detail-row"><span class="label">Deadline / Closes:</span><span class="val" style="color: #f87171;">${formattedClose}</span></div>` : ''}
+            </div>
+        `;
+    }
 
     const mailOptions = {
         from: `"${safeCompany} Recruiting via VoxCode" <no-reply@voxcode.ai>`,
@@ -88,7 +116,7 @@ export const sendAssessmentInvite = async ({
             p { color: #94a3b8; font-size: 14px; line-height: 1.6; margin: 8px 0; }
             .code-box { background-color: #0b0f17; border: 1px solid #334155; border-radius: 12px; padding: 16px; text-align: center; margin: 24px 0; }
             .code { font-family: Courier, monospace; font-size: 24px; font-weight: 800; color: #38bdf8; letter-spacing: 3px; }
-            .details { background-color: #1a2233; border-radius: 10px; padding: 16px; margin: 20px 0; }
+            .details { background-color: #1a2233; border-radius: 10px; padding: 16px; margin: 16px 0; }
             .detail-row { display: flex; justify-content: space-between; font-size: 13px; padding: 4px 0; }
             .label { color: #64748b; }
             .val { color: #f1f5f9; font-weight: 600; }
@@ -101,7 +129,7 @@ export const sendAssessmentInvite = async ({
             <div class="header">
               <span class="badge">AI Technical Assessment</span>
               <h1>You're Invited to Interview!</h1>
-              <p><strong>${companyName}</strong> has invited you to complete an adaptive technical interview for the <strong>${roleTitle}</strong> role.</p>
+              <p><strong>${safeCompany}</strong> has invited you to complete an adaptive technical interview for the <strong>${safeRole}</strong> role.</p>
             </div>
 
             ${customMessage ? `<p style="font-style: italic; background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; border-left: 3px solid #6366f1;">"${customMessage}"</p>` : ''}
@@ -109,11 +137,11 @@ export const sendAssessmentInvite = async ({
             <div class="details">
               <div class="detail-row">
                 <span class="label">Role:</span>
-                <span class="val">${roleTitle}</span>
+                <span class="val">${safeRole}</span>
               </div>
               <div class="detail-row">
                 <span class="label">Company:</span>
-                <span class="val">${companyName}</span>
+                <span class="val">${safeCompany}</span>
               </div>
               <div class="detail-row">
                 <span class="label">Duration:</span>
@@ -125,15 +153,18 @@ export const sendAssessmentInvite = async ({
               </div>
             </div>
 
+            ${scheduleHtml}
+
             <div class="code-box">
               <div style="font-size: 11px; color: #64748b; margin-bottom: 6px; text-transform: uppercase;">Your Assessment Code</div>
-              <div class="code">${assessmentCode}</div>
+              <div class="code">${safeCode}</div>
             </div>
 
             <a href="${magicLink}" class="btn">Start Technical Assessment →</a>
 
             <p style="font-size: 12px; text-align: center; color: #64748b;">
-              Or navigate to <code>${frontendUrl}/candidate/dashboard</code> and enter code <strong>${assessmentCode}</strong>.
+              Direct Link: <a href="${magicLink}" style="color: #38bdf8; word-break: break-all;">${magicLink}</a>
+              <br/>Or navigate to <code>${frontendUrl}/candidate/dashboard</code> and enter code <strong>${safeCode}</strong>.
             </p>
 
             <div class="footer">

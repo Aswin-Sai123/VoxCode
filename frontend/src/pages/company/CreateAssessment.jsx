@@ -58,6 +58,7 @@ const CreateAssessment = () => {
     const [error, setError] = useState('');
     const [createdCode, setCreatedCode] = useState('');
     const [createdId, setCreatedId] = useState('');
+    const [dispatchedInvitesData, setDispatchedInvitesData] = useState([]);
     const [copied, setCopied] = useState(false);
 
     // fetch company's roles on mount
@@ -288,6 +289,9 @@ const CreateAssessment = () => {
                 await new Promise(r => setTimeout(r, 500));
                 setCreatedCode(res.data.data.assessmentCode);
                 setCreatedId(res.data.data._id);
+                if (res.data.data.dispatchedInvites) {
+                    setDispatchedInvitesData(res.data.data.dispatchedInvites);
+                }
             }
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to create assessment');
@@ -344,6 +348,51 @@ const CreateAssessment = () => {
                             </button>
                         </div>
                     </div>
+
+                    {/* Direct Link Box */}
+                    <div className="p-3 bg-[#0A0A0B] border border-[#232330] rounded-lg space-y-1.5 text-left text-xs">
+                        <span className="text-[11px] text-[#8B8B9E] block font-medium">Direct Assessment Link:</span>
+                        <div className="flex items-center justify-between gap-2 bg-[#121217] p-2 rounded border border-[#1e1e28]">
+                            <span className="text-blue-400 font-mono text-[11px] truncate">
+                                {`${window.location.origin}/candidate/assessment/${createdCode}`}
+                            </span>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    navigator.clipboard.writeText(`${window.location.origin}/candidate/assessment/${createdCode}`);
+                                    toast.success('Direct link copied');
+                                }}
+                                className="studio-btn-secondary text-[11px] py-1 px-2.5 flex-shrink-0"
+                            >
+                                Copy Link
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Dispatched Invites Summary */}
+                    {dispatchedInvitesData && dispatchedInvitesData.length > 0 && (
+                        <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-left text-xs space-y-2">
+                            <div className="flex items-center justify-between">
+                                <span className="font-semibold text-emerald-400">
+                                    ✓ Dispatched {dispatchedInvitesData.filter(d => d.success).length} Invitation Email(s)
+                                </span>
+                                <span className="text-[10px] text-[#8B8B9E]">Direct Link & Schedule Included</span>
+                            </div>
+                            {dispatchedInvitesData.find(d => d.previewUrl) && (
+                                <div className="pt-1 border-t border-emerald-500/20">
+                                    <a
+                                        href={dispatchedInvitesData.find(d => d.previewUrl)?.previewUrl}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="text-blue-400 underline flex items-center gap-1 hover:text-blue-300 text-[11px]"
+                                    >
+                                        <span>Open Simulated Inbox Preview</span>
+                                        <ExternalLink className="w-3 h-3" />
+                                    </a>
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     <div className="space-y-2.5 pt-2">
                         {createdId && (

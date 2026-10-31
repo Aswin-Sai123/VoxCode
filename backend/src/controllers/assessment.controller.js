@@ -211,7 +211,52 @@ export const createAssessment = asyncHandler(async (req, res) => {
         voiceRoundEnabled: voiceRoundEnabled !== false
     });
 
-    res.status(201).json(new ApiResponse(201, assessment, 'Assessment created successfully'));
+    // Automatically dispatch email invites with direct link and interview timings if eligible emails are provided
+    let dispatchedInvites = [];
+    if (cleanEmails.length > 0) {
+        let companyDisplayName = req.user?.name;
+        if (!companyDisplayName && req.user?.id) {
+            const comp = await Company.findById(req.user.id).select('name');
+            if (comp?.name) companyDisplayName = comp.name;
+        }
+        companyDisplayName = companyDisplayName || 'Company';
+
+        for (const email of cleanEmails) {
+            try {
+                const inviteRes = await sendAssessmentInvite({
+                    candidateEmail: email,
+                    companyName: companyDisplayName,
+                    roleTitle: role?.title || title,
+                    assessmentTitle: assessment.title,
+                    assessmentCode: assessment.assessmentCode,
+                    durationMinutes: assessment.durationMinutes,
+                    customMessage: `You have been registered for this technical assessment by ${companyDisplayName}.`,
+                    openingTime: assessment.openingTime,
+                    closingTime: assessment.closingTime
+                });
+                dispatchedInvites.push({
+                    email,
+                    success: true,
+                    magicLink: inviteRes.magicLink,
+                    previewUrl: inviteRes.previewUrl
+                });
+            } catch (mailErr) {
+                console.warn(`[Auto-Invite] Failed to send invite to ${email}:`, mailErr.message);
+                dispatchedInvites.push({
+                    email,
+                    success: false,
+                    error: mailErr.message
+                });
+            }
+        }
+    }
+
+    const frontendUrl = getFrontendUrl();
+    res.status(201).json(new ApiResponse(201, {
+        ...assessment.toObject(),
+        directLink: `${frontendUrl}/candidate/assessment/${assessment.assessmentCode}`,
+        dispatchedInvites
+    }, 'Assessment created successfully'));
 });
 
 // Company gets all their assessments
@@ -367,7 +412,9 @@ export const inviteCandidates = asyncHandler(async (req, res) => {
                 assessmentTitle: assessment.title,
                 assessmentCode: assessment.assessmentCode,
                 durationMinutes: assessment.durationMinutes,
-                customMessage
+                customMessage,
+                openingTime: assessment.openingTime,
+                closingTime: assessment.closingTime
             });
             results.push({
                 email,
