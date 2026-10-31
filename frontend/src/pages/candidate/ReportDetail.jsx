@@ -106,8 +106,14 @@ const ReportDetail = () => {
         testCaseResults,
         roleRubricsFeedback,
         candidateQuestionsAsked,
-        companyHistoryContext
+        companyHistoryContext,
+        assessment
     } = evaluation;
+
+    const hasCodingRound = assessment?.codingRoundEnabled !== false && 
+        assessment?.interviewFormat !== 'PROJECT_AND_TECHNICAL_ONLY' &&
+        assessment?.interviewFormat !== 'BEHAVIORAL_ONLY' &&
+        Boolean(evaluation?.codeSubmission?.code || (testCaseResults && testCaseResults.length > 0));
 
     return (
         <div className="flex-1 p-6 sm:p-8 max-w-6xl mx-auto w-full space-y-6">
@@ -175,29 +181,33 @@ const ReportDetail = () => {
                     </span>
 
                     <div className="space-y-4">
-                        <div className="space-y-1.5">
-                            <div className="flex justify-between text-xs">
-                                <span className="text-[#8B8B9E]">Coding & Problem Solving</span>
-                                <span className="text-[#EDEDF0] font-semibold tabular-nums">{scores?.coding || 0}%</span>
-                            </div>
-                            <div className="h-2 w-full bg-[#0A0A0B] rounded-full overflow-hidden border border-[#232330]">
-                                <div style={{ width: `${scores?.coding || 0}%` }} className="h-full bg-blue-500 rounded-full" />
-                            </div>
-                        </div>
+                        {hasCodingRound && (
+                            <>
+                                <div className="space-y-1.5">
+                                    <div className="flex justify-between text-xs">
+                                        <span className="text-[#8B8B9E]">Coding & Problem Solving</span>
+                                        <span className="text-[#EDEDF0] font-semibold tabular-nums">{scores?.coding || 0}%</span>
+                                    </div>
+                                    <div className="h-2 w-full bg-[#0A0A0B] rounded-full overflow-hidden border border-[#232330]">
+                                        <div style={{ width: `${scores?.coding || 0}%` }} className="h-full bg-blue-500 rounded-full" />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <div className="flex justify-between text-xs">
+                                        <span className="text-[#8B8B9E]">Code Quality & Architecture</span>
+                                        <span className="text-[#EDEDF0] font-semibold tabular-nums">{scores?.codeQuality || 0}%</span>
+                                    </div>
+                                    <div className="h-2 w-full bg-[#0A0A0B] rounded-full overflow-hidden border border-[#232330]">
+                                        <div style={{ width: `${scores?.codeQuality || 0}%` }} className="h-full bg-blue-500 rounded-full" />
+                                    </div>
+                                </div>
+                            </>
+                        )}
 
                         <div className="space-y-1.5">
                             <div className="flex justify-between text-xs">
-                                <span className="text-[#8B8B9E]">Code Quality & Architecture</span>
-                                <span className="text-[#EDEDF0] font-semibold tabular-nums">{scores?.codeQuality || 0}%</span>
-                            </div>
-                            <div className="h-2 w-full bg-[#0A0A0B] rounded-full overflow-hidden border border-[#232330]">
-                                <div style={{ width: `${scores?.codeQuality || 0}%` }} className="h-full bg-blue-500 rounded-full" />
-                            </div>
-                        </div>
-
-                        <div className="space-y-1.5">
-                            <div className="flex justify-between text-xs">
-                                <span className="text-[#8B8B9E]">Conceptual Understanding</span>
+                                <span className="text-[#8B8B9E]">Technical & Conceptual Understanding</span>
                                 <span className="text-[#EDEDF0] font-semibold tabular-nums">{scores?.conceptual || 0}%</span>
                             </div>
                             <div className="h-2 w-full bg-[#0A0A0B] rounded-full overflow-hidden border border-[#232330]">
@@ -207,7 +217,7 @@ const ReportDetail = () => {
 
                         <div className="space-y-1.5">
                             <div className="flex justify-between text-xs">
-                                <span className="text-[#8B8B9E]">Verbal Communication</span>
+                                <span className="text-[#8B8B9E]">Technical Communication & Reasoning</span>
                                 <span className="text-[#EDEDF0] font-semibold tabular-nums">{scores?.communication || 0}%</span>
                             </div>
                             <div className="h-2 w-full bg-[#0A0A0B] rounded-full overflow-hidden border border-[#232330]">
@@ -335,88 +345,90 @@ const ReportDetail = () => {
                 </div>
             )}
 
-            {/* Algorithmic Complexity & Test Suite Matrix */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 text-xs">
-                {/* Big-O Complexity */}
-                <div className="bg-[#141419] border border-[#232330] rounded-xl p-6 space-y-4">
-                    <div className="flex items-center justify-between border-b border-[#232330] pb-3">
-                        <span className="text-xs font-semibold text-[#EDEDF0] flex items-center gap-2">
-                            <Cpu className="w-4 h-4 text-blue-400" />
-                            Algorithmic Complexity
-                        </span>
-                        <span className="text-xs text-[#555568]">Static Analysis</span>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                        <div className="p-3.5 bg-[#0A0A0B] border border-[#232330] rounded-lg space-y-1">
-                            <span className="text-xs text-[#8B8B9E] block">Time Complexity</span>
-                            <span className="text-sm font-semibold text-[#EDEDF0] font-mono">
-                                {codeReview?.timeComplexity || 'N/A'}
+            {/* Algorithmic Complexity & Test Suite Matrix (Only if coding was included in blueprint) */}
+            {hasCodingRound && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 text-xs">
+                    {/* Big-O Complexity */}
+                    <div className="bg-[#141419] border border-[#232330] rounded-xl p-6 space-y-4">
+                        <div className="flex items-center justify-between border-b border-[#232330] pb-3">
+                            <span className="text-xs font-semibold text-[#EDEDF0] flex items-center gap-2">
+                                <Cpu className="w-4 h-4 text-blue-400" />
+                                Algorithmic Complexity
                             </span>
+                            <span className="text-xs text-[#555568]">Static Analysis</span>
                         </div>
-                        <div className="p-3.5 bg-[#0A0A0B] border border-[#232330] rounded-lg space-y-1">
-                            <span className="text-xs text-[#8B8B9E] block">Space Complexity</span>
-                            <span className="text-sm font-semibold text-[#EDEDF0] font-mono">
-                                {codeReview?.spaceComplexity || 'N/A'}
-                            </span>
-                        </div>
-                    </div>
 
-                    {codeReview?.correctness && (
-                        <p className="text-xs text-[#8B8B9E] leading-relaxed pt-1">
-                            {codeReview.correctness}
-                        </p>
-                    )}
-                    {codeReview?.comments && (
-                        <p className="text-xs text-[#8B8B9E] leading-relaxed">
-                            {codeReview.comments}
-                        </p>
-                    )}
-                </div>
-
-                {/* Test Cases Results */}
-                <div className="bg-[#141419] border border-[#232330] rounded-xl p-6 space-y-4">
-                    <div className="flex items-center justify-between border-b border-[#232330] pb-3">
-                        <span className="text-xs font-semibold text-[#EDEDF0] flex items-center gap-2">
-                            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                            Test Suite Results
-                        </span>
-                        <span className="text-xs text-emerald-400 font-medium">
-                            {testCaseResults && testCaseResults.length > 0 
-                                ? `${testCaseResults.filter(t => t.passed).length} of ${testCaseResults.length} passed`
-                                : 'Discussion Round'}
-                        </span>
-                    </div>
-
-                    <div className="space-y-2">
-                        {testCaseResults && testCaseResults.length > 0 ? (
-                            testCaseResults.map((tc, idx) => (
-                                <div key={idx} className="p-3 bg-[#0A0A0B] border border-[#232330] rounded-lg flex items-center justify-between text-xs">
-                                    <div className="flex items-center gap-2.5">
-                                        <span className={`w-2 h-2 rounded-full ${tc.passed ? 'bg-emerald-400' : 'bg-red-400'}`} />
-                                        <span className="text-[#EDEDF0] font-medium">Test case #{idx + 1}</span>
-                                    </div>
-                                    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium border ${tc.passed ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' : 'text-red-400 bg-red-500/10 border-red-500/20'}`}>
-                                        {tc.passed ? `Passed (${tc.executionTime || '0.05s'})` : 'Failed'}
-                                    </span>
-                                </div>
-                            ))
-                        ) : (
-                            <div className="p-4 bg-[#0A0A0B] border border-[#232330] rounded-lg text-center space-y-1">
-                                <p className="text-xs text-[#8B8B9E]">
-                                    No automated code execution was required for this interview.
-                                </p>
-                                <p className="text-[11px] text-[#555568]">
-                                    Evaluation was based on technical depth, architecture, and live discussion.
-                                </p>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="p-3.5 bg-[#0A0A0B] border border-[#232330] rounded-lg space-y-1">
+                                <span className="text-xs text-[#8B8B9E] block">Time Complexity</span>
+                                <span className="text-sm font-semibold text-[#EDEDF0] font-mono">
+                                    {codeReview?.timeComplexity || 'N/A'}
+                                </span>
                             </div>
+                            <div className="p-3.5 bg-[#0A0A0B] border border-[#232330] rounded-lg space-y-1">
+                                <span className="text-xs text-[#8B8B9E] block">Space Complexity</span>
+                                <span className="text-sm font-semibold text-[#EDEDF0] font-mono">
+                                    {codeReview?.spaceComplexity || 'N/A'}
+                                </span>
+                            </div>
+                        </div>
+
+                        {codeReview?.correctness && (
+                            <p className="text-xs text-[#8B8B9E] leading-relaxed pt-1">
+                                {codeReview.correctness}
+                            </p>
+                        )}
+                        {codeReview?.comments && (
+                            <p className="text-xs text-[#8B8B9E] leading-relaxed">
+                                {codeReview.comments}
+                            </p>
                         )}
                     </div>
-                </div>
-            </div>
 
-            {/* Submitted Code Solution */}
-            {evaluation.codeSubmission?.code && (
+                    {/* Test Cases Results */}
+                    <div className="bg-[#141419] border border-[#232330] rounded-xl p-6 space-y-4">
+                        <div className="flex items-center justify-between border-b border-[#232330] pb-3">
+                            <span className="text-xs font-semibold text-[#EDEDF0] flex items-center gap-2">
+                                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                                Test Suite Results
+                            </span>
+                            <span className="text-xs text-emerald-400 font-medium">
+                                {testCaseResults && testCaseResults.length > 0 
+                                    ? `${testCaseResults.filter(t => t.passed).length} of ${testCaseResults.length} passed`
+                                    : 'Discussion Round'}
+                            </span>
+                        </div>
+
+                        <div className="space-y-2">
+                            {testCaseResults && testCaseResults.length > 0 ? (
+                                testCaseResults.map((tc, idx) => (
+                                    <div key={idx} className="p-3 bg-[#0A0A0B] border border-[#232330] rounded-lg flex items-center justify-between text-xs">
+                                        <div className="flex items-center gap-2.5">
+                                            <span className={`w-2 h-2 rounded-full ${tc.passed ? 'bg-emerald-400' : 'bg-red-400'}`} />
+                                            <span className="text-[#EDEDF0] font-medium">Test case #{idx + 1}</span>
+                                        </div>
+                                        <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium border ${tc.passed ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' : 'text-red-400 bg-red-500/10 border-red-500/20'}`}>
+                                            {tc.passed ? `Passed (${tc.executionTime || '0.05s'})` : 'Failed'}
+                                        </span>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="p-4 bg-[#0A0A0B] border border-[#232330] rounded-lg text-center space-y-1">
+                                    <p className="text-xs text-[#8B8B9E]">
+                                        No automated code execution was required for this interview.
+                                    </p>
+                                    <p className="text-[11px] text-[#555568]">
+                                        Evaluation was based on technical depth, architecture, and live discussion.
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Submitted Code Solution (Only if candidate submitted code) */}
+            {hasCodingRound && evaluation.codeSubmission?.code && (
                 <div className="bg-[#141419] border border-[#232330] rounded-xl overflow-hidden text-xs">
                     <div className="h-10 border-b border-[#232330] bg-[#0A0A0B] px-4 flex items-center justify-between">
                         <div className="flex items-center gap-2">

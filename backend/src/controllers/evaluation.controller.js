@@ -35,7 +35,7 @@ export const getEvaluationBySession = asyncHandler(async (req, res) => {
 
     let evaluation = await Evaluation.findOne({ session: sessionId })
         .populate('candidate', 'name email skills experience')
-        .populate('assessment', 'title roleTitle companyName targetCompanyName targetRoleTitle assessmentType skills experienceLevel durationMinutes');
+        .populate('assessment', 'title roleTitle companyName targetCompanyName targetRoleTitle assessmentType skills experienceLevel durationMinutes codingRoundEnabled voiceRoundEnabled blueprint interviewFormat blueprintAnalysis');
 
     // If evaluation not found but session is finalized, trigger evaluation
     if (!evaluation || evaluation.status === 'PENDING') {
@@ -44,7 +44,7 @@ export const getEvaluationBySession = asyncHandler(async (req, res) => {
                 evaluation = await evaluateInterviewSession(sessionId);
                 evaluation = await Evaluation.findById(evaluation._id)
                     .populate('candidate', 'name email skills experience')
-                    .populate('assessment', 'title roleTitle companyName targetCompanyName targetRoleTitle assessmentType skills experienceLevel durationMinutes');
+                    .populate('assessment', 'title roleTitle companyName targetCompanyName targetRoleTitle assessmentType skills experienceLevel durationMinutes codingRoundEnabled voiceRoundEnabled blueprint interviewFormat blueprintAnalysis');
             } catch (err) {
                 console.error('Auto evaluation trigger error:', err);
             }
