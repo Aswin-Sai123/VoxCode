@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { PersonaCache } from '../models/personaCache.model.js';
 import { QuestionBank } from '../models/questionBank.model.js';
+import { getCompanyLeetCodeQuestions } from './leetcodeDataset.service.js';
 
 const GEMINI_MODELS = ['gemini-flash-lite-latest', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-3.5-flash'];
 const REDDIT_USER_AGENT = 'VoxCode-Scraper/2.0 (by /u/voxcode-interviewer)';
@@ -352,19 +353,24 @@ export async function scrapeCompanyInterviewIntel(companyName = 'Google', roleTi
         return fallbackIntel;
     }
 
-    // 3. Step A: Query Reddit in parallel with Google Grounding
-    const [redditDebriefs, groundingResult] = await Promise.allSettled([
+    const [redditDebriefs, groundingResult, mongoQuestions] = await Promise.allSettled([
         fetchRedditDebriefs(companyName, roleTitle, { limit: 8 }),
-        scrapeWithGoogleGrounding(companyName, roleTitle, experienceLevel, apiKey)
+        scrapeWithGoogleGrounding(companyName, roleTitle, experienceLevel, apiKey),
+        getCompanyLeetCodeQuestions(companyName, {
+            targetDifficulty: (experienceLevel.toLowerCase().includes('senior') || /sde\s*2|l5|l6/i.test(roleTitle)) ? 'med/hard' : 'Medium',
+            limit: 10
+        })
     ]);
 
     const redditPosts = redditDebriefs.status === 'fulfilled' ? redditDebriefs.value : [];
     const groundedData = groundingResult.status === 'fulfilled' ? groundingResult.value : null;
+    const dbLeetcodeQuestions = mongoQuestions.status === 'fulfilled' ? (mongoQuestions.value || []).map(q => `${q.title} (${q.difficulty} - ${q.url})`) : [];
 
     // 4. Synthesize raw scraped questions from all sources
     const rawQuestions = [
         ...(groundedData?.sampleQuestions || []),
         ...(groundedData?.realQuestions || []),
+        ...dbLeetcodeQuestions,
         ...redditPosts.map(p => p.title).filter(t => t.includes('?') || /question|asked|design|problem/i.test(t)),
         ...fallbackIntel.realQuestions
     ];
