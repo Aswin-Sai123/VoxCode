@@ -591,7 +591,7 @@ const InterviewRoom = () => {
             document.removeEventListener('fullscreenchange', handleFullscreenChange);
             window.removeEventListener('beforeunload', handleBeforeUnload);
         };
-    }, [stage]);
+    }, [stage, reportProctoring]);
 
     // Split-panel and console drag listener
     useEffect(() => {

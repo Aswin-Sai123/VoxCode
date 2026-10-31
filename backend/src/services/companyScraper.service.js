@@ -246,16 +246,17 @@ export async function getCachedPersona(companyName, roleTitle) {
  * Live Google Search Grounding with Gemini across LeetCode, Glassdoor, and Blind
  */
 async function scrapeWithGoogleGrounding(companyName, roleTitle, experienceLevel, apiKey) {
-    const prompt = `You are an automated real-time web intelligence scraper and technical interview calibrator for VoxCode.
-Search the live web (LeetCode Discuss, Glassdoor, Blind, levels.fyi, and company engineering subreddits) for authentic 2024-2026 technical interview debriefs, question leaks, and evaluation criteria for:
+    const prompt = `You are an automated real-time web intelligence scraper and technical interview architect for VoxCode.
+Perform a thorough, in-depth search of recent 2024-2026 interview debriefs and discussions on LeetCode Discuss, Glassdoor, Blind, levels.fyi, and company engineering blogs for:
 Company: ${companyName}
 Role: ${roleTitle}
 Seniority: ${experienceLevel}
 
-Search specifically for:
-- Exact interview stages (e.g. Recruiter Screen -> Technical Phone Screen -> Onsite DSA & System Design -> Bar Raiser).
-- Hiring bar & culture rubrics (e.g. Amazon 16 Leadership Principles, Google Googliness & code elegance, Meta 25-min coding velocity, Stripe idempotency & bug readability).
-- Leaked real questions reported by candidates in Phase 1 (technical dialogue/architecture) and Phase 2 (coding challenges).
+You must construct a complete, deep-dive interview architecture:
+1. Exact hiring process breakdown (Round 1: Screening, Round 2: Technical/Architectural Dialogue, Round 3: Live Problem Solving / DSA, Round 4: Bar Raiser & Culture).
+2. Deep company engineering evaluation principles (e.g. Google's code maintainability, testing, and Big-O efficiency; Amazon's Leadership Principles; Stripe's production-readiness & idempotency; Meta's speed and working code).
+3. Authentic interview questions recently reported by candidates in technical architecture and system design rounds.
+4. Comprehensive multi-paragraph blueprint specifying time allocation, transition signals, question pacing, and pass/fail thresholds.
 
 Return ONLY a valid, parseable JSON object matching this structure:
 {
@@ -444,10 +445,10 @@ export const getScrapedCompanyIntelligence = async ({
 }) => {
     const cacheKey = `${companyName.trim().toLowerCase()}_${roleTitle.trim().toLowerCase()}_${experienceLevel.trim().toLowerCase()}`;
 
-    // Return in-memory cached intelligence if scraped within the last 2 hours
+    // Return in-memory cached intelligence if scraped within the last 15 minutes
     if (scrapedIntelligenceCache.has(cacheKey)) {
         const cached = scrapedIntelligenceCache.get(cacheKey);
-        if (Date.now() - cached.timestamp < 1000 * 60 * 120) {
+        if (Date.now() - cached.timestamp < 1000 * 60 * 15) {
             return cached.data;
         }
     }

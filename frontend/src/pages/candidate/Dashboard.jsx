@@ -57,10 +57,12 @@ const LEVELS = [
 ];
 
 const SCRAPING_STEPS = [
-    'Searching the web for real interview questions...',
-    'Finding recent questions from LeetCode, Glassdoor & more...',
-    'Building your personalized interview based on real data...',
-    'Setting up your interview room...'
+    'Crawling LeetCode Discuss & Glassdoor for recent interview debriefs...',
+    'Extracting company-specific hiring rubrics & engineering philosophy...',
+    'Querying authentic company LeetCode problem bank...',
+    'Calibrating multi-phase blueprint & time allocation...',
+    'Synthesizing interviewer persona & technical directives...',
+    'Setting up your realistic interview room...'
 ];
 
 const Dashboard = () => {
@@ -151,7 +153,7 @@ const Dashboard = () => {
         if (!creatingMock) return;
         const interval = setInterval(() => {
             setScrapingStepIndex(prev => (prev < SCRAPING_STEPS.length - 1 ? prev + 1 : prev));
-        }, 1800);
+        }, 2200);
         return () => clearInterval(interval);
     }, [creatingMock]);
 
