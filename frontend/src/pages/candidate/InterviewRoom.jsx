@@ -199,6 +199,8 @@ const InterviewRoom = () => {
                     setSelectedLanguage(newChallenge.language || 'javascript');
                 }
                 setTimeout(() => setTransitionBanner(false), 5000);
+            } else if (newStage === 'CONCEPTUAL') {
+                setStage('CONCEPTUAL');
             } else if (newStage === 'COMPLETED') {
                 setTimeout(() => {
                     setStage('COMPLETED');

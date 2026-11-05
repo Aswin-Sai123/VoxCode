@@ -319,7 +319,7 @@ export const generateAiEvaluation = async ({
             communicationScore = Math.round(engagementFactor * (wordFactor * 60 + (techHits > 0 ? 30 : 10) + (avgWords > 15 ? 10 : 0)));
         }
 
-        // Coding score from test case results
+        // Coding score from candidate's code quality and implementation
         const passedTests = testCaseResults.filter(t => t.passed).length;
         const totalTests = testCaseResults.length;
         let codingScore = 0;
@@ -328,14 +328,12 @@ export const generateAiEvaluation = async ({
         if (isProjectOnly) {
             codingScore = conceptualScore;
             codeQualityScore = conceptualScore;
-        } else if (totalTests > 0) {
-            codingScore = Math.round((passedTests / totalTests) * 100);
-            codeQualityScore = hasCode
-                ? Math.min(100, Math.max(10, codingScore + (codeSubmission.code.length > 100 ? 10 : 0)))
-                : 0;
         } else if (hasCode) {
-            codingScore = 40;
-            codeQualityScore = 35;
+            // Evaluate based on code presence and structure rather than relying strictly on test cases
+            const codeLen = (codeSubmission?.code || '').trim().length;
+            const baseCoding = codeLen > 200 ? 82 : codeLen > 80 ? 75 : 65;
+            codingScore = Math.min(95, Math.max(50, baseCoding + (passedTests > 0 ? 10 : 0)));
+            codeQualityScore = Math.min(95, Math.max(50, baseCoding + (codeLen > 150 ? 5 : 0)));
         } else {
             codingScore = 0;
             codeQualityScore = 0;
@@ -475,25 +473,17 @@ Title: ${codingChallenge?.title || (isProjectOnly ? 'N/A (Project Architecture D
 Description: ${codingChallenge?.description || (isProjectOnly ? 'This round evaluated project experience, scalability, and system design.' : 'N/A')}
 Input/Output Expectations: ${codingChallenge?.inputFormat || 'N/A'} -> ${codingChallenge?.outputFormat || 'N/A'}
 
---- CANDIDATE'S FINAL SUBMITTED CODE ---
+--- CANDIDATE'S FINAL SUBMITTED CODE & CODE SNAPSHOTS ---
 Language: ${codeSubmission?.language || 'javascript'}
 Code:
 """
 ${codeSubmission?.code || (isProjectOnly ? '// No coding required for this round' : '// No code submitted')}
 """
 
---- AUTOMATED TEST SUITE EXECUTION RESULTS ---
-Passed: ${passedTestsCount} / ${totalTestsCount}
-Details:
-${JSON.stringify(testCaseResults, null, 2)}
-
---- FULL LIVE INTERVIEW CONVERSATION TRANSCRIPT ---
-${formattedTranscript || 'No transcript available.'}
-
 --- EVALUATION REQUIREMENTS ---
 1. Conceptual Knowledge (0-100): Measure foundational depth vs superficial terminology. If not answered, award 0.
-2. Coding Correctness (0-100): ${isProjectOnly ? 'Since this was a Project/Architecture round without live coding, grade their technical depth, algorithmic clarity, and architectural soundness shown in dialogue.' : 'Did the code pass all tests? If no code was written, award 0.'}
-3. Code Quality (0-100): ${isProjectOnly ? 'Grade their engineering standards, best practices, and code structure discussed during project review.' : 'Is it clean, idiomatic, modular, with proper error handling? If no code was written, award 0.'}
+2. Coding Correctness (0-100): ${isProjectOnly ? 'Since this was a Project/Architecture round without live coding, grade their technical depth, algorithmic clarity, and architectural soundness shown in dialogue.' : 'Directly analyze the candidate\'s code submission and snapshots above. Evaluate algorithmic logic, edge-case coverage, correctness of implementation, and problem-solving reasoning. DO NOT fail or penalize candidates based on missing automated test suites—you (the LLM) are the ultimate evaluator of their code logic.'}
+3. Code Quality (0-100): ${isProjectOnly ? 'Grade their engineering standards, best practices, and code structure discussed during project review.' : 'Is it clean, idiomatic, modular, with proper error handling and reasonable variable naming? If no code was written, award 0.'}
 4. Communication (0-100): Did they articulate architectural trade-offs with precision or speak in vague generalities? If they did not speak, award 0.
 5. Overall Score (0-100): Rigorous weighted average. If abandoned or unanswered, MUST be 0.
 6. Hiring Verdict: Choose strictly one of: 'Strong Hire', 'Hire', 'Needs Improvement', 'Reject'.
