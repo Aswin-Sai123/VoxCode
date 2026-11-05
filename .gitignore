@@ -7,4 +7,10 @@ node_modules/
 .DS_Store
 dist/
 build/
+.agents/
+playwright-report/
+test-results/
+*.pdf
+*.docx
+backend/data/
 
