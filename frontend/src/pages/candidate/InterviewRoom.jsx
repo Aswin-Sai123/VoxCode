@@ -189,6 +189,22 @@ const InterviewRoom = () => {
             setRunningCri(newCri);
             setRunningCriSignal(newSignal);
         },
+        onStageTransition: (newStage, newChallenge) => {
+            if (newStage === 'CODING') {
+                setTransitionBanner(true);
+                setStage('CODING');
+                if (newChallenge) {
+                    setCodingChallenge(newChallenge);
+                    setEditorCode(newChallenge.starterCode || '// Write your code here');
+                    setSelectedLanguage(newChallenge.language || 'javascript');
+                }
+                setTimeout(() => setTransitionBanner(false), 5000);
+            } else if (newStage === 'COMPLETED') {
+                setTimeout(() => {
+                    setStage('COMPLETED');
+                }, 4000);
+            }
+        },
         onError: (errMsg) => {
             console.warn('[InterviewRoom WS Error]', errMsg);
         }
@@ -1117,6 +1133,9 @@ const InterviewRoom = () => {
 
     const handleAutoSubmit = async () => {
         try {
+            // Immediately transition locally so UI never hangs or ignores timer expiry
+            setStage('COMPLETED');
+            if (window.speechSynthesis) window.speechSynthesis.cancel();
             await api.post('/interview/submit', {
                 sessionId: session?._id,
                 code,
@@ -1126,9 +1145,9 @@ const InterviewRoom = () => {
                     output: executionOutput
                 }
             });
-            setStage('COMPLETED');
         } catch (err) {
             console.error('Auto submit error', err);
+            setStage('COMPLETED');
         }
     };
 

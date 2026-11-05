@@ -285,7 +285,7 @@ export const verifyAssessmentCode = asyncHandler(async (req, res) => {
         const candidate = await Candidate.findById(candidateId);
         const candidateEmail = candidate?.email?.trim().toLowerCase();
         const allowedEmails = (assessment.eligibleEmails || []).map(e => (e || '').trim().toLowerCase());
-        if (!candidateEmail || !allowedEmails.includes(candidateEmail)) {
+        if (allowedEmails.length > 0 && (!candidateEmail || !allowedEmails.includes(candidateEmail))) {
             throw new ApiError(403, 'Access Restricted: You are not authorized for this private assessment. Please contact the company recruiter.');
         }
     }

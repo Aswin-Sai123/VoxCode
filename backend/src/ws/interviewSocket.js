@@ -383,10 +383,30 @@ export function mountInterviewSocket(server) {
                 timestamp: new Date(),
                 evaluation: aiResponse?.feedback || aiResponse?.answerEvaluation || null
             });
+            // Stage Transition (e.g. CONCEPTUAL -> CODING or CODING -> COMPLETED)
+            let stageChanged = false;
+            let activeChallenge = session.codingChallenge;
+
             if (aiResponse?.nextStage && aiResponse.nextStage !== session.stage) {
                 session.stage = aiResponse.nextStage;
+                stageChanged = true;
             }
+
+            if (aiResponse?.codingChallenge) {
+                session.codingChallenge = aiResponse.codingChallenge;
+                activeChallenge = aiResponse.codingChallenge;
+            }
+
             await session.save();
+
+            // Dispatch STAGE_TRANSITION event to frontend over WebSocket
+            if (stageChanged || (session.stage === 'CODING' && aiResponse?.codingChallenge)) {
+                ws.send(JSON.stringify({
+                    type: 'STAGE_TRANSITION',
+                    stage: session.stage,
+                    codingChallenge: activeChallenge
+                }));
+            }
 
             state.abortController = null;
         }

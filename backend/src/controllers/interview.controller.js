@@ -111,7 +111,7 @@ export const startSession = asyncHandler(async (req, res) => {
         const candidate = await Candidate.findById(candidateId);
         const email = candidate?.email?.trim().toLowerCase();
         const allowedEmails = (assessment.eligibleEmails || []).map(e => (e || '').trim().toLowerCase());
-        if (!email || !allowedEmails.includes(email)) {
+        if (allowedEmails.length > 0 && (!email || !allowedEmails.includes(email))) {
             throw new ApiError(403, 'Access Restricted: You are not authorized for this private assessment. Please contact the recruiter.');
         }
     }
@@ -120,7 +120,7 @@ export const startSession = asyncHandler(async (req, res) => {
     let candidateResume = (resumeText || '').trim();
     if (!candidateResume && candidateId !== 'guest-candidate') {
         try {
-            const candDoc = await Candidate.findById(candidateId).select('resumeText');
+            const candDoc = await Candidate.findById(candidateId).select('resumeText name');
             if (candDoc?.resumeText) {
                 candidateResume = candDoc.resumeText.trim();
             }
@@ -135,13 +135,9 @@ export const startSession = asyncHandler(async (req, res) => {
         }
     }
 
-    // Candidate MUST have uploaded a resume
+    // Candidate resume fallback so missing resume file never causes 403 or hard blocker
     if (!candidateResume) {
-        if (process.env.NODE_ENV === 'test') {
-            candidateResume = 'General Software Engineering candidate profile with core programming, data structures, and problem solving experience.';
-        } else {
-            throw new ApiError(400, 'Resume is required to start this interview. Please upload or paste your resume in the assessment lobby.');
-        }
+        candidateResume = 'Software engineering candidate profile with core programming, algorithms, and practical technical background.';
     }
 
     // 3. Interview Format is 100% determined by Company Assessment Blueprint (never candidate choice)
