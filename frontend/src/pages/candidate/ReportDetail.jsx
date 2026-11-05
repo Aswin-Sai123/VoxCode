@@ -12,7 +12,8 @@ import {
     Target,
     HelpCircle,
     Sparkles,
-    Clock
+    Clock,
+    RefreshCw
 } from 'lucide-react';
 
 import { CardSkeleton, TableSkeleton } from '../../components/common/Skeleton';
@@ -24,29 +25,43 @@ const ReportDetail = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    useEffect(() => {
-        // Simulate report generation time (e.g., LLM processing)
-        const MIN_GENERATION_TIME_MS = 3000; // 3 seconds
-        const startTime = Date.now();
-        const fetchEvaluation = async () => {
-            try {
-                const res = await api.get(`/evaluation/session/${sessionId}`);
-                if (res.data.success) {
-                    setEvaluation(res.data.data);
-                }
-            } catch (err) {
-                console.error('Failed to load evaluation', err);
-                setError(err.response?.data?.message || 'Could not load evaluation report.');
-            } finally {
-                // Ensure we wait at least MIN_GENERATION_TIME_MS before clearing loading
-                const elapsed = Date.now() - startTime;
-                const remaining = Math.max(0, MIN_GENERATION_TIME_MS - elapsed);
-                setTimeout(() => setLoading(false), remaining);
-            }
-        };
+    const [retryCount, setRetryCount] = useState(0);
 
-        if (sessionId) fetchEvaluation();
-    }, [sessionId]);
+    const fetchEvaluation = async (isManualRetry = false) => {
+        if (isManualRetry) {
+            setLoading(true);
+            setError(null);
+        }
+        try {
+            const res = await api.get(`/evaluation/session/${sessionId}`);
+            if (res.data.success && res.data.data) {
+                setEvaluation(res.data.data);
+                setError(null);
+                setLoading(false);
+                return;
+            }
+        } catch (err) {
+            // If the report is generating (404/PENDING), automatically poll up to 6 times (30 seconds total)
+            if (err.response?.status === 404 && retryCount < 6) {
+                setTimeout(() => {
+                    setRetryCount(prev => prev + 1);
+                }, 4000);
+                return;
+            }
+            console.error('Failed to load evaluation', err);
+            setError(err.response?.data?.message || 'Could not load evaluation report.');
+        } finally {
+            if (retryCount >= 6) {
+                setLoading(false);
+            }
+        }
+    };
+
+    useEffect(() => {
+        if (sessionId) {
+            fetchEvaluation();
+        }
+    }, [sessionId, retryCount]);
 
     const getVerdictBadge = (verdict) => {
         switch (verdict) {
@@ -79,18 +94,30 @@ const ReportDetail = () => {
     if (error || !evaluation) {
         return (
             <div className="flex-1 flex items-center justify-center p-6">
-                <div className="max-w-md w-full bg-[#141419] border border-red-500/20 rounded-xl p-8 space-y-4 text-center">
-                    <AlertCircle className="w-8 h-8 text-red-400 mx-auto" />
+                <div className="max-w-md w-full bg-[#141419] border border-[#232330] rounded-xl p-8 space-y-4 text-center">
+                    <AlertCircle className="w-8 h-8 text-amber-400 mx-auto" />
                     <div>
-                        <h2 className="text-sm font-semibold text-[#EDEDF0]">Report not found</h2>
-                        <p className="text-xs text-[#8B8B9E] mt-1">{error || 'Unable to retrieve report records for this session.'}</p>
+                        <h2 className="text-sm font-semibold text-[#EDEDF0]">Report Generating or Not Ready</h2>
+                        <p className="text-xs text-[#8B8B9E] mt-1">{error || 'Evaluation report is currently being calculated by AI. Please wait a moment.'}</p>
                     </div>
-                    <button
-                        onClick={() => navigate('/candidate/reports')}
-                        className="studio-btn-secondary w-full py-2.5 text-xs font-medium"
-                    >
-                        Return to reports
-                    </button>
+                    <div className="flex flex-col gap-2 pt-2">
+                        <button
+                            onClick={() => {
+                                setRetryCount(0);
+                                fetchEvaluation(true);
+                            }}
+                            className="btn-primary w-full py-2.5 text-xs font-medium flex items-center justify-center gap-2"
+                        >
+                            <RefreshCw className="w-3.5 h-3.5" />
+                            <span>Retry Fetching Report</span>
+                        </button>
+                        <button
+                            onClick={() => navigate('/candidate/reports')}
+                            className="studio-btn-secondary w-full py-2.5 text-xs font-medium"
+                        >
+                            Return to reports
+                        </button>
+                    </div>
                 </div>
             </div>
         );

@@ -5,7 +5,8 @@ import { InterviewSession } from '../models/interviewSession.model.js';
 import { streamTTSChunks } from '../services/tts.service.js';
 import { transcribeAudioBuffer } from '../services/stt.service.js';
 import { generateNextInterviewStep } from '../services/ai.service.js';
-import { scoreSingleAnswer } from '../services/evaluation.service.js';
+import { scoreSingleAnswer, evaluateInterviewSession } from '../services/evaluation.service.js';
+import { getActivePhaseInfo, buildDefaultTimeline } from '../utils/blueprintParser.js';
 import { updateCandidateProfile } from '../utils/candidateProfileTracker.js';
 
 /**
@@ -317,17 +318,40 @@ export function mountInterviewSocket(server) {
 
             let aiResponse;
             try {
+                const totalDurationMinutes = session.durationMinutes || session.assessment?.durationMinutes || 30;
+                const sessionDurationMs = totalDurationMinutes * 60 * 1000;
+                const elapsedMs = Math.max(0, Date.now() - new Date(session.startedAt || session.createdAt).getTime());
+                const elapsedMinutes = Math.floor(elapsedMs / (60 * 1000));
+                let timeline = session.assessment?.blueprintAnalysis?.timeline;
+                if (!timeline || !timeline.length) {
+                    timeline = buildDefaultTimeline(
+                        totalDurationMinutes,
+                        session.interviewFormat !== 'PROJECT_AND_TECHNICAL_ONLY' && session.assessment?.codingRoundEnabled !== false
+                    );
+                }
+                const timingContext = getActivePhaseInfo(timeline, elapsedMinutes, totalDurationMinutes);
+
                 aiResponse = await generateNextInterviewStep({
-                    companyName: session.assessment?.company?.name || 'our company',
-                    roleTitle: session.assessment?.role?.title || 'Software Engineer',
+                    companyName: session.assessment?.targetCompanyName || session.assessment?.company?.name || 'our company',
+                    roleTitle: session.assessment?.targetRoleTitle || session.assessment?.role?.title || session.assessment?.title || 'Software Engineer',
                     skills: session.assessment?.skills || [],
                     experienceLevel: session.assessment?.experienceLevel || 'Mid',
-                    blueprint: session.assessment?.blueprint || '',
+                    blueprint: session.assessment?.blueprint || session.assessment?.scrapedBlueprint || '',
+                    blueprintAnalysis: session.assessment?.blueprintAnalysis || null,
                     candidateResume: session.candidateResume || '',
+                    interviewFormat: session.interviewFormat || 'FULL_INTERVIEW',
                     transcript: session.transcript,
                     candidateMessage: trimmedText,
                     currentStage: session.stage || 'CONCEPTUAL',
-                    currentCode: session.liveCode || ''
+                    currentChallenge: session.codingChallenge || null,
+                    currentCode: session.liveCode || session.codeSubmission?.code || '',
+                    executionOutput: session.codeSubmission?.output || '',
+                    topics: session.topics || [],
+                    currentTopicIndex: session.currentTopicIndex || 0,
+                    questionsInCurrentTopic: session.questionsInCurrentTopic || 0,
+                    stateMachine: session.stateMachine || null,
+                    timingContext,
+                    voiceModel: session.voiceModel || ''
                 });
             } catch (aiErr) {
                 if (signal.aborted) return;
@@ -390,6 +414,16 @@ export function mountInterviewSocket(server) {
             if (aiResponse?.nextStage && aiResponse.nextStage !== session.stage) {
                 session.stage = aiResponse.nextStage;
                 stageChanged = true;
+                if (aiResponse.nextStage === 'COMPLETED') {
+                    session.status = 'COMPLETED';
+                    session.endedAt = new Date();
+                    if (session.stateMachine) {
+                        session.stateMachine.phase = 'COMPLETED';
+                    }
+                    evaluateInterviewSession(session._id).catch(err => {
+                        console.error('[WS] Auto AI evaluation error on completion:', err);
+                    });
+                }
             }
 
             if (aiResponse?.codingChallenge) {
