@@ -1488,8 +1488,8 @@ const InterviewRoom = () => {
                         </div>
                     )}
 
-                    {/* Speech transcript box */}
-                    {(candidateText || interimSpeech || isListening) && (
+                    {/* Speech transcript box (when listening/speaking via microphone) */}
+                    {(interimSpeech || isListening) && (
                         <div className="w-full bg-[#141419] border border-[#232330] rounded-xl p-4 space-y-2 text-xs">
                             <div className="flex justify-between items-center text-xs text-[#8B8B9E]">
                                 <span className="flex items-center gap-1.5 font-medium">
