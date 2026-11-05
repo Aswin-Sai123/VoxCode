@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import api from '../../services/api';
 import { 
@@ -42,6 +42,7 @@ const AssessmentLobby = () => {
     const [resumeText, setResumeText] = useState('');
     const [uploadedFile, setUploadedFile] = useState(null);
     const [candidateSummary, setCandidateSummary] = useState('');
+    const [candidateSkills, setCandidateSkills] = useState([]);
     const [parsedProjects, setParsedProjects] = useState([]);
     const [isParsingResume, setIsParsingResume] = useState(false);
     const [parseSuccess, setParseSuccess] = useState(false);
