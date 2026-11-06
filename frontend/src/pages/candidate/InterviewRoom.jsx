@@ -850,7 +850,9 @@ const InterviewRoom = () => {
         const recognition = new SpeechRecognition();
         recognition.continuous = true; // Continuous listening so short natural pauses don't abort speech
         recognition.interimResults = true; // Live interim visual feedback
-        recognition.lang = 'en-US';
+        // Use browser language if English dialect, fallback to en-US
+        const browserLocale = (navigator.language || navigator.userLanguage || 'en-US');
+        recognition.lang = browserLocale.toLowerCase().startsWith('en') ? browserLocale : 'en-US';
 
         recognition.onstart = () => {
             setIsListening(true);
