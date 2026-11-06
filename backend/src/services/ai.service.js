@@ -644,6 +644,13 @@ Return ONLY a JSON object with this exact shape:
 };
 
 /**
+ * Backwards-compatible helper for parsing plain text resume into structured projects & skills
+ */
+export const parseResumeProjects = async (resumeText) => {
+    return parseResumeDocument({ resumeText });
+};
+
+/**
  * Synthesize raw company interview blueprint, document, or JD with Gemini
  * Produces structured round type, coding requirement, key competencies, and master AI interviewer directive prompt.
  */

@@ -8,7 +8,20 @@ const Register = () => {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [error, setError] = useState('');
+    const [error, setError] = useState(() => {
+        const params = new URLSearchParams(window.location.search);
+        const errorMsg = params.get('error');
+        if (errorMsg === 'google_not_configured') {
+            return 'Google OAuth credentials are not configured on the backend. Please sign up with your email and password below.';
+        } else if (errorMsg === 'account_exists_with_password') {
+            return 'An account with this email already exists. Please log in with your email and password.';
+        } else if (errorMsg === 'google_failed') {
+            return 'Google sign-up was cancelled or failed. Please try again or use email registration.';
+        } else if (errorMsg) {
+            return 'Authentication error. Please enter your registration details directly.';
+        }
+        return '';
+    });
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const { register } = useContext(AuthContext);
