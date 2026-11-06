@@ -92,11 +92,6 @@ const Login = () => {
                                     ? 'Conduct technical rounds with zero recruiter fatigue.'
                                     : 'Take unbiased technical rounds with zero panel luck.'}
                             </h1>
-                            <p className="text-xs xl:text-sm text-[#8B8B9E] leading-relaxed max-w-lg">
-                                {role === 'COMPANY'
-                                    ? 'VoxCode pairs candidates with an autonomous lead engineer. From architecture defense to live Monaco execution, screen engineering talent without scheduling bottlenecks.'
-                                    : 'VoxCode evaluates pure engineering merit, not interviewer mood or panel roulette. Discuss real system architecture, solve coding challenges in Monaco IDE, and get fair, rubric-backed scoring.'}
-                            </p>
                         </div>
 
                         {/* Key Engineering Pillars */}
@@ -134,14 +129,7 @@ const Login = () => {
                             )}
                         </div>
 
-                        {/* Engineering Attribution Footer */}
-                        <div className="pt-2 flex items-center justify-between text-[11px] font-mono text-[#555568] border-t border-[#232330]">
-                            <span className="flex items-center gap-1.5">
-                                <span className="w-1.5 h-1.5 rounded-full bg-blue-500/60 inline-block" />
-                                {role === 'COMPANY' ? 'Zero Scheduling Lag' : 'Zero Interviewer Bias'}
-                            </span>
-                            <span>{role === 'COMPANY' ? 'Objective Rubric Scoring' : 'Standardized Rubric Evaluation'}</span>
-                        </div>
+
                     </div>
                 </div>
 
