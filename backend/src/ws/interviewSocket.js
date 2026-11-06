@@ -344,6 +344,36 @@ export function mountInterviewSocket(server) {
 
             let aiResponse;
             try {
+                // --- IMMEDIATE FILLER TOKEN (sub-200ms perceived latency) ---
+                // Sent the moment we receive the candidate's message, before Gemini responds.
+                // This eliminates the awkward silence while the LLM generates.
+                const isRealTurn = !options.forcePrompt && trimmedText.length > 3
+                    && session.stage !== 'COMPLETED';
+                if (isRealTurn && ws.readyState === WebSocket.OPEN) {
+                    const fillerPool = ['Got it.', 'Mm-hmm.', 'Right.', 'Yeah.', 'Okay.', 'Makes sense.', 'Sure.'];
+                    const filler = fillerPool[Math.floor(Math.random() * fillerPool.length)];
+                    // Send text token immediately
+                    ws.send(JSON.stringify({ type: 'TEXT_TOKEN', token: filler + ' ', isFiller: true }));
+                    // Fire-and-forget: stream filler audio in parallel with main Gemini call
+                    const voiceModelForFiller = session.voiceModel || 'edge-neural-neerja';
+                    (async () => {
+                        try {
+                            for await (const chunk of streamTTSChunks(filler, voiceModelForFiller, { signal })) {
+                                if (signal.aborted || state.isInterrupted) break;
+                                if (ws.readyState === WebSocket.OPEN) {
+                                    ws.send(JSON.stringify({
+                                        type: 'AUDIO_CHUNK',
+                                        audioBase64: chunk.audioBase64,
+                                        sentence: chunk.text,
+                                        isFiller: true
+                                    }));
+                                }
+                                break; // Only first chunk — keep it snappy
+                            }
+                        } catch (_) { /* never block main flow */ }
+                    })();
+                }
+
                 aiResponse = await generateNextInterviewStep({
                     companyName: session.assessment?.company?.name || 'our company',
                     roleTitle: session.assessment?.role?.title || 'Software Engineer',

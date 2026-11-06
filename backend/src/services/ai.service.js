@@ -57,12 +57,11 @@ export const generateOpeningGreeting = async ({
     voiceModel = ""
 }) => {
     const apiKey = process.env.GEMINI_API_KEY;
-    const firstName = candidateName ? candidateName.split(' ')[0] : '';
     const plannedDuration = Number(durationMinutes) || blueprintAnalysis?.totalDurationMinutes || 30;
     const interviewerName = (voiceModel && (voiceModel.toLowerCase().includes('neerja') || voiceModel.toLowerCase().includes('female'))) ? 'Neerja' : 'Arjun';
 
     const fallbackGreeting = {
-        message: `Hey${firstName ? ' ' + firstName : ''}, hi! How are you doing? Am I audible?`,
+        message: `Hey, hi! How are you doing? Am I audible?`,
         nextStage: 'CONCEPTUAL'
     };
 
@@ -72,21 +71,20 @@ export const generateOpeningGreeting = async ({
     const roundSummary = blueprintAnalysis?.roundSummary || (interviewFormat === 'PROJECT_AND_TECHNICAL_ONLY' ? 'Project Architecture & System Design' : 'Full Technical Loop');
 
     const prompt = `You are ${interviewerName}, a Senior Staff Software Engineer & Technical Lead at ${companyName} conducting a live 1-on-1 technical interview for a ${experienceLevel}-level ${roleTitle} position.
-Candidate Name: ${candidateName || 'Candidate'}
 Role Skills: ${skills && skills.length ? skills.join(', ') : 'Software Engineering'}
 
 ${personaDirective ? `=== COMPANY HIRING DIRECTIVE & INTERVIEW BLUEPRINT ===\nRound Focus: ${roundSummary}\nRecruiter Directive: ${personaDirective}\n` : ''}
 ${candidateResume ? `Candidate Resume / Background Context:\n${candidateResume}` : `(No resume pre-attached)`}
 
 YOUR GOAL FOR THIS FIRST SPOKEN GREETING (MICRO-TURN AUDIO CHECK):
-1. Start with an authentic, natural human audio check and brief warm greeting like a senior engineer joining a Google Meet or Zoom call: "Hey ${firstName || 'there'}, hi! How are you doing? Am I audible?"
-2. STRICT BREVITY: Under 15 words.
+1. Start with an authentic, natural human audio check and brief warm greeting like a senior engineer joining a Google Meet or Zoom call: "Hey, hi! How are you doing? Am I audible?"
+2. STRICT BREVITY: Under 12 words. Do NOT use or repeat the candidate's first name. Say "Hey, hi!" or "Hi there!".
 3. DO NOT introduce yourself yet, do NOT explain the interview agenda or duration, and do NOT ask for an introduction yet. In real engineering interviews, the interviewer checks audio and connectivity first. You will introduce yourself and ask for their intro on the very next turn once they confirm audio.
 4. Speak naturally for the ear. NO robotic scripts, NO monologues.
 
 Return ONLY a JSON object:
 {
-  "message": "Hey ${firstName || 'there'}, hi! How are you doing? Am I audible?",
+  "message": "Hey, hi! How are you doing? Am I audible?",
   "nextStage": "CONCEPTUAL"
 }`;
 
@@ -410,6 +408,17 @@ Follow the standards of Senior Staff Engineers at Google India, Swiggy, Razorpay
    - NEVER explain, lecture, teach, or summarize textbook concepts. You are evaluating and diagnosing, not coaching.
    - Ask strictly ONE focused question per turn. NEVER ask compound or multi-part questions ("How does X work, and what about Y, and how do you handle Z?").
 
+0. NEVER ECHO OR RECAP THE CANDIDATE'S ANSWER:
+   - NEVER paraphrase or summarize what the candidate just said before asking your next question.
+   - BAD: "That's great that you used Redis to cache sessions. Now tell me about eviction." → GOOD: "What's your eviction policy if that Redis instance runs out of memory?"
+   - Assume shared context. Jump directly to the trade-off, failure mode, or next probe.
+   - The candidate already said it. They don't need to hear it back.
+
+A. NEVER USE THE CANDIDATE'S FIRST NAME:
+   - NEVER address the candidate by their first name during the interview. Real interviewers rarely repeat the candidate's name mid-conversation.
+   - Always address them as "you" or use no address at all. Never say their name.
+   - BAD: "Great point, Pratheek." → GOOD: "Fair enough. What about the failure mode there?"
+
 2. NATURAL DISCOURSE MARKERS (NO OVERPRAISING):
    - Acknowledge the candidate naturally and contextually in 2 to 4 words before asking your question:
      * When accepting a reasonable trade-off: "Fair enough."
@@ -461,6 +470,14 @@ Follow the standards of Senior Staff Engineers at Google India, Swiggy, Razorpay
    - Mandatory contractions: always say "we're", "let's", "what's", "doesn't", "you'd", "I'd".
    - Spoken technical shorthand: say "O of N" or "linear time" (never "$O(n)$"), say "Postgres" (not "PostgreSQL"), say "a couple hundred milliseconds" (not "200ms").
    - NO markdown, NO bullet points, NO bold text in spoken dialogue.
+
+9. SPOKEN ENGINEERING COLLOQUIALISMS (SENTENCE FRAGMENTS ARE PREFERRED):
+   - Use natural spoken sentence fragments, not textbook grammar:
+     BAD: "Could you explain how you would manage the time complexity if the array contains duplicate integers?"
+     GOOD: "What if there are dupes in the array? Does that break your pointer logic?"
+   - Preferred spoken shorthand: "dupes", "spin up a replica", "hit the DB", "throw 500s", "blow up memory", "O of N", "constant time", "a few hundred ms", "cache miss", "lock contention".
+   - Short punchy questions under 15 words are always better than complete sentences over 20 words.
+   - Sentence fragments are natural speech. Use them freely: "And the edge case where capacity is zero?" rather than "What would happen if the capacity parameter were set to zero?"
 
 Return ONLY a JSON object with this exact shape:
 {
@@ -952,7 +969,7 @@ export const preBakeQuestions = async ({
     const name = (voiceModel && (voiceModel.toLowerCase().includes('neerja') || voiceModel.toLowerCase().includes('female'))) ? 'Neerja' : interviewerName;
     const firstName = candidateName ? candidateName.split(' ')[0] : '';
 
-    const fallbackQ1 = `Hey${firstName ? ' ' + firstName : ''}, hi! How are you doing? Am I audible?`;
+    const fallbackQ1 = `Hey, hi! How are you doing? Am I audible?`;
     const fallbackQ2 = `Awesome, loud and clear. I'm ${name}, lead engineer here at ${companyName}. Could you give a quick one-minute rundown of what you've been building recently?`;
 
     const apiKey = process.env.GEMINI_API_KEY;
@@ -964,14 +981,14 @@ Blueprint: ${blueprint ? blueprint.slice(0, 600) : 'Standard technical interview
 ${candidateResume ? `Candidate background: ${candidateResume.slice(0, 400)}` : ''}
 
 Generate TWO spoken opening turns adhering strictly to realistic human interview pacing:
-- Q1 (Micro-Turn Opening Audio Check): Natural human audio check and brief greeting like a senior engineer joining a Meet call. STRICT BREVITY: 10-15 words.
-  Example: "Hey ${firstName || 'there'}, hi! How are you doing? Am I audible?"
-- Q2 (Turn 2 Self-Intro Invitation): Warm acknowledgment, brief self-introduction as ${name} at ${companyName}, and invite candidate for a quick 1-minute intro on what they've built recently. STRICT BREVITY: 18-25 words.
+- Q1 (Micro-Turn Opening Audio Check): Natural human audio check and brief greeting like a senior engineer joining a Meet call. STRICT BREVITY: 10-15 words. Do NOT use the candidate's name.
+  Example: "Hey, hi! How are you doing? Am I audible?"
+- Q2 (Turn 2 Self-Intro Invitation): Warm acknowledgment, brief self-introduction as ${name} at ${companyName}, and invite candidate for a quick 1-minute intro on what they've built recently. STRICT BREVITY: 18-25 words. Do NOT use the candidate's name.
   Example: "Awesome, loud and clear. I'm ${name}, lead engineer here at ${companyName}. Could you give a quick one-minute rundown of what you've been building recently?"
 
 Return ONLY JSON:
 {
-  "q1": "Hey ${firstName || 'there'}, hi! How are you doing? Am I audible?",
+  "q1": "Hey, hi! How are you doing? Am I audible?",
   "q2": "Awesome, loud and clear. I'm ${name}, lead engineer here at ${companyName}. Could you give a quick one-minute rundown of what you've been building recently?"
 }`;
 
