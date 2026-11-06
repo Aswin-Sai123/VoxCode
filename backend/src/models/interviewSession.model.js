@@ -192,27 +192,25 @@ const interviewSessionSchema = new Schema({
         keyInsight: String,
         timestamp: { type: Date, default: Date.now }
     }],
-    trainingSignals: {
-        questionEffectiveness: [{
-            question: String,
-            candidateSignal: String,
-            topicCoverage: Number,
-            discriminativeness: Number
-        }],
-        sessionOutcome: {
-            hireable: { type: Boolean, required: false },
-            candidateRating: Number,
-            evaluationAccuracy: Number
-        }
-    },
     liveCode: {
         type: String,
         default: ''
     },
-    calibrated: {
-        type: Boolean,
-        default: false
-    }
+    voiceModel: {
+        type: String,
+        default: ''
+    },
+    nextQuestionBuffer: {
+        type: String,
+        default: ''
+    },
+    prebaked: [{
+        type: String
+    }],
+    trainingSignals: {
+        type: Schema.Types.Mixed,
+        default: () => ({ questionEffectiveness: [], sessionOutcome: {} })
+    },
 }, { timestamps: true });
 
 // Prevent duplicate IN_PROGRESS sessions per candidate per assessment (RACE-START-SESSION)
@@ -226,7 +224,6 @@ interviewSessionSchema.index(
     }
 );
 
-interviewSessionSchema.index({ calibrated: 1, 'trainingSignals.sessionOutcome.hireable': 1 });
 
 export const InterviewSession = mongoose.model('InterviewSession', interviewSessionSchema);
 export default InterviewSession;

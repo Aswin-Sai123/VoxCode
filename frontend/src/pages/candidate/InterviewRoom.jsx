@@ -1309,15 +1309,6 @@ const InterviewRoom = () => {
 
     return (
         <div className="h-screen overflow-hidden flex flex-col bg-[#0A0A0B] text-[#EDEDF0] font-sans select-none">
-            {/* Transition Alert Strip */}
-            {transitionBanner && (
-                <div className="h-9 bg-amber-500/10 border-b border-amber-500/30 px-4 flex items-center text-xs text-amber-400">
-                    <span className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
-                        <span>Let's move to the coding exercise — editor workspace is now ready.</span>
-                    </span>
-                </div>
-            )}
 
             {/* Top Bar (h-14) */}
             <header className="h-14 border-b border-[#232330] bg-[#0A0A0B]/95 backdrop-blur-md px-4 sm:px-6 flex items-center justify-between flex-shrink-0 z-40">
@@ -1858,10 +1849,10 @@ const InterviewRoom = () => {
 
                         {/* Live YouTube-style Voice Captions ticker overlay when interviewer is speaking */}
                         {isAiSpeaking && (
-                            <div className="bg-[#141419]/95 border-b border-amber-500/30 px-4 py-2 flex items-center gap-3 backdrop-blur-md transition-all duration-200 z-20 shadow-md">
+                            <div className="bg-[#141419]/95 border-b border-[#232330] px-4 py-2 flex items-center gap-3 backdrop-blur-md transition-all duration-200 z-20 shadow-md">
                                 <div className="flex items-center gap-1.5 flex-shrink-0">
-                                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
-                                    <span className="text-[10px] font-mono font-bold text-amber-300 uppercase tracking-wider">
+                                    <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
+                                    <span className="text-[10px] font-mono font-bold text-blue-300 uppercase tracking-wider">
                                         {interviewerName}:
                                     </span>
                                 </div>
@@ -1872,23 +1863,6 @@ const InterviewRoom = () => {
                                         activeWordIndex={spokenWordIndex}
                                     />
                                 </div>
-                            </div>
-                        )}
-
-                        {/* Live AI Code Commentary Banner */}
-                        {aiCodeComment && (
-                            <div className="h-auto py-2 bg-[#181824] border-b border-amber-500/30 px-4 flex items-center justify-between gap-2 flex-shrink-0 animate-fadeIn">
-                                <div className="flex items-center gap-2 text-xs text-amber-300">
-                                    <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />
-                                    <span className="font-semibold text-amber-400">Interviewer Note:</span>
-                                    <span className="italic">{aiCodeComment}</span>
-                                </div>
-                                <button
-                                    onClick={() => setAiCodeComment(null)}
-                                    className="text-[10px] text-[#8B8B9E] hover:text-white px-2 py-0.5 rounded bg-[#232330]"
-                                >
-                                    Dismiss
-                                </button>
                             </div>
                         )}
 

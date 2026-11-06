@@ -5,9 +5,9 @@ import { InterviewSession } from '../models/interviewSession.model.js';
 import { streamTTSChunks } from '../services/tts.service.js';
 import { transcribeAudioBuffer } from '../services/stt.service.js';
 import { generateNextInterviewStep } from '../services/ai.service.js';
-import { scoreSingleAnswer, evaluateInterviewSession } from '../services/evaluation.service.js';
-import { getActivePhaseInfo, buildDefaultTimeline } from '../utils/blueprintParser.js';
+import { scoreSingleAnswer } from '../services/evaluation.service.js';
 import { updateCandidateProfile } from '../utils/candidateProfileTracker.js';
+import { getActivePhaseInfo, buildDefaultTimeline } from '../utils/blueprintParser.js';
 
 /**
  * Generates natural interviewer observation commentary on live code
@@ -20,15 +20,15 @@ export async function generateCodeObservation(code, language = 'javascript', ses
     const problemTitle = session?.codingChallenge?.title || session?.currentCodingProblem?.title || 'the coding challenge';
 
     if (process.env.NODE_ENV !== 'test' && process.env.GEMINI_API_KEY) {
-        const prompt = `You're an interviewer watching someone code live. Problem: "${problemTitle}"
+        const prompt = `You're a Senior Staff Engineer watching someone code live. Problem: "${problemTitle}"
 Code so far (${language}):
 \`\`\`${language}
 ${code}
 \`\`\`
 
-If there's something worth saying (approach choice, potential bug, good pattern): say it in 1-2 casual sentences.
+If there's something worth saying (approach choice, potential bug, good pattern): say it in 1 short spoken sentence (strictly under 15 words).
 If nothing notable, return empty string.
-Sound human, not like a code reviewer. Follow human speech directives (use contractions, natural observation).`;
+Sound like a peer in a whiteboard session. Use natural discourse markers ("Makes sense.", "Fair enough.") and contractions. Never lecture or give full solutions.`;
 
         try {
             const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent', {
@@ -48,25 +48,25 @@ Sound human, not like a code reviewer. Follow human speech directives (use contr
         }
     }
 
-    // Deterministic rule-based observation
+    // Deterministic rule-based observation (concise, 10-15 words)
     const trimmed = code.trim();
     if (/\b(Map|Set|dict|hash|seen)\b/i.test(trimmed)) {
-        return "Nice approach using a hash map here — that keeps lookups down to O(1).";
+        return "Nice approach. Using a hash map keeps lookups down to O(1).";
     }
     if (/\b(stack|push|pop)\b/i.test(trimmed) && /valid|paren|bracket/i.test(problemTitle + trimmed)) {
-        return "Good call on using a stack; that's the standard idiom for matching nested structures.";
+        return "Makes sense. A stack is standard for matching nested structures.";
     }
     if (/for\s*\(.*?\)\s*\{[\s\S]*?for\s*\(.*?\)/.test(trimmed)) {
-        return "I see the nested loop structure; once you have the baseline working, we can think about how to optimize that.";
+        return "I see the nested loop; once baseline works, we can optimize that.";
     }
     if (/\b(while\s*\(left\s*<=\s*right\)|while\s*\(l\s*<=\s*r\)|binarySearch)\b/i.test(trimmed)) {
-        return "Binary search looks solid. Be sure to double-check your boundary condition updates on left and right.";
+        return "Binary search looks solid. Be sure to check your boundary updates.";
     }
     if (/\b(dfs|bfs|queue|visited)\b/i.test(trimmed)) {
-        return "Graph traversal looks on track. Remember to mark nodes as visited to prevent cycles.";
+        return "Graph traversal looks on track. Remember visited tracking to prevent cycles.";
     }
     if (trimmed.length > 50) {
-        return "Good progress on setting up the core logic — keep going.";
+        return "Good progress on the core logic. Keep talking me through it.";
     }
 
     return '';
@@ -219,7 +219,7 @@ export function mountInterviewSocket(server) {
         };
 
         // 5. Handler for candidate spoken or typed turn
-        async function handleCandidateTurn(candidateText) {
+        async function handleCandidateTurn(candidateText, options = {}) {
             if (!candidateText || typeof candidateText !== 'string' || !candidateText.trim()) {
                 ws.send(JSON.stringify({ type: 'ERROR', message: 'Message text cannot be empty' }));
                 return;
@@ -312,44 +312,54 @@ export function mountInterviewSocket(server) {
             // Acknowledge interruption naturally if candidate previously barged in
             let ackPrefix = '';
             if (state.wasInterrupted) {
-                ackPrefix = 'Sure, go ahead. ';
                 state.wasInterrupted = false;
+            }
+
+            // Timing & pacing context from session blueprint
+            const startedAt = session.startedAt || session.createdAt || new Date();
+            const elapsedMs = Math.max(0, Date.now() - new Date(startedAt).getTime());
+            const elapsedMinutes = Math.floor(elapsedMs / (60 * 1000));
+            const totalDurationMinutes = session.durationMinutes || session.assessment?.durationMinutes || 30;
+            const remainingMinutes = Math.max(0, Math.ceil(((totalDurationMinutes * 60 * 1000) - elapsedMs) / (60 * 1000)));
+
+            let timeline = session.assessment?.blueprintAnalysis?.timeline;
+            if (!timeline || !timeline.length) {
+                timeline = buildDefaultTimeline(
+                    totalDurationMinutes,
+                    session.interviewFormat !== 'PROJECT_AND_TECHNICAL_ONLY' && session.assessment?.codingRoundEnabled !== false
+                );
+            }
+            const timingContext = getActivePhaseInfo(timeline, elapsedMinutes, totalDurationMinutes);
+
+            // Detect if candidate is explicitly asking to code or shift to practical coding round
+            const wantsToCode = /(shift|move|switch|transition|go|start|jump|ready|let'?s?)\s+(to|for|over\s+to|into)?\s*(the\s+)?(cod|dsa|problem|editor|practical|exercise|implementation)/i.test(trimmedText) ||
+                /(can\s+we|shall\s+we|should\s+we|may\s+i|i\s+want\s+to|i'd\s+like\s+to)\s+(code|start\s+coding|do\s+the\s+coding|solve\s+the\s+problem)/i.test(trimmedText);
+
+            if (wantsToCode && session.interviewFormat !== 'PROJECT_AND_TECHNICAL_ONLY' && session.assessment?.codingRoundEnabled !== false) {
+                if (timingContext) {
+                    timingContext.isPastCodingPhase = true;
+                    timingContext.isNearCodingPhase = true;
+                }
             }
 
             let aiResponse;
             try {
-                const totalDurationMinutes = session.durationMinutes || session.assessment?.durationMinutes || 30;
-                const sessionDurationMs = totalDurationMinutes * 60 * 1000;
-                const elapsedMs = Math.max(0, Date.now() - new Date(session.startedAt || session.createdAt).getTime());
-                const elapsedMinutes = Math.floor(elapsedMs / (60 * 1000));
-                let timeline = session.assessment?.blueprintAnalysis?.timeline;
-                if (!timeline || !timeline.length) {
-                    timeline = buildDefaultTimeline(
-                        totalDurationMinutes,
-                        session.interviewFormat !== 'PROJECT_AND_TECHNICAL_ONLY' && session.assessment?.codingRoundEnabled !== false
-                    );
-                }
-                const timingContext = getActivePhaseInfo(timeline, elapsedMinutes, totalDurationMinutes);
-
                 aiResponse = await generateNextInterviewStep({
-                    companyName: session.assessment?.targetCompanyName || session.assessment?.company?.name || 'our company',
-                    roleTitle: session.assessment?.targetRoleTitle || session.assessment?.role?.title || session.assessment?.title || 'Software Engineer',
+                    companyName: session.assessment?.company?.name || 'our company',
+                    roleTitle: session.assessment?.role?.title || 'Software Engineer',
                     skills: session.assessment?.skills || [],
                     experienceLevel: session.assessment?.experienceLevel || 'Mid',
-                    blueprint: session.assessment?.blueprint || session.assessment?.scrapedBlueprint || '',
+                    blueprint: session.assessment?.blueprint || '',
                     blueprintAnalysis: session.assessment?.blueprintAnalysis || null,
                     candidateResume: session.candidateResume || '',
                     interviewFormat: session.interviewFormat || 'FULL_INTERVIEW',
                     transcript: session.transcript,
                     candidateMessage: trimmedText,
                     currentStage: session.stage || 'CONCEPTUAL',
-                    currentChallenge: session.codingChallenge || null,
-                    currentCode: session.liveCode || session.codeSubmission?.code || '',
-                    executionOutput: session.codeSubmission?.output || '',
+                    currentChallenge: session.codingChallenge,
+                    currentCode: session.liveCode || '',
                     topics: session.topics || [],
                     currentTopicIndex: session.currentTopicIndex || 0,
-                    questionsInCurrentTopic: session.questionsInCurrentTopic || 0,
-                    stateMachine: session.stateMachine || null,
                     timingContext,
                     voiceModel: session.voiceModel || ''
                 });
@@ -362,8 +372,8 @@ export function mountInterviewSocket(server) {
 
             if (signal.aborted || state.isInterrupted) return;
 
-            let replyText = (aiResponse?.message || aiResponse?.text || '').trim();
-            if (ackPrefix) {
+            let replyText = options.forcePrompt ? options.forcePrompt : (aiResponse?.message || aiResponse?.text || '').trim();
+            if (ackPrefix && !options.forcePrompt) {
                 replyText = ackPrefix + replyText;
             }
 
@@ -407,28 +417,23 @@ export function mountInterviewSocket(server) {
                 timestamp: new Date(),
                 evaluation: aiResponse?.feedback || aiResponse?.answerEvaluation || null
             });
-            // Stage Transition (e.g. CONCEPTUAL -> CODING or CODING -> COMPLETED)
+
+            // Stage Transition (e.g. CONCEPTUAL -> CODING)
             let stageChanged = false;
             let activeChallenge = session.codingChallenge;
 
             if (aiResponse?.nextStage && aiResponse.nextStage !== session.stage) {
                 session.stage = aiResponse.nextStage;
                 stageChanged = true;
-                if (aiResponse.nextStage === 'COMPLETED') {
-                    session.status = 'COMPLETED';
-                    session.endedAt = new Date();
-                    if (session.stateMachine) {
-                        session.stateMachine.phase = 'COMPLETED';
-                    }
-                    evaluateInterviewSession(session._id).catch(err => {
-                        console.error('[WS] Auto AI evaluation error on completion:', err);
-                    });
-                }
             }
 
             if (aiResponse?.codingChallenge) {
                 session.codingChallenge = aiResponse.codingChallenge;
                 activeChallenge = aiResponse.codingChallenge;
+            }
+
+            if (session.stage === 'CODING' && !session.codingChallenge) {
+                session.codingChallenge = aiResponse?.codingChallenge;
             }
 
             await session.save();
@@ -501,6 +506,95 @@ export function mountInterviewSocket(server) {
                                 }
                             }, debounceMs);
                         }
+                        break;
+                    }
+
+                    case 'PROCTORING_EVENT': {
+                        if (!session.proctoring) {
+                            session.proctoring = {
+                                integrityScore: 100,
+                                tabSwitchCount: 0,
+                                windowBlurCount: 0,
+                                pasteCount: 0,
+                                fullscreenExitCount: 0,
+                                faceMissingCount: 0,
+                                multipleFacesCount: 0,
+                                cameraStatus: 'ACTIVE',
+                                micStatus: 'ACTIVE',
+                                events: []
+                            };
+                        }
+                        const eventType = msg.eventType;
+                        const details = msg.details || '';
+                        let penalty = 0;
+                        switch (eventType) {
+                            case 'TAB_SWITCH':
+                                session.proctoring.tabSwitchCount = (session.proctoring.tabSwitchCount || 0) + 1;
+                                penalty = 8;
+                                break;
+                            case 'WINDOW_BLUR':
+                                session.proctoring.windowBlurCount = (session.proctoring.windowBlurCount || 0) + 1;
+                                penalty = 3;
+                                break;
+                            case 'SUSPICIOUS_PASTE':
+                                session.proctoring.pasteCount = (session.proctoring.pasteCount || 0) + 1;
+                                penalty = 12;
+                                break;
+                            case 'FULLSCREEN_EXIT':
+                                session.proctoring.fullscreenExitCount = (session.proctoring.fullscreenExitCount || 0) + 1;
+                                penalty = 5;
+                                break;
+                            case 'LOOKING_DOWN':
+                                penalty = 4;
+                                break;
+                            case 'NO_FACE_DETECTED':
+                            case 'FACE_ABSENT':
+                                session.proctoring.faceMissingCount = (session.proctoring.faceMissingCount || 0) + 1;
+                                penalty = 6;
+                                break;
+                            case 'MULTIPLE_FACES':
+                                session.proctoring.multipleFacesCount = (session.proctoring.multipleFacesCount || 0) + 1;
+                                penalty = 12;
+                                break;
+                            default:
+                                penalty = 2;
+                        }
+                        session.proctoring.integrityScore = Math.max(0, (session.proctoring.integrityScore || 100) - penalty);
+                        session.proctoring.events.push({
+                            type: eventType,
+                            timestamp: new Date(),
+                            details,
+                            penalty
+                        });
+                        await session.save();
+                        ws.send(JSON.stringify({
+                            type: 'PROCTORING_UPDATE',
+                            integrityScore: session.proctoring.integrityScore,
+                            eventType,
+                            penalty
+                        }));
+                        break;
+                    }
+
+                    case 'SILENCE_TIMEOUT': {
+                        if (session.stage === 'COMPLETED') break;
+                        let randomNudge;
+                        if (session.stage === 'CODING') {
+                            const codingSilencePhrases = [
+                                "Take your time. If it helps, start with just one sample input with key 1 and value 1.",
+                                "No rush at all. What data structure or edge case are you thinking through right now?",
+                                "Take your time. Walk me through one simple sample input first before writing code."
+                            ];
+                            randomNudge = codingSilencePhrases[Math.floor(Math.random() * codingSilencePhrases.length)];
+                        } else {
+                            const conceptualSilencePhrases = [
+                                "Take your time—no rush at all. What part of the trade-off are you thinking through?",
+                                "That's completely fine. What bottleneck or part of the problem are you considering right now?",
+                                "No worries at all. If you're stuck, share your initial intuition and we can bounce ideas around."
+                            ];
+                            randomNudge = conceptualSilencePhrases[Math.floor(Math.random() * conceptualSilencePhrases.length)];
+                        }
+                        await handleCandidateTurn('[Candidate paused in thought. Give a brief, calm spoken reassurance under 25 words.]', { forcePrompt: randomNudge });
                         break;
                     }
 
