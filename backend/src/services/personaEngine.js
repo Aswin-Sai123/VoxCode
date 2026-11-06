@@ -226,6 +226,35 @@ STRIPE INTERVIEWER DIRECTIVES:
         ]
     },
 
+    microsoft: {
+        name: 'Nathan',
+        title: 'Principal Software Engineering Lead at Microsoft',
+        company: 'Microsoft',
+        style: 'rigorous_systems_and_algorithms',
+        culture: 'Values technical depth, solid data structures, memory and thread safety, defensive coding for scale, and customer impact.',
+        directives: `
+MICROSOFT INTERVIEWER DIRECTIVES:
+- Emphasize deep algorithmic rigor: Inquire into edge cases (null inputs, duplicate keys, capacity limits, off-by-one bounds).
+- Inquire into concurrency and multithreading: "How does this code behave when accessed across multiple threads?", "How would you prevent deadlocks?"
+- Value clean, modular, and maintainable enterprise-grade engineering over shortcut hacks.
+- Probe trade-offs between memory footprint and latency: Demand exact Big-O proofs.
+`.trim(),
+        focusAreas: ['Data Structures & Algorithms', 'Multithreading & Concurrency', 'Distributed Systems & Azure Scale', 'Defensive Engineering', 'Edge Cases'],
+        rubrics: [
+            { dimension: 'Algorithmic Execution & Edge Cases', description: 'Optimal Big-O bounds, clean modular implementation, and meticulous edge-case handling.', weight: 0.35 },
+            { dimension: 'System Architecture & Scale', description: 'Sound component separation, thread-safety, and production readiness.', weight: 0.30 },
+            { dimension: 'Communication & Problem Solving', description: 'Structured thinking, active communication, and openness to hints.', weight: 0.20 },
+            { dimension: 'Code Maintainability & Hygiene', description: 'Readable, idiomatic code with strong defensive checks.', weight: 0.15 }
+        ],
+        questionBank: [
+            'How would you design a distributed cache invalidation scheme that minimizes stale reads across millions of concurrent clients?',
+            'Walk me through how you identify and eliminate lock contention in a multi-threaded service under peak load.',
+            'Given a matrix representing a connected grid, find the shortest path while avoiding dynamically placed obstacles and explain time/space bounds.',
+            'How would you design a resilient, high-throughput notification system that guarantees message ordering per tenant?',
+            'Explain how virtual memory paging, garbage collection, and CPU cache hierarchy impact high-frequency data structures.'
+        ]
+    },
+
     generic: {
         name: 'Rohan',
         title: 'Staff Software Engineer & Technical Lead',

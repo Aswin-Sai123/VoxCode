@@ -545,6 +545,23 @@ export function getCuratedFallbackIntel(companyName, roleTitle, experienceLevel)
                 { dimension: 'API Clarity & Ergonomics', description: 'Designs intuitive, robust, and idempotent interfaces' },
                 { dimension: 'Code Hygiene & Testing', description: 'Writes clean, self-documenting code with comprehensive test coverage' }
             ]
+        },
+        microsoft: {
+            interviewerName: 'Nathan',
+            typicalInterviewerTitle: 'Principal Software Engineering Lead at Microsoft',
+            interviewStyle: 'Structured, rigorous, deep dive into systems internals, multithreading, and algorithmic edge cases',
+            culture: 'Evaluates production reliability, memory safety, boundary testing, customer empathy, and deep technical clarity.',
+            topFocusAreas: ['Algorithmic Optimization & Grid Traversal', 'Multithreading & Concurrency', 'Distributed Systems (Azure)', 'Edge Case Resilience'],
+            realQuestions: [
+                'Given a matrix representing a connected grid, find the shortest path while avoiding dynamically placed obstacles and explain time/space bounds.',
+                'Implement a thread-safe circular bounded queue supporting multiple producers and consumers without busy-waiting.',
+                'How would you diagnose and resolve a thread starvation issue in an asynchronous task pipeline?',
+                'Design a distributed notification dispatch system that guarantees order per tenant while scaling to 50M notifications daily.'
+            ],
+            rubrics: [
+                { dimension: 'Algorithmic Mastery & Rigor', description: 'Handles boundary conditions, optimal Big-O complexity, and optimal data structure choices' },
+                { dimension: 'Production Resilience & Concurrency', description: 'Accounts for race conditions, deadlock avoidance, and memory leaks' }
+            ]
         }
     };
 

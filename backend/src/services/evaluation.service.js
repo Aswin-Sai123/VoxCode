@@ -480,13 +480,30 @@ Code:
 ${codeSubmission?.code || (isProjectOnly ? '// No coding required for this round' : '// No code submitted')}
 """
 
---- EVALUATION REQUIREMENTS ---
-1. Conceptual Knowledge (0-100): Measure foundational depth vs superficial terminology. If not answered, award 0.
-2. Coding Correctness (0-100): ${isProjectOnly ? 'Since this was a Project/Architecture round without live coding, grade their technical depth, algorithmic clarity, and architectural soundness shown in dialogue.' : 'Directly analyze the candidate\'s code submission and snapshots above. Evaluate algorithmic logic, edge-case coverage, correctness of implementation, and problem-solving reasoning. DO NOT fail or penalize candidates based on missing automated test suites—you (the LLM) are the ultimate evaluator of their code logic.'}
-3. Code Quality (0-100): ${isProjectOnly ? 'Grade their engineering standards, best practices, and code structure discussed during project review.' : 'Is it clean, idiomatic, modular, with proper error handling and reasonable variable naming? If no code was written, award 0.'}
-4. Communication (0-100): Did they articulate architectural trade-offs with precision or speak in vague generalities? If they did not speak, award 0.
-5. Overall Score (0-100): Rigorous weighted average. If abandoned or unanswered, MUST be 0.
+--- FULL INTERVIEW TRANSCRIPT (READ CAREFULLY) ---
+${formattedTranscript || 'No transcript recorded.'}
+
+--- AUTOMATED TEST SUITE EXECUTION RESULTS ---
+Passed: ${passedTestsCount} / ${totalTestsCount}
+Details:
+${JSON.stringify(testCaseResults, null, 2)}
+
+--- EVALUATION REQUIREMENTS & STRICT BAR RAISER RULES ---
+1. Conceptual Knowledge (0-100): Measure foundational depth vs superficial terminology. If the candidate only gave high-level or trivial answers, score harshly (<50). If unattempted or abandoned, award 0.
+2. Coding Correctness (0-100):
+   ${isProjectOnly
+       ? 'Since this was a Project/Architecture round without live coding, grade their technical depth, algorithmic clarity, and architectural soundness shown in dialogue.'
+       : 'MANDATORY RULE FOR CODING ROUND: If the candidate submitted NO code, wrote only comments/starter template, or wrote trivial unfinished code, award 0 for Coding Correctness and 0 for Code Quality. Under NO circumstances award points for empty or abandoned code submissions.'}
+3. Code Quality (0-100): ${isProjectOnly ? 'Grade their engineering standards and best practices.' : 'Is it clean, modular, with proper error handling and naming? If no code was written, award 0.'}
+4. Communication (0-100): Did they articulate architectural trade-offs with precision or speak in vague generalities? If they did not speak or gave only 1-2 trivial words, award 0.
+5. Overall Score (0-100): Rigorous weighted average.
+   - If coding was required and candidate wrote NO working code, overall score CANNOT exceed 40 and verdict MUST be "Reject".
+   - If candidate gave simple, superficial answers below the ${experienceLevel} bar for ${companyName}, award "Reject" or "Needs Improvement" (score < 60).
 6. Hiring Verdict: Choose strictly one of: 'Strong Hire', 'Hire', 'Needs Improvement', 'Reject'.
+   - Strong Hire: >= 85 (Demonstrated exceptional technical mastery, clean optimal code, and deep architectural trade-offs).
+   - Hire: >= 70 (Met all bar raiser standards for ${roleTitle} at ${companyName}; wrote working code and reasoned clearly).
+   - Needs Improvement: 50-69 (Some foundation, but notable gaps in code, algorithmic depth, or communication).
+   - Reject: < 50 (Inadequate technical depth, failed coding exercise, or unattempted questions).
 7. Executive Summary: Face-to-face facts. 2 detailed paragraphs analyzing technical competency, real-world readiness, historical context with ${companyName}, and production risks.
 8. Strengths: 3 to 4 specific technical strengths demonstrated with exact evidence from transcript/code (or state 'None demonstrated' if unattempted).
 9. Areas for Improvement: 2 to 3 unvarnished, actionable technical growth areas.
@@ -571,9 +588,16 @@ Return ONLY a JSON object matching this exact schema:
                 ? parsed.verdict
                 : fallbackEvaluation.verdict;
 
-            // Zero overall score guarantees Reject
-            if (computedScores.overall === 0) {
+            // Zero overall score or missing code when coding was required guarantees Reject
+            if (computedScores.overall === 0 || (!isProjectOnly && !hasCode)) {
                 verdict = 'Reject';
+                computedScores.coding = 0;
+                computedScores.codeQuality = 0;
+                if (computedScores.overall > 45) {
+                    computedScores.overall = Math.round(computedScores.conceptual * 0.35 + computedScores.communication * 0.2);
+                }
+            } else if (computedScores.overall < 55 && verdict === 'Hire') {
+                verdict = 'Needs Improvement';
             }
 
             return {
