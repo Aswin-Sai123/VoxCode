@@ -547,22 +547,26 @@ NOTE: When nextStage is "CODING" and you transition to coding, supply the "codin
 
             let challenge = null;
             if (parsed.nextStage === 'CODING') {
-                const raw = parsed.codingChallenge;
-                if (raw && (raw.title || raw.description)) {
-                    challenge = {
-                        title: raw.title || fallbackCodingChallenge.title,
-                        difficulty: raw.difficulty || 'Medium',
-                        description: raw.description || fallbackCodingChallenge.description,
-                        functionDescription: raw.functionDescription || raw.description || fallbackCodingChallenge.functionDescription,
-                        inputFormat: raw.inputFormat || fallbackCodingChallenge.inputFormat,
-                        constraints: Array.isArray(raw.constraints) && raw.constraints.length ? raw.constraints : fallbackCodingChallenge.constraints,
-                        outputFormat: raw.outputFormat || fallbackCodingChallenge.outputFormat,
-                        sampleTestCases: Array.isArray(raw.sampleTestCases) && raw.sampleTestCases.length ? raw.sampleTestCases : fallbackCodingChallenge.sampleTestCases,
-                        starterCode: raw.starterCode || raw.signature || fallbackCodingChallenge.starterCode,
-                        language: raw.language || 'javascript'
-                    };
+                if (currentStage === 'CODING' && currentChallenge) {
+                    challenge = currentChallenge;
                 } else {
-                    challenge = fallbackCodingChallenge;
+                    const raw = parsed.codingChallenge;
+                    if (raw && (raw.title || raw.description)) {
+                        challenge = {
+                            title: raw.title || fallbackCodingChallenge.title,
+                            difficulty: raw.difficulty || 'Medium',
+                            description: raw.description || fallbackCodingChallenge.description,
+                            functionDescription: raw.functionDescription || raw.description || fallbackCodingChallenge.functionDescription,
+                            inputFormat: raw.inputFormat || fallbackCodingChallenge.inputFormat,
+                            constraints: Array.isArray(raw.constraints) && raw.constraints.length ? raw.constraints : fallbackCodingChallenge.constraints,
+                            outputFormat: raw.outputFormat || fallbackCodingChallenge.outputFormat,
+                            sampleTestCases: Array.isArray(raw.sampleTestCases) && raw.sampleTestCases.length ? raw.sampleTestCases : fallbackCodingChallenge.sampleTestCases,
+                            starterCode: raw.starterCode || raw.signature || fallbackCodingChallenge.starterCode,
+                            language: raw.language || 'javascript'
+                        };
+                    } else {
+                        challenge = currentChallenge || fallbackCodingChallenge;
+                    }
                 }
             }
 

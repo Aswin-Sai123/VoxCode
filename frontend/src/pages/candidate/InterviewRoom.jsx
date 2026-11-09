@@ -157,14 +157,25 @@ const InterviewRoom = () => {
         },
         onStageTransition: (newStage, newChallenge) => {
             if (newStage === 'CODING') {
-                setTransitionBanner(true);
-                setStage('CODING');
-                if (newChallenge) {
-                    setCodingChallenge(newChallenge);
-                    setEditorCode(newChallenge.starterCode || '// Write your code here');
-                    setSelectedLanguage(newChallenge.language || 'javascript');
-                }
-                setTimeout(() => setTransitionBanner(false), 5000);
+                setStage((prevStage) => {
+                    if (prevStage !== 'CODING') {
+                        setTransitionBanner(true);
+                        setTimeout(() => setTransitionBanner(false), 5000);
+                        if (newChallenge) {
+                            setCodingChallenge(newChallenge);
+                            setEditorCode((prevCode) => {
+                                const isDefault = !prevCode || 
+                                    prevCode.trim() === '// Write your solution here' || 
+                                    prevCode.trim() === '// Write your code here' ||
+                                    prevCode.trim() === '';
+                                return isDefault ? (newChallenge.starterCode || '// Write your code here') : prevCode;
+                            });
+                            setSelectedLanguage(newChallenge.language || 'javascript');
+                        }
+                        return 'CODING';
+                    }
+                    return prevStage;
+                });
             } else if (newStage === 'CONCEPTUAL') {
                 setStage('CONCEPTUAL');
             } else if (newStage === 'COMPLETED') {

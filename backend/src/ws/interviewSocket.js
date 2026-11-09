@@ -457,19 +457,16 @@ export function mountInterviewSocket(server) {
                 stageChanged = true;
             }
 
-            if (aiResponse?.codingChallenge) {
+            // Only assign codingChallenge if not already assigned (lock challenge once set)
+            if (!session.codingChallenge && aiResponse?.codingChallenge) {
                 session.codingChallenge = aiResponse.codingChallenge;
                 activeChallenge = aiResponse.codingChallenge;
             }
 
-            if (session.stage === 'CODING' && !session.codingChallenge) {
-                session.codingChallenge = aiResponse?.codingChallenge;
-            }
-
             await session.save();
 
-            // Dispatch STAGE_TRANSITION event to frontend over WebSocket
-            if (stageChanged || (session.stage === 'CODING' && aiResponse?.codingChallenge)) {
+            // Dispatch STAGE_TRANSITION event to frontend over WebSocket ONLY IF stage actually transitioned
+            if (stageChanged) {
                 ws.send(JSON.stringify({
                     type: 'STAGE_TRANSITION',
                     stage: session.stage,
