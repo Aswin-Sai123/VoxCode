@@ -29,32 +29,28 @@ import CandidateReadinessIndex from '../../components/candidate/CandidateReadine
 import { toast } from 'sonner';
 
 const POPULAR_COMPANIES = [
-    { id: 'google', name: 'Google', badge: 'GOOG', color: '#4285F4' },
-    { id: 'amazon', name: 'Amazon', badge: 'AMZN', color: '#FF9900' },
-    { id: 'meta', name: 'Meta', badge: 'META', color: '#0668E1' },
-    { id: 'microsoft', name: 'Microsoft', badge: 'MSFT', color: '#00A4EF' },
-    { id: 'netflix', name: 'Netflix', badge: 'NFLX', color: '#E50914' },
-    { id: 'apple', name: 'Apple', badge: 'AAPL', color: '#A2AAAD' },
-    { id: 'uber', name: 'Uber', badge: 'UBER', color: '#FFFFFF' },
-    { id: 'stripe', name: 'Stripe', badge: 'STRP', color: '#635BFF' }
+    { id: 'google', name: 'Google', color: '#4285F4' },
+    { id: 'amazon', name: 'Amazon', color: '#FF9900' },
+    { id: 'meta', name: 'Meta', color: '#0668E1' },
+    { id: 'microsoft', name: 'Microsoft', color: '#00A4EF' },
+    { id: 'netflix', name: 'Netflix', color: '#E50914' },
+    { id: 'apple', name: 'Apple', color: '#A2AAAD' },
+    { id: 'uber', name: 'Uber', color: '#FFFFFF' },
+    { id: 'stripe', name: 'Stripe', color: '#635BFF' }
 ];
 
 const POPULAR_ROLES = [
-    { id: 'sde-1', title: 'SDE-1', badge: 'L3 / E3', defaultLevel: 'Entry' },
-    { id: 'sde-2', title: 'SDE-2', badge: 'L4 / E4', defaultLevel: 'Mid' },
-    { id: 'senior-sde', title: 'Senior SDE', badge: 'L5 / E5', defaultLevel: 'Senior' },
-    { id: 'staff-swe', title: 'Staff Engineer', badge: 'L6 / Staff', defaultLevel: 'Senior' },
-    { id: 'fullstack', title: 'Full Stack', badge: 'FULL', defaultLevel: 'Mid' },
-    { id: 'backend', title: 'Backend / Systems', badge: 'BACK', defaultLevel: 'Mid' },
-    { id: 'frontend', title: 'Frontend / Web', badge: 'FRONT', defaultLevel: 'Mid' },
-    { id: 'ai-ml', title: 'AI / Machine Learning', badge: 'AI/ML', defaultLevel: 'Mid' }
+    { id: 'fullstack', title: 'Full Stack' },
+    { id: 'backend', title: 'Backend / Systems' },
+    { id: 'frontend', title: 'Frontend / Web' },
+    { id: 'ai-ml', title: 'AI / Machine Learning' }
 ];
 
 
 const LEVELS = [
-    { id: 'Entry', label: 'Junior / SDE-1', desc: '0 - 2 yrs (Google L3, Meta E3, Amazon SDE-1)' },
-    { id: 'Mid', label: 'Mid-Level / SDE-2', desc: '2 - 5 yrs (Google L4, Meta E4, Amazon SDE-2)' },
-    { id: 'Senior', label: 'Senior / Staff (SDE-3+)', desc: '5+ yrs (Google L5/L6, Meta E5, Senior SDE)' }
+    { id: 'Entry', label: 'Junior / SDE-1', desc: '0 – 2 years' },
+    { id: 'Mid', label: 'Mid-Level / SDE-2', desc: '2 – 5 years' },
+    { id: 'Senior', label: 'Senior / Staff', desc: '5+ years' }
 ];
 
 const SCRAPING_STEPS = [
@@ -75,7 +71,7 @@ const Dashboard = () => {
     const [isMockModalOpen, setIsMockModalOpen] = useState(false);
     const [selectedCompanyId, setSelectedCompanyId] = useState('google');
     const [customCompanyName, setCustomCompanyName] = useState('');
-    const [selectedRoleId, setSelectedRoleId] = useState('sde-2');
+    const [selectedRoleId, setSelectedRoleId] = useState('backend');
     const [customRoleTitle, setCustomRoleTitle] = useState('');
     const [selectedLevel, setSelectedLevel] = useState('Mid');
     const [creatingMock, setCreatingMock] = useState(false);
@@ -243,7 +239,7 @@ const Dashboard = () => {
 
     const activeCompany = POPULAR_COMPANIES.find(c => c.id === selectedCompanyId);
     const activeRole = POPULAR_ROLES.find(r => r.id === selectedRoleId);
-    const currentRoleLabel = selectedRoleId === 'custom' ? (customRoleTitle || 'your custom role') : (activeRole?.title || 'SDE-2');
+    const currentRoleLabel = selectedRoleId === 'custom' ? (customRoleTitle || 'your custom role') : (activeRole?.title || 'Backend / Systems');
 
 
     if (loading && !dashboardData) {
@@ -292,8 +288,8 @@ const Dashboard = () => {
 
                         <div className="flex items-center gap-2 pt-0.5 flex-wrap">
                             {POPULAR_COMPANIES.slice(0, 5).map(c => (
-                                <span key={c.id} className="px-2 py-0.5 rounded bg-slate-100 dark:bg-[#0A0A0B] border border-slate-200 dark:border-[#232330] text-[11px] font-mono text-slate-600 dark:text-[#8B8B9E]">
-                                    {c.badge}
+                                <span key={c.id} className="px-2 py-0.5 rounded bg-slate-100 dark:bg-[#0A0A0B] border border-slate-200 dark:border-[#232330] text-[11px] font-medium text-slate-600 dark:text-[#8B8B9E]">
+                                    {c.name}
                                 </span>
                             ))}
                             <span className="text-xs text-slate-500 dark:text-[#555568]">+Any Company</span>
@@ -679,16 +675,13 @@ const Dashboard = () => {
                                                 type="button"
                                                 key={company.id}
                                                 onClick={() => setSelectedCompanyId(company.id)}
-                                                className={`p-3 rounded-lg border text-left transition-all ${
+                                                className={`py-2 px-3 rounded-lg border text-center transition-all ${
                                                     selectedCompanyId === company.id
                                                         ? 'mock-selector-btn-active'
                                                         : 'mock-selector-btn-inactive'
                                                 }`}
                                             >
-                                                <span className="font-mono text-xs font-semibold block text-[#EDEDF0]">
-                                                    {company.badge}
-                                                </span>
-                                                <span className="text-xs mt-0.5 block truncate">
+                                                <span className="text-xs font-medium block truncate text-[#EDEDF0]">
                                                     {company.name}
                                                 </span>
                                             </button>
@@ -730,20 +723,14 @@ const Dashboard = () => {
                                             <button
                                                 type="button"
                                                 key={role.id}
-                                                onClick={() => {
-                                                    setSelectedRoleId(role.id);
-                                                    if (role.defaultLevel) setSelectedLevel(role.defaultLevel);
-                                                }}
-                                                className={`p-3 rounded-lg border text-left transition-all ${
+                                                onClick={() => setSelectedRoleId(role.id)}
+                                                className={`py-2 px-3 rounded-lg border text-center transition-all ${
                                                     selectedRoleId === role.id
                                                         ? 'mock-selector-btn-active'
                                                         : 'mock-selector-btn-inactive'
                                                 }`}
                                             >
-                                                <span className="font-mono text-xs font-semibold block text-[#EDEDF0]">
-                                                    {role.badge}
-                                                </span>
-                                                <span className="text-xs mt-0.5 block truncate">
+                                                <span className="text-xs font-medium block truncate text-[#EDEDF0]">
                                                     {role.title}
                                                 </span>
                                             </button>
@@ -888,23 +875,6 @@ const Dashboard = () => {
                                             )}
                                         </div>
                                     )}
-                                </div>
-
-                                {/* Scraped Intelligence Pipeline Notice */}
-                                <div className="bg-[#0A0A0B] border border-[#232330] rounded-lg p-3.5 space-y-1.5 text-xs">
-                                    <div className="flex items-center justify-between text-[#EDEDF0] font-medium">
-                                        <span className="flex items-center gap-2">
-                                            <Globe className="w-3.5 h-3.5 text-blue-400" />
-                                            <span>Real Questions Included</span>
-                                        </span>
-                                        <span className="font-mono text-[11px] text-emerald-400">
-                                            2024–2026 Archive
-                                        </span>
-                                    </div>
-                                    <p className="text-[#8B8B9E] text-[11px] leading-relaxed">
-                                        When you start, we'll search for real interview questions asked at {selectedCompanyId === 'custom' ? (customCompanyName || 'your chosen company') : activeCompany?.name} for {currentRoleLabel}.
-                                    </p>
-
                                 </div>
 
                                 {mockError && (
