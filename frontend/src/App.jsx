@@ -24,8 +24,6 @@ const AppContent = () => {
 
     return (
         <div className={`min-h-screen ${isDark ? 'bg-[#0A0A0B] text-[#EDEDF0]' : 'bg-[#F8FAFC] text-[#0F172A]'} flex flex-col antialiased selection:bg-blue-600/30 selection:text-white transition-colors duration-200 relative`}>
-            <div className="fixed inset-0 bg-architectural-grid pointer-events-none z-0" />
-
             <Toaster
                 richColors
                 position="top-right"

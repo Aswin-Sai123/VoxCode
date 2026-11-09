@@ -76,30 +76,17 @@ export const LiveTranscript = ({
                     </span>
                 </div>
 
-                {/* Status Badges: CRI & Speaker State */}
+                {/* Status Badges: Speaker State */}
                 <div className="flex items-center gap-2">
-                    {cri !== null && cri !== undefined && (
-                        <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded border text-[11px] font-mono ${getSignalColor(criSignal)}`}>
-                            <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                            <span>CRI:</span>
-                            <span className="font-bold">
-                                {typeof cri === 'number' ? (cri > 10 ? cri : (cri * 10).toFixed(0)) : cri}
-                            </span>
-                            {criSignal && (
-                                <span className="capitalize text-[10px] opacity-80">({criSignal})</span>
-                            )}
-                        </div>
-                    )}
-
                     {isAiSpeaking && (
-                        <div className="flex items-center gap-1 px-2 py-0.5 rounded border border-blue-500/30 bg-blue-500/10 text-blue-400 text-[11px] animate-pulse">
+                        <div className="flex items-center gap-1 px-2 py-0.5 rounded border border-blue-500/30 bg-blue-500/10 text-blue-400 text-[11px]">
                             <Volume2 className="w-3 h-3" />
                             <span>AI Speaking</span>
                         </div>
                     )}
 
                     {isCandidateSpeaking && (
-                        <div className="flex items-center gap-1 px-2 py-0.5 rounded border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-[11px] animate-pulse">
+                        <div className="flex items-center gap-1 px-2 py-0.5 rounded border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-[11px]">
                             <Mic className="w-3 h-3" />
                             <span>You Speaking</span>
                         </div>

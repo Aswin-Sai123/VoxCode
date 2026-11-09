@@ -45,108 +45,17 @@ const Register = () => {
     };
 
     return (
-        <div className="flex-1 flex items-center justify-center py-4 sm:py-6 px-4 sm:px-6 lg:px-8 my-auto">
-            <div className="w-full max-w-5xl xl:max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10 xl:gap-14 items-center">
-                {/* Left Side: Editorial Branding */}
-                <div className="hidden lg:flex lg:col-span-7 flex-col justify-center space-y-4 xl:space-y-5 pr-2 xl:pr-4">
-                    <div key={role} className="space-y-4 xl:space-y-5 transition-all duration-200">
-                        {/* Editorial Grotesque Headline in Solid #EDEDF0 */}
-                        <div className="space-y-2 sm:space-y-2.5">
-                            <h1 className="text-3xl xl:text-[2.65rem] font-bold tracking-tight text-[#EDEDF0] leading-[1.14]">
-                                {role === 'COMPANY'
-                                    ? 'Conduct technical rounds with zero recruiter fatigue.'
-                                    : 'Take unbiased technical rounds with zero panel luck.'}
-                            </h1>
-                            <p className="text-xs xl:text-sm text-[#8B8B9E] leading-relaxed max-w-lg">
-                                {role === 'COMPANY'
-                                    ? 'Join engineering teams using VoxCode. Experience conversational technical interviews tailored to your job descriptions, rubrics, and coding standards.'
-                                    : 'Join developers practicing for top engineering roles. Experience fair, conversational technical rounds where your engineering ability matters—not interviewer bias or panel luck.'}
-                            </p>
-                        </div>
-
-                        {/* Key Engineering Pillars */}
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
-                            {role === 'COMPANY' ? (
-                                <>
-                                    <div className="p-3 rounded-lg bg-[#141419] border border-[#232330] space-y-1">
-                                        <span className="text-xs font-semibold text-[#EDEDF0] block">Autonomous Vetting</span>
-                                        <span className="text-[11px] text-[#8B8B9E] leading-snug block">Assess system design, algorithms, and resume claims without scheduling lag.</span>
-                                    </div>
-                                    <div className="p-3 rounded-lg bg-[#141419] border border-[#232330] space-y-1">
-                                        <span className="text-xs font-semibold text-[#EDEDF0] block">Anti-Cheating Guard</span>
-                                        <span className="text-[11px] text-[#8B8B9E] leading-snug block">Real-time session monitoring and candidate identity verification.</span>
-                                    </div>
-                                    <div className="p-3 rounded-lg bg-[#141419] border border-[#232330] space-y-1">
-                                        <span className="text-xs font-semibold text-[#EDEDF0] block">Instant Scorecards</span>
-                                        <span className="text-[11px] text-[#8B8B9E] leading-snug block">Objective evaluations delivered to recruiter dashboards in under 30 seconds.</span>
-                                    </div>
-                                </>
-                            ) : (
-                                <>
-                                    <div className="p-3 rounded-lg bg-[#141419] border border-[#232330] space-y-1">
-                                        <span className="text-xs font-semibold text-[#EDEDF0] block">Standardized Rounds</span>
-                                        <span className="text-[11px] text-[#8B8B9E] leading-snug block">Consistent, conversational interviews that focus on your technical depth, free from interviewer bias.</span>
-                                    </div>
-                                    <div className="p-3 rounded-lg bg-[#141419] border border-[#232330] space-y-1">
-                                        <span className="text-xs font-semibold text-[#EDEDF0] block">Live Code Sandbox</span>
-                                        <span className="text-[11px] text-[#8B8B9E] leading-snug block">Interactive multi-language Monaco editor with real-time test execution.</span>
-                                    </div>
-                                    <div className="p-3 rounded-lg bg-[#141419] border border-[#232330] space-y-1">
-                                        <span className="text-xs font-semibold text-[#EDEDF0] block">Objective Rubrics</span>
-                                        <span className="text-[11px] text-[#8B8B9E] leading-snug block">Evidence-based scorecards across DSA, code quality, and system design so your true skills shine.</span>
-                                    </div>
-                                </>
-                            )}
-                        </div>
-
-                        {/* Engineering Metric Row */}
-                        <div className="grid grid-cols-3 gap-3 pt-2 border-t border-[#232330]">
-                            {role === 'COMPANY' ? (
-                                <>
-                                    <div className="space-y-0.5">
-                                        <div className="text-lg sm:text-xl font-bold font-mono text-[#EDEDF0]">100%</div>
-                                        <div className="text-[11px] text-[#8B8B9E]">Spoken & Interactive</div>
-                                    </div>
-                                    <div className="space-y-0.5">
-                                        <div className="text-lg sm:text-xl font-bold font-mono text-emerald-400">&lt; 30s</div>
-                                        <div className="text-[11px] text-[#8B8B9E]">Scorecard Delivery</div>
-                                    </div>
-                                    <div className="space-y-0.5">
-                                        <div className="text-lg sm:text-xl font-bold font-mono text-blue-400">0 min</div>
-                                        <div className="text-[11px] text-[#8B8B9E]">Scheduling Lag</div>
-                                    </div>
-                                </>
-                            ) : (
-                                <>
-                                    <div className="space-y-0.5">
-                                        <div className="text-lg sm:text-xl font-bold font-mono text-[#EDEDF0]">100%</div>
-                                        <div className="text-[11px] text-[#8B8B9E]">Standardized Rubrics</div>
-                                    </div>
-                                    <div className="space-y-0.5">
-                                        <div className="text-lg sm:text-xl font-bold font-mono text-emerald-400">0%</div>
-                                        <div className="text-[11px] text-[#8B8B9E]">Interviewer Bias</div>
-                                    </div>
-                                    <div className="space-y-0.5">
-                                        <div className="text-lg sm:text-xl font-bold font-mono text-blue-400">24 / 7</div>
-                                        <div className="text-[11px] text-[#8B8B9E]">On-Demand Practice</div>
-                                    </div>
-                                </>
-                            )}
-                        </div>
-                    </div>
+        <div className="flex-1 flex items-center justify-center py-8 px-4 sm:px-6 lg:px-8 my-auto">
+            <div className="w-full max-w-md mx-auto space-y-4">
+                {/* Brand & Heading */}
+                <div className="text-center space-y-1">
+                    <h1 className="text-2xl font-semibold tracking-tight text-[#EDEDF0]">
+                        Create your account
+                    </h1>
+                    <p className="text-xs sm:text-sm text-[#8B8B9E]">
+                        Start taking or hosting technical assessments
+                    </p>
                 </div>
-
-                {/* Right Side: Register Card */}
-                <div className="lg:col-span-5 w-full max-w-sm sm:max-w-md mx-auto space-y-3">
-                    {/* Brand & Heading */}
-                    <div className="text-center space-y-1">
-                        <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-[#EDEDF0]">
-                            Create your account
-                        </h1>
-                        <p className="text-xs sm:text-sm text-[#8B8B9E]">
-                            Start taking or hosting technical assessments
-                        </p>
-                    </div>
 
                     {/* Main Card */}
                     <div className="bg-[#141419] border border-[#232330] rounded-xl p-5 sm:p-6 space-y-3 shadow-2xl">
@@ -296,7 +205,6 @@ const Register = () => {
                     </p>
                 </div>
             </div>
-        </div>
     );
 };
 

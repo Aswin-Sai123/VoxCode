@@ -80,70 +80,17 @@ const Login = () => {
     };
 
     return (
-        <div className="flex-1 flex items-center justify-center py-4 sm:py-6 px-4 sm:px-6 lg:px-8 my-auto">
-            <div className="w-full max-w-5xl xl:max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10 xl:gap-14 items-center">
-                {/* Left Side: Editorial Branding */}
-                <div className="hidden lg:flex lg:col-span-7 flex-col justify-center space-y-4 xl:space-y-5 pr-2 xl:pr-4">
-                    <div key={role} className="space-y-4 xl:space-y-5 transition-all duration-200">
-                        {/* Headline & Description */}
-                        <div className="space-y-2 sm:space-y-2.5">
-                            <h1 className="text-3xl xl:text-[2.65rem] font-bold tracking-tight text-[#EDEDF0] leading-[1.14]">
-                                {role === 'COMPANY'
-                                    ? 'Conduct technical rounds with zero recruiter fatigue.'
-                                    : 'Take unbiased technical rounds with zero panel luck.'}
-                            </h1>
-                        </div>
-
-                        {/* Key Engineering Pillars */}
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
-                            {role === 'COMPANY' ? (
-                                <>
-                                    <div className="p-3 rounded-lg bg-[#141419] border border-[#232330] space-y-1">
-                                        <span className="text-xs font-semibold text-[#EDEDF0] block">Autonomous Vetting</span>
-                                        <span className="text-[11px] text-[#8B8B9E] leading-snug block">Standardized voice rounds that probe deep system design without interviewer burnout.</span>
-                                    </div>
-                                    <div className="p-3 rounded-lg bg-[#141419] border border-[#232330] space-y-1">
-                                        <span className="text-xs font-semibold text-[#EDEDF0] block">Live Code Sandbox</span>
-                                        <span className="text-[11px] text-[#8B8B9E] leading-snug block">Multi-language sandboxes with automated test verification and code replay.</span>
-                                    </div>
-                                    <div className="p-3 rounded-lg bg-[#141419] border border-[#232330] space-y-1">
-                                        <span className="text-xs font-semibold text-[#EDEDF0] block">Instant Rubrics</span>
-                                        <span className="text-[11px] text-[#8B8B9E] leading-snug block">Objective, evidence-based candidate scorecards delivered in under 30 seconds.</span>
-                                    </div>
-                                </>
-                            ) : (
-                                <>
-                                    <div className="p-3 rounded-lg bg-[#141419] border border-[#232330] space-y-1">
-                                        <span className="text-xs font-semibold text-[#EDEDF0] block">Standardized Rounds</span>
-                                        <span className="text-[11px] text-[#8B8B9E] leading-snug block">Consistent, conversational interviews that focus on your technical depth, free from interviewer bias.</span>
-                                    </div>
-                                    <div className="p-3 rounded-lg bg-[#141419] border border-[#232330] space-y-1">
-                                        <span className="text-xs font-semibold text-[#EDEDF0] block">Live Code Sandbox</span>
-                                        <span className="text-[11px] text-[#8B8B9E] leading-snug block">Interactive multi-language Monaco editor with real-time test execution.</span>
-                                    </div>
-                                    <div className="p-3 rounded-lg bg-[#141419] border border-[#232330] space-y-1">
-                                        <span className="text-xs font-semibold text-[#EDEDF0] block">Objective Rubrics</span>
-                                        <span className="text-[11px] text-[#8B8B9E] leading-snug block">Evidence-based scorecards across DSA, code quality, and system design so your true skills shine.</span>
-                                    </div>
-                                </>
-                            )}
-                        </div>
-
-
-                    </div>
+        <div className="flex-1 flex items-center justify-center py-8 px-4 sm:px-6 lg:px-8 my-auto">
+            <div className="w-full max-w-md mx-auto space-y-4">
+                {/* Brand & Heading */}
+                <div className="text-center space-y-1">
+                    <h1 className="text-2xl font-semibold tracking-tight text-[#EDEDF0]">
+                        Welcome back
+                    </h1>
+                    <p className="text-xs sm:text-sm text-[#8B8B9E]">
+                        Sign in to your VoxCode account
+                    </p>
                 </div>
-
-                {/* Right Side: Login Card */}
-                <div className="lg:col-span-5 w-full max-w-sm sm:max-w-md mx-auto space-y-3">
-                    {/* Brand & Heading */}
-                    <div className="text-center space-y-1">
-                        <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-[#EDEDF0]">
-                            Welcome back
-                        </h1>
-                        <p className="text-xs sm:text-sm text-[#8B8B9E]">
-                            Sign in to your VoxCode account
-                        </p>
-                    </div>
 
                     {/* Main Card */}
                     <div className="bg-[#141419] border border-[#232330] rounded-xl p-5 sm:p-6 space-y-3.5 shadow-2xl">
@@ -310,7 +257,6 @@ const Login = () => {
                         </Link>
                     </p>
                 </div>
-            </div>
         </div>
     );
 };

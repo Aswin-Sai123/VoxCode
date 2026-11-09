@@ -184,10 +184,10 @@ const ReportDetail = () => {
 
                     <div className="space-y-1">
                         <div className="flex items-baseline gap-2">
-                            <span className="text-5xl sm:text-6xl font-bold text-[#EDEDF0] tabular-nums tracking-tight">
+                            <span className="text-3xl sm:text-4xl font-bold text-[#EDEDF0] tabular-nums tracking-tight">
                                 {scores?.overall || 0}
                             </span>
-                            <span className="text-lg text-[#555568]">/ 100</span>
+                            <span className="text-sm text-[#555568]">/ 100</span>
                         </div>
                         <span className="text-xs text-emerald-400 font-medium block">
                             Evaluated against objective hiring rubrics

@@ -194,7 +194,7 @@ const Dashboard = () => {
             </div>
 
             {/* Connected Engineering Talent Pipeline Strip */}
-            <div className="border border-[#232330] bg-[#141419] rounded-xl grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-[#232330] overflow-hidden light-catch">
+            <div className="border border-[#232330] bg-[#141419] rounded-xl grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-[#232330] overflow-hidden">
                 <div className="p-5 space-y-1">
                     <div className="flex items-center justify-between">
                         <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#8B8B9E] block">

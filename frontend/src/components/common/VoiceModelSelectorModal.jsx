@@ -135,7 +135,7 @@ const VoiceModelSelectorModal = ({
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-            <div className="bg-[#141419] border border-[#232330] rounded-2xl max-w-2xl w-full p-6 space-y-5 shadow-2xl light-catch">
+            <div className="bg-[#141419] border border-[#232330] rounded-2xl max-w-2xl w-full p-6 space-y-5 shadow-2xl">
                 {/* Header */}
                 <div className="flex items-center justify-between pb-3 border-b border-[#232330]">
                     <div className="flex items-center gap-3">

@@ -52,6 +52,19 @@ export const AudioVisualizer = ({
             const availableWidth = w - (totalBars - 1) * barSpacing;
             const barWidth = Math.max(2, availableWidth / totalBars);
 
+            if (!isActive) {
+                for (let i = 0; i < totalBars; i++) {
+                    const barH = 4;
+                    const x = i * (barWidth + barSpacing);
+                    const y = (h - barH) / 2;
+                    ctx.fillStyle = '#232330';
+                    ctx.beginPath();
+                    ctx.roundRect(x, y, barWidth, barH, [barWidth / 2]);
+                    ctx.fill();
+                }
+                return;
+            }
+
             // Fetch live frequency data if analyser is present
             let hasRealData = false;
             if (analyser && dataArray && isActive) {
@@ -62,37 +75,22 @@ export const AudioVisualizer = ({
             }
 
             for (let i = 0; i < totalBars; i++) {
-                let normalizedVal = 0.08; // baseline resting height
+                let normalizedVal = 0.15;
 
-                if (isActive) {
-                    if (hasRealData) {
-                        // Sample from frequency bins
-                        const binIndex = Math.floor((i / totalBars) * Math.min(dataArray.length, 64));
-                        const raw = dataArray[binIndex] || 0;
-                        normalizedVal = Math.max(0.1, raw / 255);
-                    } else {
-                        // Organic sinusoidal simulation
-                        const harmonic1 = Math.sin(phase + (i * 0.35));
-                        const harmonic2 = Math.cos(phase * 0.6 + (i * 0.2));
-                        normalizedVal = 0.25 + 0.35 * Math.abs(harmonic1) + 0.25 * Math.abs(harmonic2);
-                    }
+                if (hasRealData) {
+                    const binIndex = Math.floor((i / totalBars) * Math.min(dataArray.length, 64));
+                    const raw = dataArray[binIndex] || 0;
+                    normalizedVal = Math.max(0.12, raw / 255);
+                } else {
+                    const harmonic = Math.sin(phase + (i * 0.4));
+                    normalizedVal = 0.2 + 0.3 * Math.abs(harmonic);
                 }
 
                 const barH = Math.max(4, normalizedVal * (h - 6));
                 const x = i * (barWidth + barSpacing);
                 const y = (h - barH) / 2;
 
-                // Color gradient
-                const grad = ctx.createLinearGradient(0, y, 0, y + barH);
-                if (isActive) {
-                    grad.addColorStop(0, barColor);
-                    grad.addColorStop(1, '#1E40AF'); // darker complement
-                } else {
-                    grad.addColorStop(0, '#38384A');
-                    grad.addColorStop(1, '#232330');
-                }
-
-                ctx.fillStyle = grad;
+                ctx.fillStyle = barColor;
                 ctx.beginPath();
                 ctx.roundRect(x, y, barWidth, barH, [barWidth / 2]);
                 ctx.fill();

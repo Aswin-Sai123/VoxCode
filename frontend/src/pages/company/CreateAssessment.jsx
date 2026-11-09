@@ -231,15 +231,7 @@ const CreateAssessment = () => {
 
         setLoading(true);
         try {
-            setCreationStep('Validating assessment configuration and access policy...');
-            await new Promise(r => setTimeout(r, 650));
-
-            if (accessType === 'INVITE_ONLY') {
-                setCreationStep(`Indexing and verifying ${parsedEmails.length} authorized candidate email(s)...`);
-                await new Promise(r => setTimeout(r, 650));
-            }
-
-            setCreationStep('Structuring interview blueprint & evaluation rubrics with AI...');
+            setCreationStep('Preparing assessment blueprint...');
             let finalAnalysis = blueprintAnalysis;
             if (!finalAnalysis) {
                 try {
@@ -262,9 +254,7 @@ const CreateAssessment = () => {
                 }
             }
 
-            setCreationStep('Generating cryptographically unique assessment code & security tokens...');
-            await new Promise(r => setTimeout(r, 650));
-
+            setCreationStep('Saving assessment...');
             const res = await api.post('/assessments', {
                 roleId,
                 title: title.trim(),
@@ -284,8 +274,6 @@ const CreateAssessment = () => {
             });
 
             if (res.data.success) {
-                setCreationStep('Finalizing configuration and provisioning evaluation workspace...');
-                await new Promise(r => setTimeout(r, 500));
                 setCreatedCode(res.data.data.assessmentCode);
                 setCreatedId(res.data.data._id);
             }
@@ -1113,10 +1101,16 @@ const CreateAssessment = () => {
 
             {/* Universal Blueprint Format Modal */}
             {showTemplateModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-[#141419] border border-[#232330] rounded-2xl max-w-2xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+                <div 
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
+                    onClick={() => setShowTemplateModal(false)}
+                >
+                    <div 
+                        className="bg-[#141419] border border-[#232330] rounded-2xl max-w-2xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden"
+                        onClick={(e) => e.stopPropagation()}
+                    >
                         {/* Modal Header */}
-                        <div className="flex items-center p-5 border-b border-[#232330]">
+                        <div className="flex items-center justify-between p-5 border-b border-[#232330]">
                             <div className="flex items-center gap-2.5">
                                 <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
                                     <BookOpen className="w-4 h-4" />
@@ -1130,6 +1124,13 @@ const CreateAssessment = () => {
                                     </p>
                                 </div>
                             </div>
+                            <button
+                                type="button"
+                                onClick={() => setShowTemplateModal(false)}
+                                className="p-1.5 text-[#8B8B9E] hover:text-[#EDEDF0] hover:bg-[#232330] rounded-lg transition-colors"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
                         </div>
 
                         {/* Modal Body: Universal Text Only */}
@@ -1140,6 +1141,17 @@ const CreateAssessment = () => {
                                 value={UNIVERSAL_BLUEPRINT_FORMAT}
                                 className="w-full p-4 bg-[#0A0A0B] border border-[#232330] rounded-xl font-mono text-xs text-[#EDEDF0] leading-relaxed resize-none focus:outline-none select-all"
                             />
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className="flex items-center justify-end p-4 border-t border-[#232330] bg-[#0E0E12]">
+                            <button
+                                type="button"
+                                onClick={() => setShowTemplateModal(false)}
+                                className="px-4 py-2 text-xs font-medium text-[#EDEDF0] bg-[#232330] hover:bg-[#2d2d3d] rounded-lg transition-colors"
+                            >
+                                Close
+                            </button>
                         </div>
                     </div>
                 </div>

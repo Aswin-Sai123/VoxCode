@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Copy, Check } from 'lucide-react';
-import { playClick } from '../../utils/soundEffects';
 
 const CopyButton = ({ 
     textToCopy, 
@@ -14,7 +13,6 @@ const CopyButton = ({
         e.preventDefault();
         try {
             await navigator.clipboard.writeText(textToCopy);
-            playClick();
             setCopied(true);
             setTimeout(() => setCopied(false), 1800);
         } catch (err) {

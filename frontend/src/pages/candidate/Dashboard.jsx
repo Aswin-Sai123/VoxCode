@@ -21,7 +21,6 @@ import {
     FileText,
     UploadCloud
 } from 'lucide-react';
-import SpotlightCard from '../../components/common/SpotlightCard';
 import { CardSkeleton, TableSkeleton } from '../../components/common/Skeleton';
 import EmptyState from '../../components/common/EmptyState';
 import CopyButton from '../../components/common/CopyButton';
@@ -53,13 +52,6 @@ const LEVELS = [
     { id: 'Senior', label: 'Senior / Staff', desc: '5+ years' }
 ];
 
-const SCRAPING_STEPS = [
-    'Searching the web for real interview questions...',
-    'Finding recent questions from LeetCode, Glassdoor & more...',
-    'Building your personalized interview based on real data...',
-    'Setting up your interview room...'
-];
-
 const Dashboard = () => {
     const navigate = useNavigate();
     const [assessmentCode, setAssessmentCode] = useState('');
@@ -75,7 +67,6 @@ const Dashboard = () => {
     const [customRoleTitle, setCustomRoleTitle] = useState('');
     const [selectedLevel, setSelectedLevel] = useState('Mid');
     const [creatingMock, setCreatingMock] = useState(false);
-    const [scrapingStepIndex, setScrapingStepIndex] = useState(0);
     const [mockError, setMockError] = useState('');
     const [savedResume, setSavedResume] = useState(null);
     const [isUploadingResume, setIsUploadingResume] = useState(false);
@@ -143,15 +134,6 @@ const Dashboard = () => {
         }
     };
 
-    // Step cycle timer when creating mock test
-    useEffect(() => {
-        if (!creatingMock) return;
-        const interval = setInterval(() => {
-            setScrapingStepIndex(prev => (prev < SCRAPING_STEPS.length - 1 ? prev + 1 : prev));
-        }, 1800);
-        return () => clearInterval(interval);
-    }, [creatingMock]);
-
     const handleJoin = (e) => {
         if (e) e.preventDefault();
         const code = assessmentCode.trim().toUpperCase();
@@ -171,7 +153,6 @@ const Dashboard = () => {
 
     const handleCreateMock = async (e) => {
         e.preventDefault();
-        setScrapingStepIndex(0);
         setCreatingMock(true);
         setMockError('');
 
@@ -265,10 +246,7 @@ const Dashboard = () => {
             {/* 2 Main Action Cards: Real-Time Scraped Mock Studio vs Join Official Assessment */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 {/* 1. Real-Time Scraped Mock Assessment Studio Card */}
-                <SpotlightCard
-                    spotlightColor="rgba(59, 130, 246, 0.15)"
-                    className="p-6 border-blue-500/30 hover:border-blue-500/60"
-                >
+                <div className="rounded-xl border border-slate-200 dark:border-[#232330] bg-white dark:bg-[#141419] p-6 flex flex-col justify-between transition-colors shadow-sm">
                     <div className="space-y-4">
                         <div className="space-y-2">
                             <div className="flex items-center justify-between">
@@ -278,7 +256,7 @@ const Dashboard = () => {
                                     <span>Live Interview Questions</span>
                                 </span>
                             </div>
-                            <h2 className="text-lg font-semibold text-slate-900 dark:text-[#EDEDF0] metallic-heading">
+                            <h2 className="text-lg font-semibold text-slate-900 dark:text-[#EDEDF0]">
                                 Mock Interview
                             </h2>
                             <p className="text-xs text-[#8B8B9E] leading-relaxed">
@@ -308,13 +286,10 @@ const Dashboard = () => {
                             <ArrowRight className="w-4 h-4 ml-auto" />
                         </button>
                     </div>
-                </SpotlightCard>
+                </div>
 
                 {/* 2. Official Company Assessment Card */}
-                <SpotlightCard
-                    spotlightColor="rgba(16, 185, 129, 0.15)"
-                    className="p-6 border-emerald-500/30 hover:border-emerald-500/60"
-                >
+                <div className="rounded-xl border border-slate-200 dark:border-[#232330] bg-white dark:bg-[#141419] p-6 flex flex-col justify-between transition-colors shadow-sm">
                     <div className="space-y-4">
                         <div className="space-y-2">
                             <div className="flex items-center justify-between">
@@ -324,7 +299,7 @@ const Dashboard = () => {
                                     <span>Confidential to Recruiter</span>
                                 </span>
                             </div>
-                            <h2 className="text-lg font-semibold text-slate-900 dark:text-[#EDEDF0] metallic-heading">
+                            <h2 className="text-lg font-semibold text-slate-900 dark:text-[#EDEDF0]">
                                 Join an Official Assessment
                             </h2>
                             <p className="text-xs text-[#8B8B9E] leading-relaxed">
@@ -368,7 +343,7 @@ const Dashboard = () => {
                             )}
                         </form>
                     </div>
-                </SpotlightCard>
+                </div>
             </div>
 
             {/* Bespoke Candidate Readiness Index (Replaces generic 3-card number strip) */}
@@ -614,52 +589,19 @@ const Dashboard = () => {
                             )}
                         </div>
 
-                        {/* Loading / Web Scraping Animation Screen */}
+                        {/* Loading State */}
                         {creatingMock ? (
-                            <div className="py-12 px-6 flex flex-col items-center justify-center space-y-6 text-center animate-fade-in">
-                                <div className="relative">
-                                    <div className="w-16 h-16 rounded-full border-2 border-blue-500/20 border-t-blue-500 animate-spin flex items-center justify-center"></div>
-                                    <div className="absolute inset-0 flex items-center justify-center text-blue-400">
-                                        <Search className="w-6 h-6 animate-pulse" />
-                                    </div>
+                            <div className="py-12 px-6 flex flex-col items-center justify-center space-y-4 text-center">
+                                <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+                                    <Loader2 className="w-5 h-5 animate-spin" />
                                 </div>
-
-                                <div className="space-y-2 max-w-md">
-                                    <h4 className="text-base font-semibold text-[#EDEDF0] tracking-tight">
-                                        Finding real interview questions...
+                                <div className="space-y-1">
+                                    <h4 className="text-sm font-semibold text-[#EDEDF0]">
+                                        Preparing your practice interview...
                                     </h4>
-                                    <p className="text-xs text-blue-400 font-mono transition-all duration-300">
-                                        {SCRAPING_STEPS[scrapingStepIndex]}
+                                    <p className="text-xs text-[#8B8B9E]">
+                                        Setting up the interview room and questions.
                                     </p>
-                                </div>
-
-                                {/* Multi-step checkmarks */}
-                                <div className="w-full max-w-sm space-y-2 pt-4 border-t border-[#232330] text-left">
-                                    {SCRAPING_STEPS.map((step, idx) => {
-                                        const isDone = idx < scrapingStepIndex;
-                                        const isCurrent = idx === scrapingStepIndex;
-
-                                        return (
-                                            <div key={idx} className="flex items-center gap-2.5 text-xs">
-                                                {isDone ? (
-                                                    <span className="w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center flex-shrink-0">
-                                                        <Check className="w-2.5 h-2.5" />
-                                                    </span>
-                                                ) : isCurrent ? (
-                                                    <span className="w-4 h-4 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center flex-shrink-0 animate-spin">
-                                                        <Loader2 className="w-2.5 h-2.5" />
-                                                    </span>
-                                                ) : (
-                                                    <span className="w-4 h-4 rounded-full bg-[#1C1C24] text-[#555568] flex items-center justify-center flex-shrink-0 text-[10px]">
-                                                        {idx + 1}
-                                                    </span>
-                                                )}
-                                                <span className={isDone ? 'text-[#8B8B9E] line-through' : isCurrent ? 'text-[#EDEDF0] font-medium' : 'text-[#555568]'}>
-                                                    {step}
-                                                </span>
-                                            </div>
-                                        );
-                                    })}
                                 </div>
                             </div>
                         ) : (

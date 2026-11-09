@@ -84,7 +84,7 @@ const Reports = () => {
                     </>
                 ) : (
                     <>
-                        <div className="bg-[#141419] border border-[#232330] rounded-xl p-5 light-catch">
+                        <div className="bg-[#141419] border border-[#232330] rounded-xl p-5">
                             <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#8B8B9E] block">
                                 Completed Interviews
                             </span>
@@ -96,7 +96,7 @@ const Reports = () => {
                             </div>
                         </div>
 
-                        <div className="bg-[#141419] border border-[#232330] rounded-xl p-5 light-catch">
+                        <div className="bg-[#141419] border border-[#232330] rounded-xl p-5">
                             <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#8B8B9E] block">
                                 Mock Average Score
                             </span>
@@ -108,7 +108,7 @@ const Reports = () => {
                             </div>
                         </div>
 
-                        <div className="bg-[#141419] border border-[#232330] rounded-xl p-5 light-catch">
+                        <div className="bg-[#141419] border border-[#232330] rounded-xl p-5">
                             <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#8B8B9E] block">
                                 Top Mock Performance
                             </span>
@@ -132,7 +132,7 @@ const Reports = () => {
             )}
 
             {/* Reports Table */}
-            <div className="bg-[#141419] border border-[#232330] rounded-xl overflow-hidden light-catch">
+            <div className="bg-[#141419] border border-[#232330] rounded-xl overflow-hidden">
                 {loading ? (
                     <TableSkeleton rows={5} />
                 ) : reports.length > 0 ? (

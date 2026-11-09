@@ -166,7 +166,7 @@ const AssessmentResults = () => {
 
             {/* Stat Cards - 3 Column */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="bg-[#141419] border border-[#232330] rounded-xl p-5 light-catch">
+                <div className="bg-[#141419] border border-[#232330] rounded-xl p-5">
                     <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#8B8B9E] block">
                         Evaluated Candidates
                     </span>
@@ -178,7 +178,7 @@ const AssessmentResults = () => {
                     </div>
                 </div>
 
-                <div className="bg-[#141419] border border-[#232330] rounded-xl p-5 light-catch">
+                <div className="bg-[#141419] border border-[#232330] rounded-xl p-5">
                     <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#8B8B9E] block">
                         Shortlisted Candidates
                     </span>
@@ -190,7 +190,7 @@ const AssessmentResults = () => {
                     </div>
                 </div>
 
-                <div className="bg-[#141419] border border-[#232330] rounded-xl p-5 light-catch">
+                <div className="bg-[#141419] border border-[#232330] rounded-xl p-5">
                     <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#8B8B9E] block">
                         Average Cohort Score
                     </span>

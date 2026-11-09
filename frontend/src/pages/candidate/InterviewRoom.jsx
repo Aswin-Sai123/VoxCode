@@ -30,54 +30,19 @@ import { toast } from 'sonner';
 import confetti from 'canvas-confetti';
 import { playChime, playClick, playSuccess } from '../../utils/soundEffects';
 import { getActivePhaseInfo, buildDefaultTimeline } from '../../utils/blueprintParser';
-import VoiceVisualizerOrb from '../../components/common/VoiceVisualizerOrb';
 import useInterviewSocket from '../../hooks/useInterviewSocket';
 import useVAD from '../../hooks/useVAD';
 import useAudioQueue from '../../hooks/useAudioQueue';
 import LiveTranscript from '../../components/interview/LiveTranscript';
 import AudioVisualizer from '../../components/interview/AudioVisualizer';
 
-// Live YouTube/Karaoke-style dynamic animated speech caption renderer
-const LiveCaptionsText = ({ text, isSpeaking, activeWordIndex }) => {
+// Clean spoken interviewer caption renderer
+const LiveCaptionsText = ({ text }) => {
     if (!text) return null;
     const cleanText = text.replace(/[*_#`]/g, '').trim();
-
-    // When idle or finished speaking, render the full clean text
-    if (!isSpeaking || activeWordIndex < 0) {
-        return <span className="text-[#EDEDF0] transition-colors duration-200">"{cleanText}"</span>;
-    }
-
-    const words = cleanText.split(/\s+/).filter(Boolean);
-    const visibleCount = Math.min(words.length, activeWordIndex + 1);
-    const visibleWords = words.slice(0, visibleCount);
-
     return (
-        <span className="inline leading-relaxed">
-            <span className="text-[#8B8B9E] font-serif mr-1">"</span>
-            {visibleWords.map((word, idx) => {
-                const isCurrent = idx === activeWordIndex;
-                if (isCurrent) {
-                    return (
-                        <span key={idx} className="inline">
-                            {idx > 0 && ' '}
-                            <span className="text-yellow-400 font-bold transition-colors duration-75">
-                                {word}
-                            </span>
-                        </span>
-                    );
-                }
-                return (
-                    <span key={idx} className="inline">
-                        {idx > 0 && ' '}
-                        <span className="text-white font-medium transition-colors duration-150">
-                            {word}
-                        </span>
-                    </span>
-                );
-            })}
-            {activeWordIndex >= words.length - 1 && (
-                <span className="text-[#8B8B9E] font-serif ml-1">"</span>
-            )}
+        <span className="inline leading-relaxed text-[#EDEDF0]">
+            "{cleanText}"
         </span>
     );
 };
@@ -2053,7 +2018,7 @@ const InterviewRoom = () => {
             {/* Keyboard Shortcuts Cheatsheet Modal */}
             {showCheatsheet && (
                 <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fadeIn">
-                    <div className="bg-[#141419] border border-[#232330] rounded-2xl p-6 max-w-md w-full space-y-4 shadow-2xl text-left light-catch">
+                    <div className="bg-[#141419] border border-[#232330] rounded-2xl p-6 max-w-md w-full space-y-4 shadow-2xl text-left">
                         <div className="flex items-center justify-between border-b border-[#232330] pb-3">
                             <div className="flex items-center gap-2">
                                 <Code className="w-4 h-4 text-blue-400" />

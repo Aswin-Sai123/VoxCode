@@ -80,21 +80,13 @@ export const CandidateReadinessIndex = ({ stats, recentReports = [] }) => {
     const [hoveredAxis, setHoveredAxis] = useState(null);
 
     // Authentic feedback fallback or extracted
-    const strengths = (stats?.strengths && stats.strengths.length > 0) ? stats.strengths : [
-        'Articulates distributed cache invalidation strategies with clear consistency tradeoffs.',
-        'Writes modular functions with defensive input validation and low cyclomatic complexity.',
-        'Natural spoken pacing during live Monaco execution without conversational freeze.'
-    ];
-
-    const improvements = (stats?.areasForImprovement && stats.areasForImprovement.length > 0) ? stats.areasForImprovement : [
-        'Explicitly state space complexity constraints before implementing recursive helpers.',
-        'Confirm edge cases (e.g. empty inputs, duplicate keys) prior to starting test execution.'
-    ];
+    const strengths = stats?.strengths || [];
+    const improvements = stats?.areasForImprovement || [];
 
     return (
         <div className={`w-full rounded-xl overflow-hidden space-y-5 p-5 sm:p-6 border transition-colors ${
             isDark
-                ? 'bg-[#121217] border-[#232330] shadow-2xl light-catch'
+                ? 'bg-[#121217] border-[#232330] shadow-2xl'
                 : 'bg-white border-slate-200 shadow-sm'
         }`}>
             {/* Top Index Header */}
@@ -131,7 +123,7 @@ export const CandidateReadinessIndex = ({ stats, recentReports = [] }) => {
                         </span>
                         <div className="flex items-baseline gap-1">
                             <span className={`text-2xl font-bold font-mono tabular-nums ${isDark ? 'text-[#EDEDF0]' : 'text-slate-900'}`}>
-                                {highestScore > 0 ? highestScore : 0}%
+                                {highestScore > 0 ? `${highestScore}%` : '—'}
                             </span>
                         </div>
                     </div>
@@ -152,99 +144,116 @@ export const CandidateReadinessIndex = ({ stats, recentReports = [] }) => {
                 </div>
             </div>
 
-            {/* Middle Section: Row-by-Row Feedback (Left) + Multi-Axis Competency Bars (Right) */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
-                {/* Left: Key Strengths & Areas for Improvement (Row by Row, Space-Efficient) */}
-                <div className="lg:col-span-6 flex flex-col justify-between gap-3">
-                    {/* Confirmed Strengths */}
-                    <div className={`p-4 rounded-xl border space-y-2 flex-1 transition-all ${
-                        isDark ? 'bg-[#141419] border-[#232330]' : 'bg-slate-50 border-slate-200'
-                    }`}>
-                        <div className="flex items-center gap-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                            <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
-                            <span>Key Strengths</span>
-                        </div>
-                        <ul className={`space-y-1.5 text-xs leading-relaxed ${isDark ? 'text-[#8B8B9E]' : 'text-slate-600'}`}>
-                            {strengths.slice(0, 3).map((item, idx) => (
-                                <li key={idx} className="flex items-start gap-2">
-                                    <span className="text-emerald-500 font-bold">•</span>
-                                    <span>{item}</span>
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-
-                    {/* Priority Focus Areas */}
-                    <div className={`p-4 rounded-xl border space-y-2 flex-1 transition-all ${
-                        isDark ? 'bg-[#141419] border-[#232330]' : 'bg-slate-50 border-slate-200'
-                    }`}>
-                        <div className="flex items-center gap-2 text-xs font-semibold text-amber-600 dark:text-amber-400">
-                            <Lightbulb className="w-4 h-4 flex-shrink-0" />
-                            <span>Areas for Improvement</span>
-                        </div>
-                        <ul className={`space-y-1.5 text-xs leading-relaxed ${isDark ? 'text-[#8B8B9E]' : 'text-slate-600'}`}>
-                            {improvements.slice(0, 3).map((item, idx) => (
-                                <li key={idx} className="flex items-start gap-2">
-                                    <span className="text-amber-500 font-bold">•</span>
-                                    <span>{item}</span>
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
+            {totalInterviews === 0 ? (
+                <div className={`p-8 rounded-xl border text-center space-y-2 ${
+                    isDark ? 'bg-[#141419] border-[#232330]' : 'bg-slate-50 border-slate-200'
+                }`}>
+                    <Target className="w-8 h-8 text-[#8B8B9E] mx-auto mb-2 opacity-60" />
+                    <p className={`text-sm font-medium ${isDark ? 'text-[#EDEDF0]' : 'text-slate-800'}`}>
+                        No interview evaluation data yet
+                    </p>
+                    <p className="text-xs text-[#8B8B9E] max-w-md mx-auto">
+                        Complete your first technical mock interview above to generate your competency breakdown, verified strengths, and targeted improvement suggestions.
+                    </p>
                 </div>
-
-                {/* Right: Competency Signal Bars */}
-                <div className="lg:col-span-6 space-y-2.5 flex flex-col justify-between">
-                    {axes.map((axis) => {
-                        const isHovered = hoveredAxis === axis.key;
-                        const Icon = axis.icon;
-
-                        return (
-                            <div
-                                key={axis.key}
-                                onMouseEnter={() => setHoveredAxis(axis.key)}
-                                onMouseLeave={() => setHoveredAxis(null)}
-                                className={`p-2.5 sm:p-3 rounded-lg border transition-all ${
-                                    isHovered 
-                                        ? (isDark ? 'bg-[#181822] border-emerald-500/40 shadow-md' : 'bg-emerald-50/60 border-emerald-400 shadow-sm')
-                                        : (isDark ? 'bg-[#14141A] border-[#232330] hover:border-[#38384A]' : 'bg-slate-50 border-slate-200 hover:border-slate-300')
-                                }`}
-                            >
-                                <div className="flex items-center justify-between text-xs mb-1.5">
-                                    <div className="flex items-center gap-2">
-                                        <div className={`w-5 h-5 rounded flex items-center justify-center ${
-                                            isDark ? 'bg-[#1C1C26] text-emerald-400' : 'bg-emerald-100 text-emerald-700'
-                                        }`}>
-                                            <Icon className="w-3 h-3" />
-                                        </div>
-                                        <span className={`font-semibold ${isDark ? 'text-[#EDEDF0]' : 'text-slate-900'}`}>{axis.label}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2 font-mono">
-                                        <span className={`text-[10px] px-1.5 py-0.5 rounded border ${
-                                            isDark ? 'text-[#8B8B9E] bg-[#101015] border-[#232330]' : 'text-slate-600 bg-slate-100 border-slate-200'
-                                        }`}>
-                                            {axis.benchmark}
-                                        </span>
-                                        <span className={`text-xs font-bold tabular-nums ${isDark ? 'text-[#EDEDF0]' : 'text-slate-900'}`}>
-                                            {axis.score}%
-                                        </span>
-                                    </div>
-                                </div>
-
-                                {/* Progress Bar */}
-                                <div className={`w-full h-1.5 rounded-full overflow-hidden ${
-                                    isDark ? 'bg-[#1B1B26]' : 'bg-slate-200'
-                                }`}>
-                                    <div
-                                        className="h-full bg-emerald-500 rounded-full transition-all duration-500"
-                                        style={{ width: `${axis.score}%` }}
-                                    />
-                                </div>
+            ) : (
+                /* Middle Section: Row-by-Row Feedback (Left) + Multi-Axis Competency Bars (Right) */
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
+                    {/* Left: Key Strengths & Areas for Improvement (Row by Row, Space-Efficient) */}
+                    <div className="lg:col-span-6 flex flex-col justify-between gap-3">
+                        {/* Confirmed Strengths */}
+                        <div className={`p-4 rounded-xl border space-y-2 flex-1 transition-all ${
+                            isDark ? 'bg-[#141419] border-[#232330]' : 'bg-slate-50 border-slate-200'
+                        }`}>
+                            <div className="flex items-center gap-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                                <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+                                <span>Key Strengths</span>
                             </div>
-                        );
-                    })}
+                            {strengths.length > 0 ? (
+                                <ul className={`space-y-1.5 text-xs leading-relaxed ${isDark ? 'text-[#8B8B9E]' : 'text-slate-600'}`}>
+                                    {strengths.slice(0, 3).map((item, idx) => (
+                                        <li key={idx} className="flex items-start gap-2">
+                                            <span className="text-emerald-500 font-bold">•</span>
+                                            <span>{item}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            ) : (
+                                <p className="text-xs text-[#8B8B9E]">Identified during interview performance review.</p>
+                            )}
+                        </div>
+
+                        {/* Priority Focus Areas */}
+                        <div className={`p-4 rounded-xl border space-y-2 flex-1 transition-all ${
+                            isDark ? 'bg-[#141419] border-[#232330]' : 'bg-slate-50 border-slate-200'
+                        }`}>
+                            <div className="flex items-center gap-2 text-xs font-semibold text-amber-600 dark:text-amber-400">
+                                <Lightbulb className="w-4 h-4 flex-shrink-0" />
+                                <span>Areas for Improvement</span>
+                            </div>
+                            {improvements.length > 0 ? (
+                                <ul className={`space-y-1.5 text-xs leading-relaxed ${isDark ? 'text-[#8B8B9E]' : 'text-slate-600'}`}>
+                                    {improvements.slice(0, 3).map((item, idx) => (
+                                        <li key={idx} className="flex items-start gap-2">
+                                            <span className="text-amber-500 font-bold">•</span>
+                                            <span>{item}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            ) : (
+                                <p className="text-xs text-[#8B8B9E]">Suggestions will appear after your next session.</p>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Right: Competency Signal Bars */}
+                    <div className="lg:col-span-6 space-y-2.5 flex flex-col justify-between">
+                        {axes.map((axis) => {
+                            const isHovered = hoveredAxis === axis.key;
+                            const Icon = axis.icon;
+
+                            return (
+                                <div
+                                    key={axis.key}
+                                    onMouseEnter={() => setHoveredAxis(axis.key)}
+                                    onMouseLeave={() => setHoveredAxis(null)}
+                                    className={`p-2.5 sm:p-3 rounded-lg border transition-all ${
+                                        isHovered 
+                                            ? (isDark ? 'bg-[#181822] border-emerald-500/40 shadow-md' : 'bg-emerald-50/60 border-emerald-400 shadow-sm')
+                                            : (isDark ? 'bg-[#14141A] border-[#232330] hover:border-[#38384A]' : 'bg-slate-50 border-slate-200 hover:border-slate-300')
+                                    }`}
+                                >
+                                    <div className="flex items-center justify-between text-xs mb-1.5">
+                                        <div className="flex items-center gap-2">
+                                            <div className={`w-5 h-5 rounded flex items-center justify-center ${
+                                                isDark ? 'bg-[#1C1C26] text-emerald-400' : 'bg-emerald-100 text-emerald-700'
+                                            }`}>
+                                                <Icon className="w-3 h-3" />
+                                            </div>
+                                            <span className={`font-semibold ${isDark ? 'text-[#EDEDF0]' : 'text-slate-900'}`}>{axis.label}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 font-mono">
+                                            <span className={`text-xs font-bold tabular-nums ${isDark ? 'text-[#EDEDF0]' : 'text-slate-900'}`}>
+                                                {axis.score}%
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Progress Bar */}
+                                    <div className={`w-full h-1.5 rounded-full overflow-hidden ${
+                                        isDark ? 'bg-[#1B1B26]' : 'bg-slate-200'
+                                    }`}>
+                                        <div
+                                            className="h-full bg-emerald-500 rounded-full transition-all duration-500"
+                                            style={{ width: `${axis.score}%` }}
+                                        />
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
                 </div>
-            </div>
+            )}
 
 
         </div>
