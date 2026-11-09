@@ -1,5 +1,6 @@
 import { extractBlueprintDurationAndTimeline } from '../utils/blueprintParser.js';
 import { getCompanyLeetCodeQuestions } from './leetcodeDataset.service.js';
+import { selectCodingProblem, CURATED_PROBLEM_CATALOG } from './codingProblemEngine.js';
 
 const GEMINI_MODELS = ['gemini-flash-lite-latest', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-3.5-flash'];
 
@@ -374,10 +375,24 @@ Only ${timingContext.remainingMinutes} minute(s) remain before hard session dead
         console.warn('[AI Service] LeetCode hint retrieval failed:', lcErr.message);
     }
 
+    let curatedProblemHints = '';
+    try {
+        const topCatalog = CURATED_PROBLEM_CATALOG.filter(p => {
+            const matchesComp = (p.companies || []).some(c => c.toLowerCase().includes(companyName.toLowerCase()));
+            const matchesTopic = (skills || []).some(s => (p.topics || []).some(t => t.toLowerCase().includes(s.toLowerCase())));
+            return matchesComp || matchesTopic;
+        });
+        if (topCatalog.length > 0) {
+            curatedProblemHints = `\n=== CURATED HIGH-RELEVANCE CODING PROBLEMS ===\nYou may use or adapt one of these verified coding challenges with exact test cases:\n` +
+                topCatalog.slice(0, 3).map(p => `• "${p.title}" (${p.difficulty}): ${p.description.slice(0, 140)}...`).join('\n') + '\n';
+        }
+    } catch (_) {}
+
     const systemInstruction = `You are ${interviewerName}, a Senior Staff Software Engineer & Technical Lead at ${companyName} conducting a live, realistic technical interview for a ${experienceLevel}-level ${roleTitle} role.
 Target Skills & Stack: ${skills.length ? skills.join(', ') : 'Software Engineering'}
 ${timingPacingPrompt}
 ${companyLeetCodeHints}
+${curatedProblemHints}
 
 ${personaDirective ? `=== COMPANY HIRING DIRECTIVE & INTERVIEW BLUEPRINT ===
 Round Focus: ${roundSummary}

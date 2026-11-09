@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { Evaluation } from '../models/evaluation.model.js';
 import { InterviewSession } from '../models/interviewSession.model.js';
+import { CalibrationConfig } from '../models/calibrationConfig.model.js';
 import '../models/candidate.model.js';
 import '../models/assessment.model.js';
 import { executeCodeSandbox } from './sandbox.service.js';
@@ -787,6 +788,12 @@ export const evaluateInterviewSession = async (sessionId) => {
     try {
         const deepEval = await generateDeepEvaluation(session);
         evaluation.deepEvaluation = deepEval;
+        if (deepEval?.strengths?.length && (!evaluation.strengths || evaluation.strengths.length < 2)) {
+            evaluation.strengths = Array.from(new Set([...(evaluation.strengths || []), ...deepEval.strengths]));
+        }
+        if (deepEval?.weaknesses?.length && (!evaluation.areasForImprovement || evaluation.areasForImprovement.length < 2)) {
+            evaluation.areasForImprovement = Array.from(new Set([...(evaluation.areasForImprovement || []), ...deepEval.weaknesses]));
+        }
     } catch (deepErr) {
         console.warn('[Evaluation] Deep evaluation synthesis non-fatal warning:', deepErr.message);
     }
@@ -1344,6 +1351,29 @@ export async function captureSessionOutcome(sessionOrId, outcome = {}) {
 
     if (typeof session.save === 'function' && mongoose.connection?.readyState === 1) {
         await session.save();
+
+        // Recruiter decision calibration loop: update CalibrationConfig
+        try {
+            const accuracyVal = typeof outcome.evaluationAccuracy === 'number' ? outcome.evaluationAccuracy : 0.85;
+            await CalibrationConfig.findOneAndUpdate(
+                { type: 'evaluation' },
+                {
+                    $inc: { sampleCount: 1 },
+                    $set: { updatedAt: new Date() },
+                    $push: {
+                        'adjustments.history': {
+                            timestamp: new Date(),
+                            sessionId: session._id,
+                            hireable: outcome.hireable,
+                            accuracy: accuracyVal
+                        }
+                    }
+                },
+                { upsert: true, new: true }
+            );
+        } catch (calErr) {
+            console.warn('[Calibration] CalibrationConfig update warning:', calErr.message);
+        }
     }
     return session;
 }

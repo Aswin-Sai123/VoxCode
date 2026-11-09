@@ -4,7 +4,8 @@
   "description": "",
   "main": "src/index.js",
   "scripts": {
-    "test": "node tests/integration.test.js",
+    "test": "node --test",
+    "seed:leetcode": "node scripts/seedLeetcode.js",
     "dev": "nodemon src/index.js",
     "start": "node src/index.js"
   },
@@ -25,6 +26,7 @@
     "nodemailer": "^10.1.1",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
+    "read-excel-file": "^9.3.14",
     "ws": "^8.22.0"
   },
   "devDependencies": {

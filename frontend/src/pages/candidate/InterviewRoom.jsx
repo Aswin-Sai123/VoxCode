@@ -122,7 +122,8 @@ const InterviewRoom = () => {
         sendTextMessage,
         sendAudioChunk,
         sendCodeSnapshot,
-        sendInterrupt
+        sendInterrupt,
+        sendSilenceTimeout
     } = useInterviewSocket({
         sessionId: session?._id,
         autoConnect: Boolean(session?._id),
@@ -228,6 +229,30 @@ const InterviewRoom = () => {
             if (streamCommitTimerRef.current) clearTimeout(streamCommitTimerRef.current);
         };
     }, [isQueuePlaying, streamingAiText]);
+
+    // Realistic 12-second silence/hesitation detector: nudges candidate when silent
+    const silenceTimerRef = useRef(null);
+    useEffect(() => {
+        if (silenceTimerRef.current) {
+            clearTimeout(silenceTimerRef.current);
+            silenceTimerRef.current = null;
+        }
+
+        // Only monitor silence when AI is NOT speaking, candidate is NOT speaking or typing, and interview is active
+        if (!isAiSpeaking && !isQueuePlaying && !isListening && !isSending && !candidateText.trim() && stage !== 'COMPLETED' && session?._id) {
+            silenceTimerRef.current = setTimeout(() => {
+                if (isWsConnected) {
+                    sendSilenceTimeout();
+                }
+            }, 12000); // 12 seconds realistic interview pause
+        }
+
+        return () => {
+            if (silenceTimerRef.current) {
+                clearTimeout(silenceTimerRef.current);
+            }
+        };
+    }, [isAiSpeaking, isQueuePlaying, isListening, isSending, candidateText, stage, session?._id, isWsConnected, sendSilenceTimeout]);
 
     const handleSelectVoiceModel = (modelId) => {
         setSelectedVoiceModel(modelId);
@@ -775,8 +800,13 @@ const InterviewRoom = () => {
         }
     };
 
-    // 4. Turn-by-Turn Speech Recognition with Continuous Capture & Natural Barge-In
+    // 4. Turn-by-Turn Speech Recognition with Auto-Lock during AI Speech
     const toggleSpeechRecognition = () => {
+        if (isAiSpeaking || isQueuePlaying) {
+            toast.info(`${interviewerName} is currently speaking. Please wait a moment.`);
+            return;
+        }
+
         playClick();
         if (isListening) {
             if (recognitionRef.current) {
@@ -784,24 +814,6 @@ const InterviewRoom = () => {
                 setIsListening(false);
             }
             return;
-        }
-
-        // Barge-in: if AI is currently speaking, immediately interrupt and stop playback
-        if (isAiSpeaking || isQueuePlaying) {
-            flushQueue();
-            if (isWsConnected) {
-                sendInterrupt();
-            }
-            if (activeAudioRef.current) {
-                activeAudioRef.current.pause();
-                activeAudioRef.current.currentTime = 0;
-                activeAudioRef.current = null;
-            }
-            if (window.speechSynthesis) window.speechSynthesis.cancel();
-            setIsAiSpeaking(false);
-            if (captionTimerRef.current) clearTimeout(captionTimerRef.current);
-            setSpokenWordIndex(-1);
-            if (utteranceRef.current) utteranceRef.current = null;
         }
 
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -1492,14 +1504,24 @@ const InterviewRoom = () => {
                         <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
                             <button
                                 onClick={toggleSpeechRecognition}
+                                disabled={isAiSpeaking || isQueuePlaying}
                                 className={`px-5 py-2.5 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-all flex-1 sm:flex-initial ${
-                                    isListening
-                                        ? 'bg-red-600 text-white animate-pulse'
-                                        : 'btn-primary'
+                                    (isAiSpeaking || isQueuePlaying)
+                                        ? 'bg-[#1C1C24] text-[#555568] border border-[#232330] cursor-not-allowed opacity-60'
+                                        : isListening
+                                            ? 'bg-red-600 text-white animate-pulse'
+                                            : 'btn-primary'
                                 }`}
+                                title={(isAiSpeaking || isQueuePlaying) ? `${interviewerName} is speaking... Please listen` : isListening ? 'Stop speaking' : 'Click to speak'}
                             >
                                 {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-                                <span>{isListening ? 'Stop speaking' : 'Click to speak'}</span>
+                                <span>
+                                    {isListening 
+                                        ? 'Stop speaking' 
+                                        : (isAiSpeaking || isQueuePlaying) 
+                                            ? `${interviewerName} is speaking...` 
+                                            : 'Click to speak'}
+                                </span>
                             </button>
 
                             {(candidateText || interimSpeech) && (
@@ -1731,12 +1753,15 @@ const InterviewRoom = () => {
                                         <button
                                             type="button"
                                             onClick={toggleSpeechRecognition}
+                                            disabled={isAiSpeaking || isQueuePlaying}
                                             className={`p-2 rounded-lg text-xs flex items-center justify-center transition-colors flex-shrink-0 ${
                                                 isListening
                                                     ? 'bg-red-600 text-white animate-pulse'
-                                                    : 'studio-btn-secondary text-[#8B8B9E] hover:text-[#EDEDF0]'
+                                                    : (isAiSpeaking || isQueuePlaying)
+                                                        ? 'bg-[#1C1C24] text-[#555568] border border-[#232330] cursor-not-allowed opacity-60'
+                                                        : 'studio-btn-secondary text-[#8B8B9E] hover:text-[#EDEDF0]'
                                             }`}
-                                            title={isListening ? "Stop voice listening" : `Click to speak to ${interviewerName}`}
+                                            title={(isAiSpeaking || isQueuePlaying) ? `${interviewerName} is speaking...` : isListening ? "Stop voice listening" : `Click to speak to ${interviewerName}`}
                                         >
                                             {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
                                         </button>

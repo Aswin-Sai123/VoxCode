@@ -2,7 +2,7 @@
 export const INTERVIEW_LIMITS = {
     topicCount: 3,
     rootQuestionsPerTopic: 3,
-    followUpsPerRootQuestion: 3
+    followUpsPerRootQuestion: 5
 };
 
 /**
