@@ -364,22 +364,6 @@ export function mountInterviewSocket(server) {
                     voiceModel: session.voiceModel || ''
                 });
             } catch (aiErr) {
-                    experienceLevel: session.assessment?.experienceLevel || 'Mid',
-                    blueprint: session.assessment?.blueprint || '',
-                    blueprintAnalysis: session.assessment?.blueprintAnalysis || null,
-                    candidateResume: session.candidateResume || '',
-                    interviewFormat: session.interviewFormat || 'FULL_INTERVIEW',
-                    transcript: session.transcript,
-                    candidateMessage: trimmedText,
-                    currentStage: session.stage || 'CONCEPTUAL',
-                    currentChallenge: session.codingChallenge,
-                    currentCode: session.liveCode || '',
-                    topics: session.topics || [],
-                    currentTopicIndex: session.currentTopicIndex || 0,
-                    timingContext,
-                    voiceModel: session.voiceModel || ''
-                });
-            } catch (aiErr) {
                 if (signal.aborted) return;
                 console.error('[WS AI] Generation error:', aiErr);
                 ws.send(JSON.stringify({ type: 'ERROR', message: 'Failed to generate interviewer response' }));
