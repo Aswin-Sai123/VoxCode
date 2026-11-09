@@ -248,10 +248,13 @@ const InterviewRoom = () => {
     const silenceTimerRef = useRef(null);
     const silenceCountRef = useRef(0);
     const lastCodeChangeTimeRef = useRef(Date.now());
+    // Tracks whether a nudge was already sent and we're waiting for candidate to respond
+    const nudgePendingRef = useRef(false);
 
-    // Reset silence count on stage change
+    // Reset silence count and pending state on stage change
     useEffect(() => {
         silenceCountRef.current = 0;
+        nudgePendingRef.current = false;
     }, [stage]);
 
     useEffect(() => {
@@ -265,8 +268,9 @@ const InterviewRoom = () => {
             // In CODING stage: candidates need 60 seconds of uninterrupted focus. In CONCEPTUAL: 30 seconds.
             const timeoutDuration = stage === 'CODING' ? 60000 : 30000;
 
-            // Only trigger if at most 2 nudges were sent in this stage
-            if (silenceCountRef.current < 2) {
+            // If a nudge was already sent and AI just finished responding, do NOT start another timer.
+            // Wait for the candidate to actually speak or type before nudging again.
+            if (silenceCountRef.current < 2 && !nudgePendingRef.current) {
                 silenceTimerRef.current = setTimeout(() => {
                     // Check if candidate typed code recently (within 45 seconds)
                     const timeSinceCodeChange = Date.now() - lastCodeChangeTimeRef.current;
@@ -276,6 +280,7 @@ const InterviewRoom = () => {
 
                     if (isWsConnected) {
                         silenceCountRef.current += 1;
+                        nudgePendingRef.current = true; // Block further timers until candidate responds
                         sendSilenceTimeout();
                     }
                 }, timeoutDuration);
@@ -957,6 +962,7 @@ const InterviewRoom = () => {
         setInterimSpeech('');
 
         silenceCountRef.current = 0;
+        nudgePendingRef.current = false; // Candidate responded — allow nudges again
         const userEntry = { role: 'candidate', text: textToSend, timestamp: new Date() };
         setTranscript(prev => [...prev, userEntry]);
         if (isWsConnected) {
@@ -1919,6 +1925,7 @@ const InterviewRoom = () => {
                                 onChange={(value) => {
                                     const val = value || '';
                                     lastCodeChangeTimeRef.current = Date.now();
+                                    nudgePendingRef.current = false; // Candidate is actively coding — allow nudge cycle to restart after long pause
                                     if (silenceTimerRef.current) {
                                         clearTimeout(silenceTimerRef.current);
                                         silenceTimerRef.current = null;
