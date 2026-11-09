@@ -241,8 +241,16 @@ const InterviewRoom = () => {
         };
     }, [isQueuePlaying, streamingAiText]);
 
-    // Realistic 12-second silence/hesitation detector: nudges candidate when silent
+    // Realistic silence/hesitation detector: nudges candidate when silent without spamming
     const silenceTimerRef = useRef(null);
+    const silenceCountRef = useRef(0);
+    const lastCodeChangeTimeRef = useRef(Date.now());
+
+    // Reset silence count on stage change
+    useEffect(() => {
+        silenceCountRef.current = 0;
+    }, [stage]);
+
     useEffect(() => {
         if (silenceTimerRef.current) {
             clearTimeout(silenceTimerRef.current);
@@ -251,11 +259,24 @@ const InterviewRoom = () => {
 
         // Only monitor silence when AI is NOT speaking, candidate is NOT speaking or typing, and interview is active
         if (!isAiSpeaking && !isQueuePlaying && !isListening && !isSending && !candidateText.trim() && stage !== 'COMPLETED' && session?._id) {
-            silenceTimerRef.current = setTimeout(() => {
-                if (isWsConnected) {
-                    sendSilenceTimeout();
-                }
-            }, 12000); // 12 seconds realistic interview pause
+            // In CODING stage: candidates need 60 seconds of uninterrupted focus. In CONCEPTUAL: 30 seconds.
+            const timeoutDuration = stage === 'CODING' ? 60000 : 30000;
+
+            // Only trigger if at most 2 nudges were sent in this stage
+            if (silenceCountRef.current < 2) {
+                silenceTimerRef.current = setTimeout(() => {
+                    // Check if candidate typed code recently (within 45 seconds)
+                    const timeSinceCodeChange = Date.now() - lastCodeChangeTimeRef.current;
+                    if (stage === 'CODING' && timeSinceCodeChange < 45000) {
+                        return; // Candidate is actively coding, do not interrupt!
+                    }
+
+                    if (isWsConnected) {
+                        silenceCountRef.current += 1;
+                        sendSilenceTimeout();
+                    }
+                }, timeoutDuration);
+            }
         }
 
         return () => {
@@ -932,11 +953,12 @@ const InterviewRoom = () => {
         setCandidateText('');
         setInterimSpeech('');
 
+        silenceCountRef.current = 0;
         const userEntry = { role: 'candidate', text: textToSend, timestamp: new Date() };
         setTranscript(prev => [...prev, userEntry]);
         if (isWsConnected) {
             try {
-                const sent = sendTextMessage(textToSend);
+                const sent = sendTextMessage(textToSend, editorCode, selectedLanguage);
                 if (sent) {
                     setIsSending(false);
                     return;
@@ -1876,6 +1898,11 @@ const InterviewRoom = () => {
                                 value={editorCode}
                                 onChange={(value) => {
                                     const val = value || '';
+                                    lastCodeChangeTimeRef.current = Date.now();
+                                    if (silenceTimerRef.current) {
+                                        clearTimeout(silenceTimerRef.current);
+                                        silenceTimerRef.current = null;
+                                    }
                                     setEditorCode(val);
                                     try {
                                         localStorage.setItem(`voxcode_code_${code}_${selectedLanguage}`, val);

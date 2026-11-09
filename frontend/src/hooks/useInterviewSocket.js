@@ -109,9 +109,14 @@ export function useInterviewSocket({
     }, []);
 
     // Outbound senders
-    const sendTextMessage = useCallback((text) => {
+    const sendTextMessage = useCallback((text, currentCode = null, language = null) => {
         setStreamingText('');
-        return sendMessage({ type: 'TEXT_MESSAGE', text });
+        return sendMessage({ 
+            type: 'TEXT_MESSAGE', 
+            text,
+            currentCode: typeof currentCode === 'string' ? currentCode : undefined,
+            language: typeof language === 'string' ? language : undefined
+        });
     }, [sendMessage]);
 
     const sendAudioChunk = useCallback((base64Data, sampleRate = 16000) => {

@@ -344,40 +344,26 @@ export function mountInterviewSocket(server) {
 
             let aiResponse;
             try {
-                // --- IMMEDIATE FILLER TOKEN (sub-200ms perceived latency) ---
-                // Sent the moment we receive the candidate's message, before Gemini responds.
-                // This eliminates the awkward silence while the LLM generates.
-                const isRealTurn = !options.forcePrompt && trimmedText.length > 3
-                    && session.stage !== 'COMPLETED';
-                if (isRealTurn && ws.readyState === WebSocket.OPEN) {
-                    const fillerPool = ['Got it.', 'Mm-hmm.', 'Right.', 'Yeah.', 'Okay.', 'Makes sense.', 'Sure.'];
-                    const filler = fillerPool[Math.floor(Math.random() * fillerPool.length)];
-                    // Send text token immediately
-                    ws.send(JSON.stringify({ type: 'TEXT_TOKEN', token: filler + ' ', isFiller: true }));
-                    // Fire-and-forget: stream filler audio in parallel with main Gemini call
-                    const voiceModelForFiller = session.voiceModel || 'edge-neural-neerja';
-                    (async () => {
-                        try {
-                            for await (const chunk of streamTTSChunks(filler, voiceModelForFiller, { signal })) {
-                                if (signal.aborted || state.isInterrupted) break;
-                                if (ws.readyState === WebSocket.OPEN) {
-                                    ws.send(JSON.stringify({
-                                        type: 'AUDIO_CHUNK',
-                                        audioBase64: chunk.audioBase64,
-                                        sentence: chunk.text,
-                                        isFiller: true
-                                    }));
-                                }
-                                break; // Only first chunk — keep it snappy
-                            }
-                        } catch (_) { /* never block main flow */ }
-                    })();
-                }
-
                 aiResponse = await generateNextInterviewStep({
                     companyName: session.assessment?.company?.name || 'our company',
                     roleTitle: session.assessment?.role?.title || 'Software Engineer',
                     skills: session.assessment?.skills || [],
+                    experienceLevel: session.assessment?.experienceLevel || 'Mid',
+                    blueprint: session.assessment?.blueprint || '',
+                    blueprintAnalysis: session.assessment?.blueprintAnalysis || null,
+                    candidateResume: session.candidateResume || '',
+                    interviewFormat: session.interviewFormat || 'FULL_INTERVIEW',
+                    transcript: session.transcript,
+                    candidateMessage: trimmedText,
+                    currentStage: session.stage || 'CONCEPTUAL',
+                    currentChallenge: session.codingChallenge,
+                    currentCode: session.liveCode || '',
+                    topics: session.topics || [],
+                    currentTopicIndex: session.currentTopicIndex || 0,
+                    timingContext,
+                    voiceModel: session.voiceModel || ''
+                });
+            } catch (aiErr) {
                     experienceLevel: session.assessment?.experienceLevel || 'Mid',
                     blueprint: session.assessment?.blueprint || '',
                     blueprintAnalysis: session.assessment?.blueprintAnalysis || null,
@@ -490,6 +476,12 @@ export function mountInterviewSocket(server) {
             try {
                 switch (msg.type) {
                     case 'TEXT_MESSAGE': {
+                        if (typeof msg.currentCode === 'string') {
+                            session.liveCode = msg.currentCode;
+                            if (!session.codeSubmission) session.codeSubmission = {};
+                            session.codeSubmission.code = msg.currentCode;
+                            if (msg.language) session.codeSubmission.language = msg.language;
+                        }
                         await handleCandidateTurn(msg.text);
                         break;
                     }
@@ -605,23 +597,26 @@ export function mountInterviewSocket(server) {
 
                     case 'SILENCE_TIMEOUT': {
                         if (session.stage === 'COMPLETED') break;
-                        let randomNudge;
-                        if (session.stage === 'CODING') {
-                            const codingSilencePhrases = [
-                                "Take your time. If it helps, start with just one sample input with key 1 and value 1.",
-                                "No rush at all. What data structure or edge case are you thinking through right now?",
-                                "Take your time. Walk me through one simple sample input first before writing code."
-                            ];
-                            randomNudge = codingSilencePhrases[Math.floor(Math.random() * codingSilencePhrases.length)];
-                        } else {
-                            const conceptualSilencePhrases = [
-                                "Take your time—no rush at all. What part of the trade-off are you thinking through?",
-                                "That's completely fine. What bottleneck or part of the problem are you considering right now?",
-                                "No worries at all. If you're stuck, share your initial intuition and we can bounce ideas around."
-                            ];
-                            randomNudge = conceptualSilencePhrases[Math.floor(Math.random() * conceptualSilencePhrases.length)];
+
+                        // Rate limit nudges: at most 2 per stage, minimum 45s between nudges
+                        if (!state.silenceNudges || state.silenceNudges.stage !== session.stage) {
+                            state.silenceNudges = { count: 0, lastTime: 0, stage: session.stage };
                         }
-                        await handleCandidateTurn('[Candidate paused in thought. Give a brief, calm spoken reassurance under 25 words.]', { forcePrompt: randomNudge });
+                        const now = Date.now();
+                        if (state.silenceNudges.count >= 2 || (now - state.silenceNudges.lastTime) < 40000) {
+                            break; // Do not spam the candidate!
+                        }
+                        state.silenceNudges.count += 1;
+                        state.silenceNudges.lastTime = now;
+
+                        const hasCode = session.liveCode && session.liveCode.trim().length > 60;
+                        const silencePrompt = session.stage === 'CODING'
+                            ? (hasCode
+                                ? '[Candidate has paused in thought while writing code. Give a brief, calm spoken question under 18 words asking about their current approach or data structure.]'
+                                : '[Candidate has paused before writing code. Give a brief, calm prompt under 18 words asking what initial approach or data structure they are considering.]')
+                            : '[Candidate has paused in thought. Briefly and warmly ask what part of the trade-off they are considering, under 18 words.]';
+
+                        await handleCandidateTurn(silencePrompt, { isSilenceNudge: true });
                         break;
                     }
 
