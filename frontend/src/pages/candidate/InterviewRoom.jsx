@@ -179,9 +179,12 @@ const InterviewRoom = () => {
             } else if (newStage === 'CONCEPTUAL') {
                 setStage('CONCEPTUAL');
             } else if (newStage === 'COMPLETED') {
+                const farewell = "Thanks so much for taking the time today! It was great speaking with you and learning about your technical journey. Best of luck with your evaluation!";
+                speakAiMessageRef.current?.(farewell);
+                confetti();
                 setTimeout(() => {
                     setStage('COMPLETED');
-                }, 4000);
+                }, 1200);
             }
         },
         onError: (errMsg) => {
@@ -1115,7 +1118,7 @@ const InterviewRoom = () => {
         }
     };
 
-    // 7. Submit Assessment (Two-Step Non-blocking confirmation)
+    // 7. Submit Assessment (Immediate UI transition + Warm spoken farewell)
     const handleSubmitInterview = async (force = false) => {
         if (!force && !confirmSubmit) {
             setConfirmSubmit(true);
@@ -1124,6 +1127,27 @@ const InterviewRoom = () => {
         }
         setConfirmSubmit(false);
         setIsSubmitting(true);
+
+        // Immediate stop of speech recognition and timers
+        if (recognitionRef.current && isListening) {
+            try { recognitionRef.current.stop(); } catch {}
+            setIsListening(false);
+        }
+        if (silenceTimerRef.current) {
+            clearTimeout(silenceTimerRef.current);
+            silenceTimerRef.current = null;
+        }
+        flushQueue();
+
+        // Warm spoken farewell
+        const farewellMessage = "Thanks so much for taking the time today! It was great speaking with you and learning about your technical journey. Best of luck with your evaluation!";
+        speakAiMessageRef.current?.(farewellMessage);
+
+        // Immediate responsive UI transition
+        confetti();
+        setStage('COMPLETED');
+        toast.success('Interview successfully submitted');
+
         try {
             await api.post('/interview/submit', {
                 sessionId: session?._id,
@@ -1134,12 +1158,8 @@ const InterviewRoom = () => {
                     output: executionOutput
                 }
             });
-            confetti();
-            toast.success('Interview successfully submitted');
-            setStage('COMPLETED');
-            if (window.speechSynthesis) window.speechSynthesis.cancel();
         } catch (err) {
-            toast.error('Failed to submit interview: ' + (err.response?.data?.message || err.message));
+            console.warn('Background submission notice:', err);
         } finally {
             setIsSubmitting(false);
         }

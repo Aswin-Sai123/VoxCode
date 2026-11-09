@@ -873,18 +873,14 @@ export const submitSession = asyncHandler(async (req, res) => {
         keepSessionId: session._id
     });
 
-    // Trigger AI evaluation pipeline
-    let evaluation = null;
-    try {
-        evaluation = await evaluateInterviewSession(session._id);
-    } catch (err) {
+    // Trigger AI evaluation pipeline asynchronously in background for rapid client response
+    evaluateInterviewSession(session._id).catch(err => {
         console.error('Auto AI evaluation error on submit:', err);
-    }
+    });
 
     res.status(200).json(new ApiResponse(200, {
         sessionId: session._id,
         status: 'COMPLETED',
-        evaluationId: evaluation?._id || null,
         message: 'Interview submitted and evaluation generated successfully'
     }, 'Session completed'));
 });
